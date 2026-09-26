@@ -11,7 +11,7 @@ import { UpcomingList } from '@/features/dashboard/components/UpcomingList'
 export default function DashboardPage() {
   const nw = useNetWorth()
   const { updatedAt } = useRateTable()
-  const { history, change } = useNetWorthHistory(nw.total)
+  const { history } = useNetWorthHistory(nw.total)
 
   if (nw.isLoading) {
     return (
@@ -27,7 +27,7 @@ export default function DashboardPage() {
 
   return (
     <div className="anim-fade-up space-y-8">
-      <NetWorthCard total={nw.total} change={change} history={history} display={nw.display} ratesUpdatedAt={updatedAt} />
+      <NetWorthCard total={nw.total} history={history} display={nw.display} ratesUpdatedAt={updatedAt} />
       {empty ? <SetupCard /> : <BreakdownCard nw={nw} display={nw.display} />}
       <MonthSummary />
       <UpcomingList />
