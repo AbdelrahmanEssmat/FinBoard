@@ -56,14 +56,14 @@ export default function CurrenciesPage() {
         ))}
       </Card>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add currency" footer={<Button full size="lg" onClick={add} disabled={!/^[A-Za-z]{3}$/.test(code)}>Add</Button>}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Code" hint="ISO code, e.g. EUR">
-            <Input autoFocus value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={3} placeholder="EUR" className="uppercase" />
+            <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={3} placeholder="EUR" className="uppercase" />
           </Field>
           <Field label="Symbol">
             <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="€" />
           </Field>
-          <Field label="Name" className="col-span-2">
+          <Field label="Name" className="min-[360px]:col-span-2">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Euro" />
           </Field>
           <Field label="Decimals">

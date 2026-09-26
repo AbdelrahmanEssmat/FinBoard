@@ -64,7 +64,7 @@ export function CategoryForm({ open, onClose, initial, kind, parentId }: { open:
     >
       <div className="space-y-5">
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Parent">
           <Select value={parent} onChange={(e) => setParent(e.target.value)}>

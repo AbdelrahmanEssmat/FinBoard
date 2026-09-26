@@ -94,7 +94,7 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
             <p className="text-sm text-muted">
               Remaining: <span className="tnum font-medium text-text">{debt.remaining.toFixed(2)} {debt.currency}</span>
             </p>
-            <AmountInput autoFocus value={amount} onChange={setAmount} currency={debt.currency} currencies={currencies} />
+            <AmountInput value={amount} onChange={setAmount} currency={debt.currency} currencies={currencies} />
             <Field label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>

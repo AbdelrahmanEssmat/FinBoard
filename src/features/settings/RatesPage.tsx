@@ -106,7 +106,7 @@ export default function RatesPage() {
       <Sheet open={Boolean(editing)} onClose={() => setEditing(null)} title={`Override ${editing}`} footer={<Button full size="lg" onClick={saveOverride} loading={upsert.isPending} disabled={!d(value).gt(0)}>Save for {formatDate(today)}</Button>}>
         <Field label={`1 ${base} equals`} hint={`Enter how many ${editing} you get for one ${base}`}>
           <div className="flex items-center gap-2">
-            <Input autoFocus inputMode="decimal" className="tnum" value={value} onChange={(e) => setValue(e.target.value)} />
+            <Input inputMode="decimal" className="tnum" value={value} onChange={(e) => setValue(e.target.value)} />
             <span className="text-sm font-medium text-muted">{editing}</span>
           </div>
         </Field>

@@ -46,7 +46,7 @@ export function ContactForm({ open, onClose, initial }: { open: boolean; onClose
     >
       <div className="space-y-5">
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Phone">
           <Input inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />

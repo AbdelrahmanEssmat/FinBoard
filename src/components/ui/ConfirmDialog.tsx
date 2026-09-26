@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { cn } from '@/utils'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 
 export function ConfirmDialog({
   open,
@@ -18,9 +19,10 @@ export function ConfirmDialog({
   confirmLabel?: string
   danger?: boolean
 }) {
+  const vv = useVisualViewport(open)
   if (!open) return null
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" role="alertdialog" aria-modal="true">
+    <div className="fixed inset-x-0 z-[60] flex items-center justify-center p-6" style={vv.height ? { top: vv.offsetTop, height: vv.height } : undefined} role="alertdialog" aria-modal="true">
       <div className="anim-fade absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="anim-scale relative w-full max-w-sm rounded-3xl bg-surface p-6 shadow-2xl">
         <h3 className="text-lg font-semibold">{title}</h3>

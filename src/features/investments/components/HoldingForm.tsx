@@ -86,7 +86,7 @@ export function HoldingForm({ open, onClose, initial }: { open: boolean; onClose
       }
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Platform">
             <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
               {(platforms.length ? platforms : anyAccounts).map((a) => (
@@ -108,13 +108,13 @@ export function HoldingForm({ open, onClose, initial }: { open: boolean; onClose
         </div>
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field label="Name">
-            <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Commercial International Bank" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Commercial International Bank" />
           </Field>
           <Field label="Ticker">
             <Input value={ticker} onChange={(e) => setTicker(e.target.value)} placeholder="COMI" className="w-24 uppercase" />
           </Field>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-3 min-[360px]:gap-3">
           <Field label="Units">
             <Input inputMode="decimal" className="tnum" value={units} onChange={(e) => setUnits(e.target.value)} placeholder="0" />
           </Field>

@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/utils'
 
+/**
+ * Pill-shaped segmented control. The track and the moving thumb are both fully rounded
+ * so the thumb's curve always follows the track's (concentric shapes), at any size.
+ */
 export function Segmented<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; className?: string }) {
   return (
-    <div className={cn('flex rounded-xl bg-surface-2 p-1', className)} role="tablist">
+    <div className={cn('flex rounded-full bg-surface-2 p-1', className)} role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
@@ -12,7 +16,8 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           aria-selected={o.value === value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+            // min-w-0 + truncate let many options share a narrow phone screen instead of overflowing it
+            'min-h-10 min-w-0 flex-1 truncate rounded-full px-2 py-2 text-sm font-medium transition-all sm:px-3',
             o.value === value ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text',
           )}
         >

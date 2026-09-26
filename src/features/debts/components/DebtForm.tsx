@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AmountInput, Button, Field, Input, Select, Sheet, Textarea, Toggle } from '@/components/ui'
+import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { useAccounts, useContacts, useSubAccounts } from '@/api/queries'
 import { useUpsert, useSaveTransaction } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
@@ -127,13 +127,14 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     >
       <div className="space-y-5">
         {!initial ? (
-          <div className="flex rounded-xl bg-surface-2 p-1">
-            {(['owed_to_me', 'i_owe'] as DebtDirection[]).map((v) => (
-              <button key={v} type="button" onClick={() => setDir(v)} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${dir === v ? 'bg-surface shadow-sm' : 'text-muted'}`}>
-                {v === 'i_owe' ? 'I owe' : 'Owed to me'}
-              </button>
-            ))}
-          </div>
+          <Segmented<DebtDirection>
+            value={dir}
+            onChange={setDir}
+            options={[
+              { value: 'owed_to_me', label: 'Owed to me' },
+              { value: 'i_owe', label: 'I owe' },
+            ]}
+          />
         ) : null}
         <Field label="Person">
           <Select value={contactId} onChange={(e) => setContactId(e.target.value)}>
@@ -147,11 +148,11 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         </Field>
         {!contactId ? (
           <Field label="Name">
-            <Input autoFocus value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="Who?" />
+            <Input value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="Who?" />
           </Field>
         ) : null}
         <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} onCurrencyChange={setCurrency} />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Date">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
@@ -168,7 +169,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
 
         <Toggle checked={plan} onChange={setPlan} label="Installment plan" description="e.g. 5 × 2,000 monthly" />
         {plan ? (
-          <div className="grid grid-cols-2 gap-4 rounded-2xl bg-surface-2 p-3">
+          <div className="grid grid-cols-1 gap-4 rounded-2xl bg-surface-2 p-4 min-[360px]:grid-cols-2">
             <Field label="Installments">
               <Input inputMode="numeric" value={planCount} onChange={(e) => setPlanCount(e.target.value)} placeholder="5" />
             </Field>

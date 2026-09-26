@@ -116,9 +116,9 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
           </Select>
         </Field>
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monthly Cloud" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monthly Cloud" />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Yearly rate (%)">
             <Input inputMode="decimal" className="tnum" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="20.29" />
           </Field>
@@ -135,7 +135,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
         <Field label="Interest is paid">
           <Segmented value={frequency} onChange={setFrequency} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'daily', label: 'Daily' }]} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label={frequency === 'monthly' ? 'First deposit date' : 'Start date'} hint={frequency === 'monthly' ? 'Interest lands on this day each month' : 'Interest starts the next day'}>
             <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
           </Field>

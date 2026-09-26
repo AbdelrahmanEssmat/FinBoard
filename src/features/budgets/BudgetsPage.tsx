@@ -157,7 +157,7 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
         </Field>
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field label="Monthly limit">
-            <Input autoFocus inputMode="decimal" className="tnum" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <Input inputMode="decimal" className="tnum" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </Field>
           <Field label="Currency">
             <Select value={currency} onChange={(e) => setCurrency(e.target.value)} className="w-24">

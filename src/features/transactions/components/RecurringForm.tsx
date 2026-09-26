@@ -107,7 +107,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
       <div className="space-y-5">
         <Segmented value={type} onChange={setType} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }, { value: 'transfer', label: 'Transfer' }]} />
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Salary, Rent, Netflix" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Salary, Rent, Netflix" />
         </Field>
         <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} />
         <Field label={type === 'transfer' ? 'From' : 'Account'}>
@@ -142,7 +142,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
             <CategoryPicker kind={type} value={categoryId} onChange={setCategoryId} />
           </Field>
         )}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Repeats">
             <Select value={frequency} onChange={(e) => setFrequency(e.target.value as Recurrence)}>
               {(Object.keys(RECURRENCE_LABELS) as Recurrence[]).map((f) => (

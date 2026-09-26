@@ -91,10 +91,10 @@ export default function SettingsPage() {
               value={theme}
               onChange={(t: ThemePref) => setTheme(t)}
               options={[
-                { value: 'system', label: <span className="flex items-center justify-center gap-1"><Monitor className="h-4 w-4" /> Auto</span> },
-                { value: 'light', label: <span className="flex items-center justify-center gap-1"><Sun className="h-4 w-4" /> Light</span> },
-                { value: 'mid', label: <span className="flex items-center justify-center gap-1"><Contrast className="h-4 w-4" /> Mid</span> },
-                { value: 'dark', label: <span className="flex items-center justify-center gap-1"><Moon className="h-4 w-4" /> Dark</span> },
+                { value: 'system', label: <span className="flex items-center justify-center gap-1"><Monitor className="hidden h-4 w-4 shrink-0 min-[380px]:block" /> Auto</span> },
+                { value: 'light', label: <span className="flex items-center justify-center gap-1"><Sun className="hidden h-4 w-4 shrink-0 min-[380px]:block" /> Light</span> },
+                { value: 'mid', label: <span className="flex items-center justify-center gap-1"><Contrast className="hidden h-4 w-4 shrink-0 min-[380px]:block" /> Mid</span> },
+                { value: 'dark', label: <span className="flex items-center justify-center gap-1"><Moon className="hidden h-4 w-4 shrink-0 min-[380px]:block" /> Dark</span> },
               ]}
             />
           </Field>

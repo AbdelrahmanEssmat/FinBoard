@@ -100,12 +100,12 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
           </Select>
         </Field>
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 3-year 27% certificate" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 3-year 27% certificate" />
         </Field>
         <Field label="Principal">
           <AmountInput value={principal} onChange={setPrincipal} currency={currency} currencies={currencies} onCurrencyChange={setCurrency} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Interest rate (% / year)">
             <Input inputMode="decimal" className="tnum" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="27" />
           </Field>

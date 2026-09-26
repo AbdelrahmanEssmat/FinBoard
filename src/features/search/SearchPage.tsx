@@ -51,7 +51,7 @@ export default function SearchPage() {
         back
         title="Search"
       />
-      <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search transactions, people, accounts, holdings…" className="mb-6 h-12" />
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search transactions, people, accounts, holdings…" className="mb-6 h-12" />
       {!results ? (
         <EmptyState icon={Search} title="Search everything" description="Type at least two characters." />
       ) : total === 0 ? (

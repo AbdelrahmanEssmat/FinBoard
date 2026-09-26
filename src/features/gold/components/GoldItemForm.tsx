@@ -79,9 +79,9 @@ export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClos
         <Field label="Karat">
           <Segmented value={String(karat)} onChange={(v) => setKarat(Number(v))} options={KARATS.map((k) => ({ value: String(k), label: `${k}K` }))} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Weight (grams)">
-            <Input autoFocus inputMode="decimal" className="tnum" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.00" />
+            <Input inputMode="decimal" className="tnum" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0.00" />
           </Field>
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" />

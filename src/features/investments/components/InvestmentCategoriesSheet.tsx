@@ -20,7 +20,7 @@ export function InvestmentCategoriesSheet({ open, onClose }: { open: boolean; on
           <div key={c.id} className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2">
             {editing === c.id ? (
               <>
-                <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9" autoFocus />
+                <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9" />
                 <button aria-label="Save" onClick={async () => { await upsert.mutateAsync([{ id: c.id, name: draft.trim() || c.name }]); setEditing(null) }} className="p-2 text-positive">
                   <Check className="h-4 w-4" />
                 </button>

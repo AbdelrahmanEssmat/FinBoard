@@ -1,13 +1,12 @@
 import { cn } from '@/utils'
 
-/** Large amount entry with the currency shown (or selectable) on the right. */
+/** Large amount entry with the currency shown (or selectable) on the right. Never auto-focuses: the keyboard opens only on tap. */
 export function AmountInput({
   value,
   onChange,
   currency,
   currencies,
   onCurrencyChange,
-  autoFocus,
   placeholder = '0.00',
   className,
 }: {
@@ -16,7 +15,6 @@ export function AmountInput({
   currency: string
   currencies: { code: string; symbol: string }[]
   onCurrencyChange?: (c: string) => void
-  autoFocus?: boolean
   placeholder?: string
   className?: string
 }) {
@@ -30,9 +28,9 @@ export function AmountInput({
     >
       <input
         inputMode="decimal"
-        autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
+        enterKeyHint="done"
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,-]/g, ''))}
         className="tnum min-w-0 flex-1 bg-transparent px-4 text-xl font-semibold text-text placeholder:text-faint focus:outline-none"
       />
@@ -41,7 +39,7 @@ export function AmountInput({
           value={currency}
           onChange={(e) => onCurrencyChange(e.target.value)}
           aria-label="Currency"
-          className="appearance-none rounded-r-xl border-l border-border bg-surface-2 px-4 text-sm font-semibold text-muted focus:outline-none"
+          className="appearance-none rounded-r-xl border-l border-border bg-surface-2 px-4 text-[16px] font-semibold text-muted focus:outline-none sm:text-sm"
         >
           {currencies.map((c) => (
             <option key={c.code} value={c.code}>

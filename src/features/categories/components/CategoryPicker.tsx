@@ -15,7 +15,7 @@ export function CategoryPicker({ kind, value, onChange }: { kind: CategoryKind; 
 
   return (
     <div className="space-y-3">
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+      <div className="-mx-1 flex gap-2 no-scrollbar snap-x overflow-x-auto overscroll-x-contain px-1 pb-1">
         {parents.map((c) => {
           const Icon = iconFor(c.icon)
           const active = c.id === activeParentId
@@ -24,7 +24,7 @@ export function CategoryPicker({ kind, value, onChange }: { kind: CategoryKind; 
               key={c.id}
               type="button"
               onClick={() => onChange(c.id)}
-              className={cn('flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors', active ? 'border-transparent text-white' : 'border-border bg-surface text-muted hover:text-text')}
+              className={cn('flex h-10 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors', active ? 'border-transparent text-white' : 'border-border bg-surface text-muted hover:text-text')}
               style={active ? { background: c.color } : undefined}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -35,12 +35,12 @@ export function CategoryPicker({ kind, value, onChange }: { kind: CategoryKind; 
         {!parents.length ? <span className="text-sm text-faint">No {kind} categories yet</span> : null}
       </div>
       {children.length ? (
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
-          <button type="button" onClick={() => onChange(activeParentId)} className={cn('shrink-0 rounded-full px-3 py-1 text-xs', value === activeParentId ? 'bg-text text-bg' : 'bg-surface-2 text-muted')}>
+        <div className="-mx-1 flex gap-2 no-scrollbar snap-x overflow-x-auto overscroll-x-contain px-1 pb-1">
+          <button type="button" onClick={() => onChange(activeParentId)} className={cn('h-9 shrink-0 snap-start rounded-full px-3.5 text-xs', value === activeParentId ? 'bg-text text-bg' : 'bg-surface-2 text-muted')}>
             General
           </button>
           {children.map((c) => (
-            <button key={c.id} type="button" onClick={() => onChange(c.id)} className={cn('shrink-0 rounded-full px-3 py-1 text-xs', value === c.id ? 'bg-text text-bg' : 'bg-surface-2 text-muted')}>
+            <button key={c.id} type="button" onClick={() => onChange(c.id)} className={cn('h-9 shrink-0 snap-start rounded-full px-3.5 text-xs', value === c.id ? 'bg-text text-bg' : 'bg-surface-2 text-muted')}>
               {c.name}
             </button>
           ))}

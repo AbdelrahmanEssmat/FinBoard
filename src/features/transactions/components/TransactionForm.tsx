@@ -170,7 +170,7 @@ export function TransactionForm({
           <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : 'recurring rule'}.</p>
         )}
 
-        <AmountInput autoFocus={!initial} value={amount} onChange={setAmount} currency={currency} currencies={currencies} />
+        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} />
 
         <Field label={type === 'transfer' ? 'From' : 'Account'}>
           <Select value={subId} onChange={(e) => setSubId(e.target.value)}>
@@ -206,7 +206,7 @@ export function TransactionForm({
           </Field>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Date">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>

@@ -58,7 +58,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
     >
       <FormStack>
         <Field label="Name">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CIB, Cash, Thndr" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CIB, Cash, Thndr" />
         </Field>
         <Field label="Type">
           <Select
@@ -77,7 +77,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
           </Select>
         </Field>
         {!initial ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
             <Field label="Currency" hint="You can add more currencies later">
               <Select value={firstCurrency} onChange={(e) => setFirstCurrency(e.target.value)}>
                 {currencies.map((c) => (
