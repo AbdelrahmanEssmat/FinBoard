@@ -14,17 +14,13 @@ Realtime is not available locally; everything else (RLS, triggers, RPCs) is the 
 1. Download and unzip into `dev-local/bin`:
    - PostgreSQL Windows x86-64 **binaries** zip from https://www.enterprisedb.com/download-postgresql-binaries → `dev-local/bin/pg/pgsql/...`
    - PostgREST Windows release zip from https://github.com/PostgREST/postgrest/releases → `dev-local/bin/postgrest/postgrest.exe`
-2. `.env` should contain:
-   ```
-   VITE_SUPABASE_URL=http://127.0.0.1:54321
-   VITE_SUPABASE_ANON_KEY=local
-   ```
+2. Nothing else: `.env.localstack` already points the app at this stack when you run `npm run dev:local`.
 
 ## Every day
 
 ```powershell
 powershell -File dev-local\start.ps1     # starts Postgres, PostgREST and the proxy; creates the DB on first run
-npm run dev                              # http://localhost:5173 — sign in with test@local.test and any password
+npm run dev:local                        # http://localhost:5173 — sign in with test@local.test and any password
 powershell -File dev-local\stop.ps1      # stop everything
 powershell -File dev-local\reset-db.ps1  # wipe and re-create the DB from supabase/migrations
 ```

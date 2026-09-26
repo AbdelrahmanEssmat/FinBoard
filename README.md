@@ -45,7 +45,7 @@ Useful scripts:
 | `npm test` | Unit tests for the financial calculations (Vitest) |
 | `npm run typecheck` | TypeScript only |
 
-Without a Supabase project you can still run everything against a local Postgres — see [`dev-local/README.md`](dev-local/README.md).
+Without a Supabase project you can still run everything against a local Postgres with `npm run dev:local` — see [`dev-local/README.md`](dev-local/README.md).
 
 ## 4. Scheduled jobs: exchange rates, gold prices, daily snapshots
 
