@@ -13,7 +13,8 @@ describe('net worth', () => {
         { id: 'a', currency: 'EGP', balance: '10000', is_archived: false },
         { id: 'b', currency: 'USD', balance: '100', is_archived: false }, // 5000 EGP
         { id: 'c', currency: 'EGP', balance: '999', is_archived: true }, // ignored
-        { id: 'd', currency: 'EGP', balance: '500', is_archived: false, account: { is_archived: false, type: 'investment' } }, // Thndr cash / Clouds → investments
+        { id: 'd', currency: 'EGP', balance: '500', is_archived: false, account: { is_archived: false, type: 'investment' } }, // uninvested Thndr cash → accounts
+        { id: 'e', currency: 'EGP', balance: '1000', is_archived: false, yield_rate: '17.31', account: { is_archived: false, type: 'investment' } }, // a Cloud → clouds
       ],
       certificates: [{ principal: '20000', currency: 'EGP', is_closed: false }, { principal: '1', currency: 'EGP', is_closed: true }],
       holdings: [{ units: '10', current_price: '150', currency: 'EGP' }], // 1500
@@ -26,15 +27,29 @@ describe('net worth', () => {
       ],
       paymentsByDebt: { d1: [{ amount: '1000', date: '2026-01-01' }] }, // remaining 2000
     })
-    expect(r.byClass.accounts.toString()).toBe('15000')
+    expect(r.byClass.accounts.toString()).toBe('15500')
     expect(r.byClass.certificates.toString()).toBe('20000')
-    expect(r.byClass.investments.toString()).toBe('2000')
+    expect(r.byClass.clouds.toString()).toBe('1000')
+    expect(r.byClass.investments.toString()).toBe('1500') // holdings only
     expect(r.byClass.gold.toString()).toBe('60000')
     expect(r.byClass.receivables.toString()).toBe('2000')
     expect(r.byClass.liabilities.toString()).toBe('5000')
-    expect(r.total.toString()).toBe('94000')
-    expect(r.byCurrency.EGP!.toString()).toBe('92000')
+    expect(r.total.toString()).toBe('95000')
+    expect(r.byCurrency.EGP!.toString()).toBe('93000')
     expect(r.byCurrency.USD!.toString()).toBe('5000')
+  })
+  it('with every holding deleted, investments is zero even if a platform still holds cash or a Cloud', () => {
+    const r = computeNetWorth({
+      base: 'EGP', rates,
+      subAccounts: [
+        { id: 'cash', currency: 'EGP', balance: '0', is_archived: false, account: { is_archived: false, type: 'investment' } },
+        { id: 'cloud', currency: 'EGP', balance: '105299.13', is_archived: false, yield_rate: '17.31', account: { is_archived: false, type: 'investment' } },
+      ],
+      certificates: [], holdings: [], gold: [], goldPrices: { perGram: {}, source: 'none' }, debts: [], paymentsByDebt: {},
+    })
+    expect(r.byClass.investments.toString()).toBe('0')
+    expect(r.byClass.clouds.toString()).toBe('105299.13')
+    expect(r.total.toString()).toBe('105299.13')
   })
   it('switching base currency scales everything', () => {
     const r = computeNetWorth({

@@ -8,7 +8,8 @@ export interface SubAccountLike {
   currency: string
   balance: NumericInput
   is_archived: boolean
-  /** Balances on investment platforms (cash, Clouds) count as investments. */
+  /** set for Clouds (yield-bearing balances), which get their own class */
+  yield_rate?: NumericInput | null
   account?: { is_archived: boolean; type: string } | null
 }
 export interface CertificateLike {
@@ -43,7 +44,11 @@ export interface NetWorthInput {
 
 export interface NetWorthResult {
   total: Decimal
-  byClass: { accounts: Decimal; certificates: Decimal; investments: Decimal; gold: Decimal; receivables: Decimal; liabilities: Decimal }
+  /**
+   * accounts = cash and bank balances (including uninvested cash on a platform such as Thndr),
+   * clouds = yield-bearing balances, investments = holdings only.
+   */
+  byClass: { accounts: Decimal; certificates: Decimal; clouds: Decimal; investments: Decimal; gold: Decimal; receivables: Decimal; liabilities: Decimal }
   /** value held in each original currency, expressed in base */
   byCurrency: Record<string, Decimal>
   assets: Decimal
@@ -59,11 +64,12 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   const conv = (amount: NumericInput, cur: string) => convertOrZero(amount, cur, base, rates)
 
   let accounts = new Decimal(0)
+  let clouds = new Decimal(0)
   let investments = new Decimal(0)
   for (const s of input.subAccounts) {
     if (s.is_archived || s.account?.is_archived) continue
     const v = conv(s.balance, s.currency)
-    if (s.account?.type === 'investment') investments = investments.plus(v)
+    if (s.yield_rate !== null && s.yield_rate !== undefined) clouds = clouds.plus(v)
     else accounts = accounts.plus(v)
     add(s.currency, v)
   }
@@ -101,11 +107,11 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
     else liabilities = liabilities.plus(v)
   }
 
-  const assets = accounts.plus(certificates).plus(investments).plus(gold).plus(receivables)
+  const assets = accounts.plus(certificates).plus(clouds).plus(investments).plus(gold).plus(receivables)
   return {
     total: assets.minus(liabilities),
     assets,
-    byClass: { accounts, certificates, investments, gold, receivables, liabilities },
+    byClass: { accounts, certificates, clouds, investments, gold, receivables, liabilities },
     byCurrency,
   }
 }

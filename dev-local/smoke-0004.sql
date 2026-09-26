@@ -219,6 +219,19 @@ select pg_temp.ok('snapshots are dated in Cairo time',
 select pg_temp.ok('every stored balance equals opening balance + its transactions',
   not exists (select 1 from sub_accounts s where s.balance <> balance_as_of(s.id, '9999-12-31')));
 
+\echo '--- Net worth classes (0005)'
+delete from holdings where user_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+select pg_temp.ok('with no holdings, investments is zero even though a platform holds Clouds',
+  (compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') -> 'by_class' ->> 'investments')::numeric = 0);
+select pg_temp.ok('Clouds are their own class',
+  (compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') -> 'by_class' ->> 'clouds')::numeric
+  = (select sum(balance) from sub_accounts where user_id = 'aaaaaaaa-0000-0000-0000-000000000001' and yield_rate is not null));
+select pg_temp.ok('the classes add up to the total',
+  (select (b->>'accounts')::numeric + (b->>'clouds')::numeric + (b->>'certificates')::numeric + (b->>'investments')::numeric
+          + (b->>'gold')::numeric + (b->>'receivables')::numeric - (b->>'liabilities')::numeric
+   from (select compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') -> 'by_class' as b) x)
+  = (compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') ->> 'total')::numeric);
+
 \echo '--- Deleting a whole user'
 delete from auth.users where id = 'aaaaaaaa-0000-0000-0000-000000000001';
 select pg_temp.ok('deleting a user removes all their data (the delete guard steps aside)',
