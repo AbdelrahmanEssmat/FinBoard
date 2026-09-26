@@ -12,7 +12,24 @@ import { todayIso } from '@/domain/format'
 import type { Transaction, TransactionType } from '@/api/database.types'
 import { CategoryPicker } from '@/features/categories/components/CategoryPicker'
 
-export function TransactionForm({ open, onClose, initial, defaultType = 'expense', onSaved }: { open: boolean; onClose: () => void; initial?: Transaction | null; defaultType?: TransactionType; onSaved?: () => void }) {
+export function TransactionForm({
+  open,
+  onClose,
+  initial,
+  defaultType = 'expense',
+  onSaved,
+  presetSubAccountId,
+  presetToSubAccountId,
+}: {
+  open: boolean
+  onClose: () => void
+  initial?: Transaction | null
+  defaultType?: TransactionType
+  onSaved?: () => void
+  /** Pre-select the source / destination balance (e.g. deposit into a Cloud) */
+  presetSubAccountId?: string
+  presetToSubAccountId?: string
+}) {
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
   const { data: categories } = useCategories()
@@ -58,9 +75,9 @@ export function TransactionForm({ open, onClose, initial, defaultType = 'expense
     } else {
       setType(defaultType)
       setAmount('')
-      const preferred = activeSubs.find((s) => s.id === prefs.lastSubAccountId) ?? activeSubs[0]
+      const preferred = activeSubs.find((s) => s.id === presetSubAccountId) ?? activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.id !== presetToSubAccountId) ?? activeSubs.find((s) => s.id !== presetToSubAccountId)
       setSubId(preferred?.id ?? '')
-      setToSubId(activeSubs.find((s) => s.id !== preferred?.id)?.id ?? '')
+      setToSubId(presetToSubAccountId ?? activeSubs.find((s) => s.id !== preferred?.id)?.id ?? '')
       setToAmount('')
       setCategoryId(defaultType === 'income' ? prefs.lastIncomeCategoryId : prefs.lastExpenseCategoryId)
       setDate(todayIso())
@@ -150,7 +167,7 @@ export function TransactionForm({ open, onClose, initial, defaultType = 'expense
             ]}
           />
         ) : (
-          <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : 'recurring rule'}.</p>
+          <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : 'recurring rule'}.</p>
         )}
 
         <AmountInput autoFocus={!initial} value={amount} onChange={setAmount} currency={currency} currencies={currencies} />

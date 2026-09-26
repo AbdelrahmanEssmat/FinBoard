@@ -4,7 +4,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'other'
 export type TransactionType = 'income' | 'expense' | 'transfer'
-export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt'
+export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield'
 export type CategoryKind = 'income' | 'expense'
 export type PayoutFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'at_maturity'
 export type PayoutStatus = 'pending' | 'logged' | 'skipped'
@@ -71,6 +71,10 @@ export type SubAccount = {
   balance: number
   is_archived: boolean
   sort_order: number
+  /** Clouds: annual rate (%) and payout frequency; null for ordinary balances */
+  yield_rate: number | null
+  yield_frequency: Recurrence | null
+  yield_since: string | null
   created_at: string
   updated_at: string
 }
@@ -327,6 +331,7 @@ export type Database = {
       snapshot_net_worth: { Args: { p_user?: string; p_date?: string }; Returns: Json }
       compute_net_worth: { Args: { p_user: string; p_base: string; p_date?: string }; Returns: Json }
       post_due_recurring: { Args: { p_user?: string }; Returns: number }
+      accrue_yield: { Args: { p_user?: string }; Returns: number }
       process_certificate_payouts: { Args: { p_user?: string }; Returns: number }
       log_certificate_payout: { Args: { p_payout_id: string; p_sub_account_id?: string | null; p_transaction_id?: string }; Returns: string }
       record_debt_payment: {

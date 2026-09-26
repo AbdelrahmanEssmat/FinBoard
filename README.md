@@ -22,7 +22,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the design and data model.
    - **anon public** key → `SUPABASE_ANON_KEY`
    - **service_role** key → keep secret; used only by the scheduled jobs (never in the app)
 3. **Authentication → Providers → Email**: keep Email enabled. If you want to sign in without confirming an email, turn **Confirm email** off (it is only you). Under **Authentication → URL Configuration**, set *Site URL* to your future app URL (e.g. `https://finance-yourname.vercel.app`) and add it to *Redirect URLs* — needed for magic links.
-4. **SQL Editor → New query**: paste the whole of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and **Run**. This creates all tables, triggers, functions and Row Level Security policies. It also creates your starter categories, currencies and a Cash + Thndr account the first time you sign in.
+4. **SQL Editor → New query**: paste the whole of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and **Run**. This creates all tables, triggers, functions and Row Level Security policies. It also creates your starter categories, currencies and a Cash + Thndr account the first time you sign in. Then run [`supabase/migrations/0003_clouds.sql`](supabase/migrations/0003_clouds.sql) the same way (Clouds / yield-bearing savings).
 
 ## 3. Run locally
 
@@ -123,6 +123,7 @@ Both installs cache the app shell and your recent data. Changes made offline are
 - **Certificates**: payout schedule is generated automatically; due payouts can be logged as income with one tap, or automatically if you tick *Auto-log*.
 - **Debts**: record partial payments any time; add an installment plan for due dates and overdue flags; the People tab shows the net balance per person.
 - **Gold**: value uses Egyptian per-gram prices by karat with the source and time shown; override manually if needed.
+- **Clouds** (Investments): savings balances that earn a yearly rate paid daily or monthly, like Thndr Clouds. Deposit and withdraw with transfers; interest is posted automatically as income and counted in net worth and reports.
 - **Settings → Backup**: export everything as JSON (restore later), or transactions as CSV.
 
 ## 8. Security notes

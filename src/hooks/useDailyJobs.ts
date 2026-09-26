@@ -23,9 +23,9 @@ export function useDailyJobs() {
         } catch {
           /* rate provider unreachable */
         }
-        const [rec, pay] = await Promise.all([supabase.rpc('post_due_recurring'), supabase.rpc('process_certificate_payouts')])
+        const [rec, pay, yld] = await Promise.all([supabase.rpc('post_due_recurring'), supabase.rpc('process_certificate_payouts'), supabase.rpc('accrue_yield')])
         await supabase.rpc('snapshot_net_worth')
-        if ((rec.data ?? 0) > 0 || (pay.data ?? 0) > 0) {
+        if ((rec.data ?? 0) > 0 || (pay.data ?? 0) > 0 || (yld.data ?? 0) > 0) {
           for (const key of ['transactions', 'sub_accounts', 'recurring_transactions', 'certificate_payouts']) await qc.invalidateQueries({ queryKey: [key] })
         }
         await qc.invalidateQueries({ queryKey: ['net_worth_snapshots'] })

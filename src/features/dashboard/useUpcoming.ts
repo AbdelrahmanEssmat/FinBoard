@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
-import { Calendar, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
-import { useCertificates, usePayouts, useRecurring } from '@/api/queries'
+import { Calendar, CloudSun, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
+import { useCertificates, usePayouts, useRecurring, useSubAccounts } from '@/api/queries'
 import { useDebtViews } from '@/features/debts/useDebtViews'
 import { d, type Decimal } from '@/domain/money'
 import { daysUntil } from '@/domain/certificates'
 import { upcomingOccurrences } from '@/domain/recurring'
+import { nextYieldDate, yieldPerPeriod } from '@/domain/yield'
 import { todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
 
@@ -21,11 +22,12 @@ export interface UpcomingItem {
   to: string
 }
 
-/** Certificate payouts and maturities, debt installments and recurring bills in the next `days` days. */
+/** Certificate payouts and maturities, Cloud payouts, debt installments and recurring bills in the next `days` days. */
 export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
   const { data: payouts } = usePayouts()
   const { data: certs } = useCertificates()
   const { data: recurring } = useRecurring()
+  const { data: subs } = useSubAccounts()
   const { open: openDebts } = useDebtViews()
   const today = todayIso()
 
@@ -45,6 +47,11 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
         items.push({ key: 'm' + c.id, date: c.maturity_date, title: `${c.name} matures`, subtitle: `in ${daysUntil(c.maturity_date, today)} days`, amount: d(c.principal), currency: c.currency, icon: Calendar, color: '#0ea5e9', to: `/certificates/${c.id}` })
       }
     }
+    for (const s of subs ?? []) {
+      if (s.yield_rate === null || s.yield_frequency !== 'monthly' || s.is_archived) continue
+      const next = nextYieldDate(s.yield_since, 'monthly', today)
+      if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly'), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments' })
+    }
     for (const x of openDebts) {
       const nxt = x.next
       if (!nxt || nxt.dueDate > until) continue
@@ -56,5 +63,5 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       }
     }
     return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit)
-  }, [payouts, certs, openDebts, recurring, today, days, limit])
+  }, [payouts, certs, subs, openDebts, recurring, today, days, limit])
 }

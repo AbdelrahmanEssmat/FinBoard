@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, RefreshCw, Settings2, TrendingUp } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { Button, Card, Divider } from '@/components/ui'
+import { Amount, ListRow, PageHeader, Section } from '@/components/shared'
 import { useHoldings, useInvestmentCategories } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
@@ -10,6 +10,8 @@ import { formatPercent } from '@/domain/format'
 import { relativeTime } from '@/utils'
 import { HoldingForm } from '@/features/investments/components/HoldingForm'
 import { InvestmentCategoriesSheet } from '@/features/investments/components/InvestmentCategoriesSheet'
+import { CloudsSection } from '@/features/investments/components/CloudsSection'
+import { useClouds } from '@/features/investments/useClouds'
 import type { Holding } from '@/api/database.types'
 
 export default function InvestmentsPage() {
@@ -17,6 +19,7 @@ export default function InvestmentsPage() {
   const { data: holdings } = useHoldings()
   const { data: categories } = useInvestmentCategories()
   const { toDisplayOrZero, display } = useConvert()
+  const clouds = useClouds()
   const [form, setForm] = useState<{ open: boolean; item?: Holding | null }>({ open: false })
   const [cats, setCats] = useState(false)
 
@@ -30,9 +33,10 @@ export default function InvestmentsPage() {
       }),
     [holdings, toDisplayOrZero],
   )
-  const total = rows.reduce((a, r) => a.plus(r.valueDisplay), d(0))
-  const totalCost = rows.reduce((a, r) => a.plus(r.costDisplay), d(0))
-  const totalPl = total.minus(totalCost)
+  const holdingsValue = rows.reduce((a, r) => a.plus(r.valueDisplay), d(0))
+  const holdingsCost = rows.reduce((a, r) => a.plus(r.costDisplay), d(0))
+  const holdingsPl = holdingsValue.minus(holdingsCost)
+  const total = holdingsValue.plus(clouds.total)
   const lastUpdate = (holdings ?? []).map((h) => h.price_updated_at).filter(Boolean).sort().pop() ?? null
   const groups = (categories ?? []).map((c) => ({ c, rows: rows.filter((r) => r.h.category_id === c.id) })).filter((g) => g.rows.length)
   const uncategorised = rows.filter((r) => !r.h.category_id || !categories?.some((c) => c.id === r.h.category_id))
@@ -49,29 +53,59 @@ export default function InvestmentsPage() {
               <Settings2 className="h-5 w-5" />
             </Button>
             <Button size="sm" variant="soft" onClick={() => setForm({ open: true, item: null })}>
-              <Plus className="h-4 w-4" /> Add
+              <Plus className="h-4 w-4" /> Holding
             </Button>
           </div>
         }
       />
-      {!holdings?.length ? (
-        <EmptyState icon={TrendingUp} title="No holdings yet" description="Add your Thndr stocks, funds and gold funds. Update prices manually whenever you like." action={<Button onClick={() => setForm({ open: true, item: null })}>Add holding</Button>} />
-      ) : (
-        <div className="space-y-8">
-          <Card padded>
-            <div className="text-xs text-muted">Market value</div>
-            <Amount value={total} currency={display} size="xl" />
-            <div className="mt-1 flex items-center gap-2 text-sm">
-              <Amount value={totalPl} currency={display} colored showSign className="font-medium" />
-              {!totalCost.isZero() ? <span className={totalPl.gte(0) ? 'text-positive' : 'text-negative'}>({formatPercent(totalPl.div(totalCost).times(100))})</span> : null}
-            </div>
-            <Button className="mt-4" variant="soft" size="sm" onClick={() => navigate('/investments/prices')}>
+
+      <div className="space-y-8">
+        <Card padded>
+          <div className="text-xs text-muted">Invested value</div>
+          <Amount value={total} currency={display} size="xl" />
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="text-muted">
+              Holdings <Amount value={holdingsValue} currency={display} className="font-medium text-text" compact />
+              {!holdingsCost.isZero() ? (
+                <span className={holdingsPl.gte(0) ? ' text-positive' : ' text-negative'}>
+                  {' '}
+                  <Amount value={holdingsPl} currency={display} showSign size="sm" /> ({formatPercent(holdingsPl.div(holdingsCost).times(100))})
+                </span>
+              ) : null}
+            </span>
+            <span className="text-muted">
+              Clouds <Amount value={clouds.total} currency={display} className="font-medium text-text" compact />
+              {clouds.projectedMonthlyDisplay.gt(0) ? (
+                <span className="text-positive">
+                  {' '}
+                  +<Amount value={clouds.projectedMonthlyDisplay} currency={display} size="sm" />/mo
+                </span>
+              ) : null}
+            </span>
+          </div>
+          {rows.length ? (
+            <Button className="mt-5" variant="soft" size="sm" onClick={() => navigate('/investments/prices')}>
               <RefreshCw className="h-4 w-4" /> Update prices
             </Button>
-          </Card>
-          {[...groups, ...(uncategorised.length ? [{ c: { id: 'none', name: 'Uncategorised' }, rows: uncategorised }] : [])].map((g) => (
-            <div key={g.c.id}>
-              <SectionTitle>{g.c.name}</SectionTitle>
+          ) : null}
+        </Card>
+
+        <CloudsSection />
+
+        {!rows.length ? (
+          <Section title="Holdings">
+            <Card padded className="text-sm leading-relaxed text-muted">
+              No stocks or funds yet. Add your Thndr holdings with units, average cost and the latest price to track profit and loss.
+              <div className="mt-3">
+                <Button size="sm" variant="soft" onClick={() => setForm({ open: true, item: null })}>
+                  Add holding
+                </Button>
+              </div>
+            </Card>
+          </Section>
+        ) : (
+          [...groups, ...(uncategorised.length ? [{ c: { id: 'none', name: 'Uncategorised' }, rows: uncategorised }] : [])].map((g) => (
+            <Section key={g.c.id} title={g.c.name}>
               <Card className="overflow-hidden">
                 {g.rows.map((r, i) => (
                   <div key={r.h.id}>
@@ -97,10 +131,10 @@ export default function InvestmentsPage() {
                   </div>
                 ))}
               </Card>
-            </div>
-          ))}
-        </div>
-      )}
+            </Section>
+          ))
+        )}
+      </div>
       <HoldingForm open={form.open} onClose={() => setForm({ open: false })} initial={form.item ?? null} />
       <InvestmentCategoriesSheet open={cats} onClose={() => setCats(false)} />
     </div>

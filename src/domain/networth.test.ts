@@ -13,6 +13,7 @@ describe('net worth', () => {
         { id: 'a', currency: 'EGP', balance: '10000', is_archived: false },
         { id: 'b', currency: 'USD', balance: '100', is_archived: false }, // 5000 EGP
         { id: 'c', currency: 'EGP', balance: '999', is_archived: true }, // ignored
+        { id: 'd', currency: 'EGP', balance: '500', is_archived: false, account: { is_archived: false, type: 'investment' } }, // Thndr cash / Clouds → investments
       ],
       certificates: [{ principal: '20000', currency: 'EGP', is_closed: false }, { principal: '1', currency: 'EGP', is_closed: true }],
       holdings: [{ units: '10', current_price: '150', currency: 'EGP' }], // 1500
@@ -27,12 +28,12 @@ describe('net worth', () => {
     })
     expect(r.byClass.accounts.toString()).toBe('15000')
     expect(r.byClass.certificates.toString()).toBe('20000')
-    expect(r.byClass.investments.toString()).toBe('1500')
+    expect(r.byClass.investments.toString()).toBe('2000')
     expect(r.byClass.gold.toString()).toBe('60000')
     expect(r.byClass.receivables.toString()).toBe('2000')
     expect(r.byClass.liabilities.toString()).toBe('5000')
-    expect(r.total.toString()).toBe('93500')
-    expect(r.byCurrency.EGP!.toString()).toBe('91500')
+    expect(r.total.toString()).toBe('94000')
+    expect(r.byCurrency.EGP!.toString()).toBe('92000')
     expect(r.byCurrency.USD!.toString()).toBe('5000')
   })
   it('switching base currency scales everything', () => {

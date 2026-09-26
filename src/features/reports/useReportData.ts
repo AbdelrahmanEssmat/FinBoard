@@ -98,7 +98,7 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
 
     const insights = generateInsights({ txs: filtered, range, today, toBase, categories: catMap, fixedCategoryIds, money, isCurrentMonth, netWorthChange, budgetsOver })
     const allTags = Array.from(new Set((txs ?? []).flatMap((t) => t.tags))).sort()
-    const interestEarned = filtered.filter((t) => t.type === 'income' && t.source === 'certificate' && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency)), d(0))
+    const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency)), d(0))
 
     return { range, prev, totals, prevTotals, expenseCats, incomeCats, changes, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
   }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayOrZero, display, rates, between, fmt, today, period, isLoading])

@@ -8,6 +8,7 @@ export interface SubAccountLike {
   currency: string
   balance: NumericInput
   is_archived: boolean
+  /** Balances on investment platforms (cash, Clouds) count as investments. */
   account?: { is_archived: boolean; type: string } | null
 }
 export interface CertificateLike {
@@ -48,6 +49,7 @@ export interface NetWorthResult {
   assets: Decimal
 }
 
+/** Mirrors public.compute_net_worth in the database. */
 export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   const { base, rates } = input
   const byCurrency: Record<string, Decimal> = {}
@@ -57,10 +59,12 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   const conv = (amount: NumericInput, cur: string) => convertOrZero(amount, cur, base, rates)
 
   let accounts = new Decimal(0)
+  let investments = new Decimal(0)
   for (const s of input.subAccounts) {
     if (s.is_archived || s.account?.is_archived) continue
     const v = conv(s.balance, s.currency)
-    accounts = accounts.plus(v)
+    if (s.account?.type === 'investment') investments = investments.plus(v)
+    else accounts = accounts.plus(v)
     add(s.currency, v)
   }
 
@@ -72,7 +76,6 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
     add(c.currency, v)
   }
 
-  let investments = new Decimal(0)
   for (const h of input.holdings) {
     const v = conv(d(h.units).times(d(h.current_price)), h.currency)
     investments = investments.plus(v)
