@@ -79,7 +79,7 @@ export function Sheet({
             className={cn('pointer-events-none sticky bottom-0 -mt-10 h-10 bg-gradient-to-t from-surface to-transparent transition-opacity', moreBelow ? 'opacity-100' : 'opacity-0')}
           />
         </div>
-        {footer ? <div className="pb-safe shrink-0 border-t border-border bg-surface px-6 py-4 sm:pb-4">{footer}</div> : <div className="pb-safe shrink-0" />}
+        {footer ? <div className="pb-safe-4 shrink-0 border-t border-border bg-surface px-6 pt-4">{footer}</div> : <div className="pb-safe shrink-0" />}
       </div>
     </div>,
     document.body,

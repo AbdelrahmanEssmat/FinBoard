@@ -109,6 +109,13 @@ body {
 .h-tabbar {
   height: calc(4.25rem + env(safe-area-inset-bottom));
 }
+/* Standard bottom padding that grows by the iPhone home-indicator inset */
+.pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+.pb-safe-6 {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
 
 /* Privacy blur */
 .privacy-blur {
