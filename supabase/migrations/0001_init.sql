@@ -73,10 +73,10 @@ create table public.exchange_rates (
   source      public.rate_source not null default 'api',
   fetched_at  timestamptz not null default now(),
   provider    text,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  -- one row per (owner, currency, day); NULL owner = global row (Postgres 15+)
+  constraint exchange_rates_owner_quote_day unique nulls not distinct (user_id, quote, rate_date)
 );
-create unique index exchange_rates_global_uniq on public.exchange_rates (quote, rate_date) where user_id is null;
-create unique index exchange_rates_user_uniq   on public.exchange_rates (user_id, quote, rate_date) where user_id is not null;
 create index exchange_rates_lookup on public.exchange_rates (quote, rate_date desc);
 
 -- ---------------------------------------------------------------------------
