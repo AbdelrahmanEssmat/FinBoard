@@ -29,7 +29,7 @@ export function useRateTable(date?: string): { rates: RateTable; updatedAt: stri
   return useMemo(() => {
     const rows = data ?? []
     const rates = buildRateTable(rows, date)
-    const latest = rows.filter((r) => r.user_id === null).sort((a, b) => (a.fetched_at < b.fetched_at ? 1 : -1))[0]
+    const latest = rows.filter((r) => r.source === 'api').sort((a, b) => (a.fetched_at < b.fetched_at ? 1 : -1))[0]
     return { rates, updatedAt: latest?.fetched_at ?? null, provider: latest?.provider ?? null }
   }, [data, date])
 }

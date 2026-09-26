@@ -37,9 +37,11 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, debtId])
 
+  // Prefill with the next installment (or the whole remainder) whenever the sheet opens or the debt changes
   useEffect(() => {
-    if (debt) setAmount(debt.next ? debt.next.amount.minus(debt.next.paid).toString() : debt.remaining.toString())
-  }, [debt])
+    if (open && debt) setAmount(debt.next ? debt.next.amount.minus(debt.next.paid).toString() : debt.remaining.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, debt?.id])
 
   const subsForCurrency = (subs ?? []).filter((s) => !s.is_archived && s.currency === debt?.currency)
   useEffect(() => {

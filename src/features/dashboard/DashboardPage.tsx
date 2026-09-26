@@ -81,7 +81,7 @@ export default function DashboardPage() {
     for (const x of openDebts) {
       const nxt = x.next
       if (!nxt || nxt.dueDate > limit) continue
-      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: nxt.status === 'overdue' ? 'Overdue' : 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}` })
+      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}` })
     }
     for (const r of recurring ?? []) {
       for (const dt of upcomingOccurrences(r, today, 30).slice(0, 2)) {
@@ -164,31 +164,36 @@ export default function DashboardPage() {
             <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Breakdown</h3>
             <Segmented value={breakdown} onChange={setBreakdown} options={[{ value: 'class', label: 'By type' }, { value: 'currency', label: 'By currency' }]} className="w-52" />
           </div>
-          <div className="flex items-center gap-5">
-            <div className={`relative h-32 w-32 shrink-0 ${privacy ? 'privacy-blur' : ''}`}>
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+            <div className={`relative h-36 w-36 shrink-0 ${privacy ? 'privacy-blur' : ''}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={donut.map((x) => ({ name: x.label, value: x.value.toNumber() }))} dataKey="value" innerRadius={44} outerRadius={62} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
+                  <Pie data={donut.map((x) => ({ name: x.label, value: x.value.toNumber() }))} dataKey="value" innerRadius={50} outerRadius={70} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
                     {donut.map((x) => (
                       <Cell key={x.key} fill={x.color} />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] uppercase tracking-wide text-muted">Assets</span>
+                <Amount value={nw.assets} currency={display} className="text-xs font-semibold" compact symbolStyle="none" />
+              </div>
             </div>
-            <ul className="min-w-0 flex-1 space-y-1.5">
+            <ul className="w-full min-w-0 flex-1 space-y-2">
               {donut.map((x) => (
-                <li key={x.key} className="flex items-center gap-2 text-sm">
+                <li key={x.key} className="flex items-center gap-2.5 text-sm">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color }} />
-                  <span className="flex-1 truncate text-muted">{x.label}</span>
-                  <span className="text-xs text-faint">{donutTotal.isZero() ? '' : x.value.div(donutTotal).times(100).toFixed(0) + '%'}</span>
+                  <span className="min-w-0 flex-1 truncate text-muted">
+                    {x.label} <span className="text-xs text-faint">{donutTotal.isZero() ? '' : x.value.div(donutTotal).times(100).toFixed(0) + '%'}</span>
+                  </span>
                   <Amount value={x.value} currency={display} className="text-sm font-medium" compact />
                 </li>
               ))}
               {nw.byClass.liabilities.gt(0) ? (
-                <li className="flex items-center gap-2 border-t border-border pt-1.5 text-sm">
+                <li className="flex items-center gap-2.5 border-t border-border pt-2 text-sm">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-negative" />
-                  <span className="flex-1 text-muted">I owe</span>
+                  <span className="min-w-0 flex-1 truncate text-muted">I owe</span>
                   <Amount value={nw.byClass.liabilities.neg()} currency={display} className="text-sm font-medium text-negative" compact />
                 </li>
               ) : null}

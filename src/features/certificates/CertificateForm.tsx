@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { addYears, format, parseISO } from 'date-fns'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { useAccounts, useSubAccounts } from '@/lib/data/tables'
 import { useUpsert } from '@/lib/data/mutations'
@@ -52,11 +53,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   const valid = accountId && name.trim() && d(principal).gt(0) && d(rate).gte(0) && start && maturity && maturity > start
   const preview = valid ? { amount: payoutAmount({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }), count: payoutSchedule({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }).length } : null
 
-  const setYears = (y: number) => {
-    const dt = new Date(start + 'T00:00:00')
-    dt.setFullYear(dt.getFullYear() + y)
-    setMaturity(dt.toISOString().slice(0, 10))
-  }
+  const setYears = (y: number) => setMaturity(format(addYears(parseISO(start), y), 'yyyy-MM-dd'))
 
   const save = async () => {
     if (!valid) return

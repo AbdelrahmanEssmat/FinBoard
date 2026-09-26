@@ -30,10 +30,11 @@ export function endOfMonthIso(date = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Local-date arithmetic (never via toISOString, which would shift the day in UTC+2/+3). */
 export function addDaysIso(iso: string, days: number): string {
   const dt = new Date(iso + 'T00:00:00')
   dt.setDate(dt.getDate() + days)
-  return dt.toISOString().slice(0, 10)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 export function relativeTime(iso: string | null | undefined): string {
