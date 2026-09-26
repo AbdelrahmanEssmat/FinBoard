@@ -3,23 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowDownLeft, ArrowUpRight, PiggyBank } from 'lucide-react'
 import { Amount, Section, StatCard } from '@/components/shared'
 import { useTransactions } from '@/api/queries'
-import { useConvert } from '@/hooks/useMoney'
+import { useHistoricalConvert } from '@/hooks/useMoney'
+import { isExpense, isIncome } from '@/domain/insights'
 import { d } from '@/domain/money'
 import { endOfMonthIso, startOfMonthIso } from '@/utils'
 
 export function MonthSummary() {
   const navigate = useNavigate()
   const { data: txs } = useTransactions({ from: startOfMonthIso(), to: endOfMonthIso() })
-  const { toDisplayOrZero, display } = useConvert()
+  const { toDisplayAt, display } = useHistoricalConvert()
   const month = useMemo(() => {
     let income = d(0)
     let expense = d(0)
     for (const t of txs ?? []) {
-      if (t.type === 'income') income = income.plus(toDisplayOrZero(t.amount, t.currency))
-      else if (t.type === 'expense') expense = expense.plus(toDisplayOrZero(t.amount, t.currency))
+      // real income/spending only (not borrowing, lending or repayments), at each day's rate
+      if (isIncome(t)) income = income.plus(toDisplayAt(t.amount, t.currency, t.date))
+      else if (isExpense(t)) expense = expense.plus(toDisplayAt(t.amount, t.currency, t.date))
     }
     return { income, expense, savings: income.minus(expense) }
-  }, [txs, toDisplayOrZero])
+  }, [txs, toDisplayAt])
 
   return (
     <Section

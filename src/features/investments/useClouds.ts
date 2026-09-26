@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useAccounts, useSubAccounts, useTransactions } from '@/api/queries'
+import { useAccounts, useSubAccounts, useYieldTransactions } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d, Decimal } from '@/domain/money'
 import { daysUntilNextYield, nextYieldDate, projectedMonthlyYield, type YieldFrequency } from '@/domain/yield'
@@ -23,7 +23,7 @@ export interface CloudView extends SubAccount {
 export function useClouds() {
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
-  const { data: yieldTxs } = useTransactions({ from: '2000-01-01' })
+  const { data: yieldTxs } = useYieldTransactions()
   const { toDisplayOrZero, display } = useConvert()
   const today = todayIso()
 

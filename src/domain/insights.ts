@@ -27,21 +27,56 @@ export interface DateRange {
   from: string
   to: string
 }
-export type ToBase = (amount: NumericInput, currency: string) => Decimal
+/** Converts an amount to the report currency, at the rate that applied on date. */
+export type ToBase = (amount: NumericInput, currency: string, date: string) => Decimal
 
 const inRange = (t: TxLike, r: DateRange) => t.date >= r.from && t.date <= r.to
+
+/**
+ * Real income / spending. Money borrowed or lent (and repayments) moves cash but is not
+ * earned or spent, so debt transactions are excluded, as are transfers between own accounts.
+ */
+export function isIncome(t: Pick<TxLike, 'type' | 'source'>): boolean {
+  return t.type === 'income' && t.source !== 'debt'
+}
+export function isExpense(t: Pick<TxLike, 'type' | 'source'>): boolean {
+  return t.type === 'expense' && t.source !== 'debt'
+}
 const ZERO = () => d(0)
 
-/** Previous period of the same length, ending the day before `range.from`. */
+/**
+ * The period just before `range`. Whole calendar months map to the same number of whole
+ * months before them (Sep → Aug 1–31, Jul–Sep → Apr–Jun); any other range maps to the same
+ * number of days ending the day before it starts.
+ */
 export function previousRange(range: DateRange): DateRange {
-  const len = daysBetween(range.from, range.to)
   const to = shift(range.from, -1)
+  const months = wholeMonths(range)
+  if (months) {
+    const start = new Date(range.from + 'T00:00:00')
+    const from = new Date(start.getFullYear(), start.getMonth() - months, 1)
+    return { from: iso(from), to }
+  }
+  const len = daysBetween(range.from, range.to)
   return { from: shift(to, -len), to }
 }
-function shift(iso: string, days: number): string {
-  const dt = new Date(iso + 'T00:00:00')
-  dt.setDate(dt.getDate() + days)
+
+/** Number of whole calendar months the range covers, or 0 if it is not month-aligned. */
+function wholeMonths(range: DateRange): number {
+  if (!range.from.endsWith('-01')) return 0
+  const end = new Date(range.to + 'T00:00:00')
+  const next = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1)
+  if (next.getDate() !== 1) return 0
+  const a = new Date(range.from + 'T00:00:00')
+  return (next.getFullYear() - a.getFullYear()) * 12 + (next.getMonth() - a.getMonth())
+}
+function iso(dt: Date): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+function shift(date: string, days: number): string {
+  const dt = new Date(date + 'T00:00:00')
+  dt.setDate(dt.getDate() + days)
+  return iso(dt)
 }
 
 export interface PeriodTotals {
@@ -63,11 +98,11 @@ export function periodTotals(txs: TxLike[], range: DateRange, toBase: ToBase): P
   let incomeCount = 0
   for (const t of txs) {
     if (!inRange(t, range)) continue
-    if (t.type === 'income') {
-      income = income.plus(toBase(t.amount, t.currency))
+    if (isIncome(t)) {
+      income = income.plus(toBase(t.amount, t.currency, t.date))
       incomeCount++
-    } else if (t.type === 'expense') {
-      expense = expense.plus(toBase(t.amount, t.currency))
+    } else if (isExpense(t)) {
+      expense = expense.plus(toBase(t.amount, t.currency, t.date))
       expenseCount++
     }
   }
@@ -90,11 +125,11 @@ export interface CategoryTotal {
 export function categoryBreakdown(txs: TxLike[], range: DateRange, kind: 'income' | 'expense', categories: Map<string, CategoryLike>, toBase: ToBase): { total: Decimal; rows: CategoryTotal[] } {
   const acc = new Map<string, { value: Decimal; count: number }>()
   for (const t of txs) {
-    if (!inRange(t, range) || t.type !== kind) continue
+    if (!inRange(t, range) || !(kind === 'income' ? isIncome(t) : isExpense(t))) continue
     const cat = t.category_id ? categories.get(t.category_id) : undefined
     const key = cat?.parent_id ?? cat?.id ?? 'none'
     const cur = acc.get(key) ?? { value: ZERO(), count: 0 }
-    acc.set(key, { value: cur.value.plus(toBase(t.amount, t.currency)), count: cur.count + 1 })
+    acc.set(key, { value: cur.value.plus(toBase(t.amount, t.currency, t.date)), count: cur.count + 1 })
   }
   const total = [...acc.values()].reduce((a, v) => a.plus(v.value), ZERO())
   const rows = [...acc.entries()]
@@ -138,20 +173,20 @@ export interface PayeeTotal {
 export function topPayees(txs: TxLike[], range: DateRange, toBase: ToBase, limit = 5): PayeeTotal[] {
   const acc = new Map<string, PayeeTotal>()
   for (const t of txs) {
-    if (!inRange(t, range) || t.type !== 'expense') continue
+    if (!inRange(t, range) || !isExpense(t)) continue
     const name = (t.payee ?? '').trim()
     if (!name) continue
     const key = name.toLowerCase()
     const cur = acc.get(key) ?? { name, value: ZERO(), count: 0 }
-    acc.set(key, { name: cur.name, value: cur.value.plus(toBase(t.amount, t.currency)), count: cur.count + 1 })
+    acc.set(key, { name: cur.name, value: cur.value.plus(toBase(t.amount, t.currency, t.date)), count: cur.count + 1 })
   }
   return [...acc.values()].sort((a, b) => b.value.comparedTo(a.value)).slice(0, limit)
 }
 
 export function largestTransactions(txs: TxLike[], range: DateRange, toBase: ToBase, limit = 5): (TxLike & { base: Decimal })[] {
   return txs
-    .filter((t) => inRange(t, range) && t.type === 'expense')
-    .map((t) => ({ ...t, base: toBase(t.amount, t.currency) }))
+    .filter((t) => inRange(t, range) && isExpense(t))
+    .map((t) => ({ ...t, base: toBase(t.amount, t.currency, t.date) }))
     .sort((a, b) => b.base.comparedTo(a.base))
     .slice(0, limit)
 }
@@ -167,11 +202,11 @@ export function fixedVsVariable(txs: TxLike[], range: DateRange, toBase: ToBase,
   let fixed = ZERO()
   let variable = ZERO()
   for (const t of txs) {
-    if (!inRange(t, range) || t.type !== 'expense') continue
+    if (!inRange(t, range) || !isExpense(t)) continue
     const cat = t.category_id ? categories.get(t.category_id) : undefined
     const parent = cat?.parent_id ?? cat?.id
     const isFixed = t.source === 'recurring' || (t.category_id !== null && fixedCategoryIds.has(t.category_id)) || (parent !== undefined && fixedCategoryIds.has(parent))
-    const v = toBase(t.amount, t.currency)
+    const v = toBase(t.amount, t.currency, t.date)
     if (isFixed) fixed = fixed.plus(v)
     else variable = variable.plus(v)
   }
@@ -215,9 +250,9 @@ export function weekPattern(txs: TxLike[], range: DateRange, toBase: ToBase): We
     else weekdayDays++
   }
   for (const t of txs) {
-    if (!inRange(t, range) || t.type !== 'expense') continue
+    if (!inRange(t, range) || !isExpense(t)) continue
     const dow = new Date(t.date + 'T00:00:00').getDay()
-    const v = toBase(t.amount, t.currency)
+    const v = toBase(t.amount, t.currency, t.date)
     if (dow === 5 || dow === 6) weekend = weekend.plus(v)
     else weekday = weekday.plus(v)
   }
@@ -247,8 +282,8 @@ export function monthlySeries(txs: TxLike[], range: DateRange, toBase: ToBase): 
     if (!inRange(t, range)) continue
     const p = out.get(t.date.slice(0, 7))
     if (!p) continue
-    if (t.type === 'income') p.income = p.income.plus(toBase(t.amount, t.currency))
-    else if (t.type === 'expense') p.expense = p.expense.plus(toBase(t.amount, t.currency))
+    if (isIncome(t)) p.income = p.income.plus(toBase(t.amount, t.currency, t.date))
+    else if (isExpense(t)) p.expense = p.expense.plus(toBase(t.amount, t.currency, t.date))
   }
   return [...out.values()]
 }
@@ -332,7 +367,8 @@ export function generateInsights(ctx: InsightContext): Insight[] {
   const payees = topPayees(txs, range, toBase, 1)
   if (payees[0] && payees[0].count >= 2) out.push({ id: 'payee', tone: 'info', title: `Most spent at ${payees[0].name}: ${money(payees[0].value)}`, detail: `${payees[0].count} transactions.` })
 
-  const wk = weekPattern(txs, range, toBase)
+  // only days that have happened count (a month in progress would otherwise dilute the averages)
+  const wk = weekPattern(txs, { from: range.from, to: ctx.today < range.to ? ctx.today : range.to }, toBase)
   if (wk.weekendVsWeekdayPct && wk.weekendVsWeekdayPct.abs().gte(25) && cur.expenseCount >= 8) {
     const more = wk.weekendVsWeekdayPct.gt(0)
     out.push({ id: 'weekend', tone: 'info', title: `You spend ${pct(wk.weekendVsWeekdayPct)} ${more ? 'more' : 'less'} per day on weekends`, detail: `${money(wk.weekendPerDay)} a day Fri–Sat vs ${money(wk.weekdayPerDay)} on weekdays.` })

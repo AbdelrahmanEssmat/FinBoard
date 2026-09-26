@@ -4,7 +4,8 @@ import { Amount, EmptyState, PageHeader } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Field, Input, ProgressBar, Select, Sheet } from '@/components/ui'
 import { useBudgets, useCategories, useTransactions } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
-import { useActiveCurrencies, useConvert } from '@/hooks/useMoney'
+import { useActiveCurrencies, useConvert, useHistoricalConvert } from '@/hooks/useMoney'
+import { isExpense } from '@/domain/insights'
 import { newId } from '@/utils/ids'
 import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
 import { d, toDb } from '@/domain/money'
@@ -15,7 +16,8 @@ export default function BudgetsPage() {
   const { data: budgets } = useBudgets()
   const { data: categories } = useCategories()
   const { data: txs } = useTransactions({ from: startOfMonthIso(), to: endOfMonthIso() })
-  const { between, toDisplayOrZero, display } = useConvert()
+  const { toDisplayOrZero, display } = useConvert()
+  const { betweenAt } = useHistoricalConvert()
   const catMap = useMemo(() => byId(categories), [categories])
   const [form, setForm] = useState<{ open: boolean; item?: Budget | null }>({ open: false })
 
@@ -27,18 +29,20 @@ export default function BudgetsPage() {
           const childIds = new Set((categories ?? []).filter((c) => c.parent_id === b.category_id).map((c) => c.id))
           let spent = d(0)
           for (const t of txs ?? []) {
-            if (t.type !== 'expense' || !t.category_id) continue
-            if (t.category_id === b.category_id || childIds.has(t.category_id)) spent = spent.plus(between(t.amount, t.currency, b.currency) ?? d(0))
+            if (!isExpense(t) || !t.category_id) continue
+            // each expense converted into the budget's currency at the rate of its own day
+            if (t.category_id === b.category_id || childIds.has(t.category_id)) spent = spent.plus(betweenAt(t.amount, t.currency, b.currency, t.date) ?? d(0))
           }
           const pct = d(b.amount).isZero() ? 0 : spent.div(d(b.amount)).times(100).toNumber()
           return { b, cat, spent, pct, left: d(b.amount).minus(spent) }
         })
         .sort((a, b) => b.pct - a.pct),
-    [budgets, catMap, categories, txs, between],
+    [budgets, catMap, categories, txs, betweenAt],
   )
   const totalBudget = rows.reduce((a, r) => a.plus(toDisplayOrZero(r.b.amount, r.b.currency)), d(0))
   const totalSpent = rows.reduce((a, r) => a.plus(toDisplayOrZero(r.spent, r.b.currency)), d(0))
-  const daysLeft = Math.max(0, new Date(endOfMonthIso() + 'T00:00:00').getDate() - new Date().getDate())
+  // days left in the month, counting today
+  const daysLeft = Math.max(1, new Date(endOfMonthIso() + 'T00:00:00').getDate() - new Date().getDate() + 1)
 
   return (
     <div className="anim-fade-up">

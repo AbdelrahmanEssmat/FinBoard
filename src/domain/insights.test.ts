@@ -23,9 +23,34 @@ const txs = [
 ]
 
 describe('insights', () => {
-  it('previous range has the same length', () => {
-    expect(previousRange(sep)).toEqual({ from: '2026-08-02', to: '2026-08-31' })
-    expect(previousRange({ from: '2026-07-01', to: '2026-09-30' })).toEqual({ from: '2026-03-31', to: '2026-06-30' })
+  it('previous range is the previous calendar period', () => {
+    // whole calendar months map to whole calendar months (Aug 1 is not dropped)
+    expect(previousRange(sep)).toEqual({ from: '2026-08-01', to: '2026-08-31' })
+    expect(previousRange({ from: '2026-03-01', to: '2026-03-31' })).toEqual({ from: '2026-02-01', to: '2026-02-28' })
+    expect(previousRange({ from: '2026-07-01', to: '2026-09-30' })).toEqual({ from: '2026-04-01', to: '2026-06-30' })
+    expect(previousRange({ from: '2026-01-01', to: '2026-12-31' })).toEqual({ from: '2025-01-01', to: '2025-12-31' })
+    // any other range: same number of days just before it
+    expect(previousRange({ from: '2026-09-10', to: '2026-09-19' })).toEqual({ from: '2026-08-31', to: '2026-09-09' })
+  })
+  it('money borrowed, lent or repaid is not income or spending', () => {
+    const withDebt = [
+      ...txs,
+      { id: 'b1', type: 'income' as const, date: '2026-09-03', amount: '50000', currency: 'EGP', category_id: null, source: 'debt' },
+      { id: 'b2', type: 'expense' as const, date: '2026-09-20', amount: '5000', currency: 'EGP', category_id: null, source: 'debt' },
+    ]
+    const t = periodTotals(withDebt, sep, toBase)
+    expect(t.income.toString()).toBe('20000')
+    expect(t.expense.toString()).toBe('11000')
+    expect(categoryBreakdown(withDebt, sep, 'income', categories, toBase).total.toString()).toBe('20000')
+    expect(monthlySeries(withDebt, sep, toBase)[0]!.income.toString()).toBe('20000')
+  })
+  it("conversion uses each transaction's own date", () => {
+    const byDate = (amount: NumericInput, currency: string, date: string) => (currency === 'USD' ? d(amount).times(date < '2026-09-10' ? 48 : 50) : d(amount))
+    const t = periodTotals([
+      { id: 'u1', type: 'expense', date: '2026-09-05', amount: '10', currency: 'USD', category_id: null },
+      { id: 'u2', type: 'expense', date: '2026-09-15', amount: '10', currency: 'USD', category_id: null },
+    ], sep, byDate)
+    expect(t.expense.toString()).toBe('980')
   })
   it('period totals ignore transfers and convert currencies', () => {
     const t = periodTotals(txs, sep, toBase)

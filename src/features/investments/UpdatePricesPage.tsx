@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Card, Divider, Input } from '@/components/ui'
 import { PageHeader } from '@/components/shared'
 import { useHoldings } from '@/api/queries'
-import { useUpsert } from '@/api/mutations'
+import { useUpdateRows } from '@/api/mutations'
 import { d } from '@/domain/money'
 import { toast } from '@/store/toasts'
 import { cn } from '@/utils'
@@ -13,7 +13,8 @@ import { cn } from '@/utils'
 export default function UpdatePricesPage() {
   const navigate = useNavigate()
   const { data: holdings } = useHoldings()
-  const upsert = useUpsert('holdings', { silent: true })
+  // partial update: only the price columns change (an upsert would need every required column)
+  const upsert = useUpdateRows('holdings', { silent: true })
   const [prices, setPrices] = useState<Record<string, string>>({})
 
   useEffect(() => {

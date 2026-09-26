@@ -4,14 +4,31 @@ import type { Row, TableName, Transaction } from '@/api/database.types'
 
 type OrderSpec = { column: string; ascending?: boolean }
 
-async function fetchTable<T extends TableName>(table: T, order?: OrderSpec[], limit?: number): Promise<Row<T>[]> {
-   
-  let q: any = supabase.from(table).select('*')
-  for (const o of order ?? []) q = q.order(o.column, { ascending: o.ascending ?? true })
-  if (limit) q = q.limit(limit)
-  const { data, error } = await q
-  if (error) throw error
-  return data as Row<T>[]
+/** Supabase returns at most 1000 rows per request, so everything is read in pages. */
+const PAGE = 1000
+
+/**
+ * Read all rows (or up to `limit`) in pages. `build` adds filters and ordering; a stable
+ * order is required so pages don't overlap.
+ */
+async function fetchPaged<T>(build: () => any, limit = Infinity): Promise<T[]> {
+  const out: T[] = []
+  for (let from = 0; out.length < limit; from += PAGE) {
+    const to = Math.min(from + PAGE, limit) - 1
+    const { data, error } = await build().range(from, to)
+    if (error) throw error
+    out.push(...((data ?? []) as T[]))
+    if (!data || data.length < to - from + 1) break
+  }
+  return out
+}
+
+function fetchTable<T extends TableName>(table: T, order: OrderSpec[] = [], limit?: number): Promise<Row<T>[]> {
+  return fetchPaged<Row<T>>(() => {
+    let q: any = supabase.from(table).select('*')
+    for (const o of order) q = q.order(o.column, { ascending: o.ascending ?? true })
+    return q.order('id', { ascending: true }) // tie-breaker keeps pages stable
+  }, limit)
 }
 
 function tableQuery<T extends TableName>(table: T, order?: OrderSpec[], limit?: number) {
@@ -28,9 +45,14 @@ export const useCategories = (o?: Opts<Row<'categories'>>) =>
   useQuery({ ...tableQuery('categories', [{ column: 'sort_order' }, { column: 'name' }]), ...o })
 export const useTags = (o?: Opts<Row<'tags'>>) => useQuery({ ...tableQuery('tags', [{ column: 'name' }]), ...o })
 export const useCurrencies = (o?: Opts<Row<'currencies'>>) =>
-  useQuery({ ...tableQuery('currencies', [{ column: 'sort_order' }, { column: 'code' }]), ...o })
+  useQuery({
+    queryKey: ['currencies'] as const,
+    queryFn: () => fetchPaged<Row<'currencies'>>(() => supabase.from('currencies').select('*').order('sort_order').order('code')),
+    ...o,
+  })
+/** Newest rates first; plenty for years of daily history across several currencies. */
 export const useRates = (o?: Opts<Row<'exchange_rates'>>) =>
-  useQuery({ ...tableQuery('exchange_rates', [{ column: 'rate_date', ascending: false }], 2000), ...o })
+  useQuery({ ...tableQuery('exchange_rates', [{ column: 'rate_date', ascending: false }], 5000), ...o })
 export const useCertificates = (o?: Opts<Row<'certificates'>>) =>
   useQuery({ ...tableQuery('certificates', [{ column: 'maturity_date' }]), ...o })
 export const usePayouts = (o?: Opts<Row<'certificate_payouts'>>) =>
@@ -49,8 +71,14 @@ export const useDebtPayments = (o?: Opts<Row<'debt_payments'>>) =>
 export const useRecurring = (o?: Opts<Row<'recurring_transactions'>>) =>
   useQuery({ ...tableQuery('recurring_transactions', [{ column: 'next_date' }]), ...o })
 export const useBudgets = (o?: Opts<Row<'budgets'>>) => useQuery({ ...tableQuery('budgets'), ...o })
+
+/** The most recent ~4 years of daily snapshots, returned oldest first. */
 export const useSnapshots = (o?: Opts<Row<'net_worth_snapshots'>>) =>
-  useQuery({ ...tableQuery('net_worth_snapshots', [{ column: 'snapshot_date' }], 2000), ...o })
+  useQuery({
+    queryKey: ['net_worth_snapshots'] as const,
+    queryFn: async () => (await fetchTable('net_worth_snapshots', [{ column: 'snapshot_date', ascending: false }], 1500)).reverse(),
+    ...o,
+  })
 
 export function useSettings() {
   return useQuery({
@@ -63,18 +91,26 @@ export function useSettings() {
   })
 }
 
-/** Transactions in an inclusive date range (default: all). Ordered newest first. */
+/** All transactions in an inclusive date range (default: all), newest first. */
 export function useTransactions(range?: { from?: string; to?: string }) {
   return useQuery({
     queryKey: ['transactions', range?.from ?? null, range?.to ?? null] as const,
-    queryFn: async () => {
-      let q = supabase.from('transactions').select('*').order('date', { ascending: false }).order('created_at', { ascending: false })
-      if (range?.from) q = q.gte('date', range.from)
-      if (range?.to) q = q.lte('date', range.to)
-      const { data, error } = await q.limit(5000)
-      if (error) throw error
-      return data as Transaction[]
-    },
+    queryFn: () =>
+      fetchPaged<Transaction>(() => {
+        let q = supabase.from('transactions').select('*')
+        if (range?.from) q = q.gte('date', range.from)
+        if (range?.to) q = q.lte('date', range.to)
+        return q.order('date', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: true })
+      }),
+  })
+}
+
+/** Interest postings of Clouds only (small, and independent of the date range being viewed). */
+export function useYieldTransactions() {
+  return useQuery({
+    queryKey: ['transactions', 'yield'] as const,
+    queryFn: () =>
+      fetchPaged<Transaction>(() => supabase.from('transactions').select('*').eq('source', 'yield').order('date', { ascending: false }).order('id', { ascending: true })),
   })
 }
 

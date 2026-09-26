@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { buildRateTable, convert, type RateTable } from '@/domain/currency'
+import { buildRateTable, convert, rateResolver, type RateTable } from '@/domain/currency'
 import { d, Decimal, type NumericInput } from '@/domain/money'
 import { formatMoney, type FormatMoneyOptions, type CurrencyMeta } from '@/domain/format'
 import { usePrefs } from '@/store/prefs'
@@ -46,6 +46,24 @@ export function useConvert() {
     }),
     [display, rates],
   )
+}
+
+/**
+ * Conversion at the rate that applied on a given date. Use for anything historical
+ * (transactions, reports, snapshots); use useConvert for current values (balances, net worth now).
+ */
+export function useHistoricalConvert() {
+  const display = useDisplayCurrency()
+  const { data } = useRates()
+  return useMemo(() => {
+    const tableAt = rateResolver(data ?? [])
+    return {
+      display,
+      tableAt,
+      toDisplayAt: (amount: NumericInput, from: string, date: string): Decimal => convert(amount, from, display, tableAt(date)) ?? d(0),
+      betweenAt: (amount: NumericInput, from: string, to: string, date: string): Decimal | null => convert(amount, from, to, tableAt(date)),
+    }
+  }, [data, display])
 }
 
 export function useMoneyFormatter() {

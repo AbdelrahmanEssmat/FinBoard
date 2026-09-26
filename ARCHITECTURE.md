@@ -93,5 +93,5 @@ feature's components except through its public hooks (e.g. `useDebtViews`).
 - **Offline**: app shell precached; Supabase GET responses cached network-first; mutations go through `lib/offline/mutate()` which enqueues to the Dexie outbox on network failure and replays (in order, idempotent upserts by client-generated UUID) when `online` fires.
 - **Undo**: deletions are deferred 6 seconds with an undo toast, then executed.
 - **Rates**: `fetch-rates` edge function (daily 06:00 Cairo) pulls open.er-api.com (USD base, 160+ currencies, no key) into `exchange_rates`.
-- **Gold**: `fetch-gold` edge function (every 30 min) scrapes Egyptian local prices (banklive.net JSON-LD first, gold-price-today.com/egypt JSON-LD second), and falls back to global spot (dahabpulse.com/api/widget-prices, XAU × USD/EGP) labelled "Global spot". Manual override always wins.
+- **Gold**: `fetch-gold` edge function (every 30 min) scrapes Egyptian local prices (banklive.net JSON-LD first, gold-price-today.com/egypt JSON-LD second), and falls back to global spot (dahabpulse.com/api/widget-prices, XAU × USD/EGP) labelled "Global spot". A manual price wins for 24 hours after it is set (same rule in the app and in `gold_price_per_gram`).
 - **Snapshots**: `snapshot_net_worth()` SQL function computes today's net worth per user; pg_cron runs it nightly; the client also calls it on app open.

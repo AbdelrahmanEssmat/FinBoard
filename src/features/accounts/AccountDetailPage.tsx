@@ -135,7 +135,7 @@ export default function AccountDetailPage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         title="Delete this account?"
-        message="All its balances and transactions will be deleted too. You can undo for a few seconds."
+        message="Its balances and their own transactions are deleted too. If it has transfers with other accounts or debt payments, it can't be deleted: archive it instead (Edit account) so your history stays correct."
         onConfirm={() => {
           deleteAccount(account)
           navigate('/accounts')

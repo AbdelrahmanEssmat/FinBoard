@@ -4,7 +4,8 @@ import { ChevronLeft, ChevronRight, Repeat, SlidersHorizontal, X } from 'lucide-
 import { Amount, PageHeader } from '@/components/shared'
 import { Button, Card, Input, Select, Sheet, Skeleton } from '@/components/ui'
 import { useAccounts, useCategories, useSubAccounts, useTransactions } from '@/api/queries'
-import { useConvert } from '@/hooks/useMoney'
+import { useHistoricalConvert } from '@/hooks/useMoney'
+import { isExpense, isIncome } from '@/domain/insights'
 import { d } from '@/domain/money'
 import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
 import { TransactionList } from '@/features/transactions/components/TransactionList'
@@ -29,7 +30,7 @@ export default function TransactionsPage() {
   const { data: accounts } = useAccounts()
   const { data: subs } = useSubAccounts()
   const { data: categories } = useCategories()
-  const { toDisplayOrZero, display } = useConvert()
+  const { toDisplayAt, display } = useHistoricalConvert()
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [showFilters, setShowFilters] = useState(false)
   const [edit, setEdit] = useState<Transaction | null>(null)
@@ -64,11 +65,12 @@ export default function TransactionsPage() {
     let income = d(0)
     let expense = d(0)
     for (const t of filtered) {
-      if (t.type === 'income') income = income.plus(toDisplayOrZero(t.amount, t.currency))
-      if (t.type === 'expense') expense = expense.plus(toDisplayOrZero(t.amount, t.currency))
+      // real income/spending only (not borrowing, lending or repayments), at each day's rate
+      if (isIncome(t)) income = income.plus(toDisplayAt(t.amount, t.currency, t.date))
+      if (isExpense(t)) expense = expense.plus(toDisplayAt(t.amount, t.currency, t.date))
     }
     return { income, expense }
-  }, [filtered, toDisplayOrZero])
+  }, [filtered, toDisplayAt])
 
   const shift = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1))
   const monthLabel = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })

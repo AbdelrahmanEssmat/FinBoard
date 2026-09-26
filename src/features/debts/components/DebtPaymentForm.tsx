@@ -43,25 +43,31 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, debt?.id])
 
+  // only balances in the debt's currency can receive or pay it
   const subsForCurrency = (subs ?? []).filter((s) => !s.is_archived && s.currency === debt?.currency)
+  // pick a matching balance every time the sheet opens or the debt changes: the last one used if it matches, else the first
   useEffect(() => {
-    if (subsForCurrency.length && !subsForCurrency.some((s) => s.id === subId)) setSubId(subsForCurrency[0]!.id)
+    if (!open || !debt) return
+    setSubId(subsForCurrency.find((s) => s.id === prefs.lastSubAccountId)?.id ?? subsForCurrency[0]?.id ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debt?.currency, subs])
+  }, [open, debt?.id, debt?.currency, subs])
+  // what is actually sent: never an account in another currency, even if state is momentarily stale
+  const effectiveSubId = subsForCurrency.some((s) => s.id === subId) ? subId : ''
 
-  const valid = debt && d(amount).gt(0)
+  const overpay = debt ? d(amount).gt(debt.remaining) : false
+  const valid = debt && d(amount).gt(0) && !overpay
   const save = async () => {
     if (!valid || !debt) return
     await record.mutateAsync({
       p_debt_id: debt.id,
       p_amount: toDb(amount),
       p_date: date,
-      p_sub_account_id: subId || null,
+      p_sub_account_id: effectiveSubId || null,
       p_notes: notes.trim() || null,
       p_payment_id: newId(),
       p_transaction_id: newId(),
     })
-    if (subId) prefs.remember({ lastSubAccountId: subId })
+    if (effectiveSubId) prefs.remember({ lastSubAccountId: effectiveSubId })
     onClose()
   }
 
@@ -95,11 +101,16 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
               Remaining: <span className="tnum font-medium text-text">{debt.remaining.toFixed(2)} {debt.currency}</span>
             </p>
             <AmountInput value={amount} onChange={setAmount} currency={debt.currency} currencies={currencies} />
+            {overpay ? (
+              <p className="-mt-2 text-xs text-negative">
+                That is more than the {debt.remaining.toFixed(2)} {debt.currency} left on this debt.
+              </p>
+            ) : null}
             <Field label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
             <Field label={debt.direction === 'i_owe' ? 'Paid from' : 'Received into'} hint="Leave empty if no account was involved">
-              <Select value={subId} onChange={(e) => setSubId(e.target.value)}>
+              <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                 <option value="">No account</option>
                 {subsForCurrency.map((s) => (
                   <option key={s.id} value={s.id}>

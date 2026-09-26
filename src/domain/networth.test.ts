@@ -62,4 +62,13 @@ describe('gold', () => {
     expect(s.gain.toString()).toBe('4000')
     expect(s.missingPrice).toBe(false)
   })
+  it('summary converts purchase costs in other currencies', () => {
+    const s = goldSummary(
+      [{ karat: 21, weight_grams: '10', purchase_price: '1000', purchase_currency: 'USD' }],
+      { perGram: { 21: '5000' }, source: 'local' },
+      (a, cur) => (cur === 'USD' ? a.times(50) : a),
+    )
+    expect(s.cost.toString()).toBe('50000')
+    expect(s.gain.toString()).toBe('0')
+  })
 })

@@ -47,4 +47,13 @@ describe('certificates', () => {
     expect(interestEarnedSoFar(monthly, '2026-01-15').total.toString()).toBe('0')
     expect(interestEarnedSoFar(monthly, '2027-06-01').total.toString()).toBe('27000')
   })
+  it('a short stub before maturity accrues nothing (it pays nothing)', () => {
+    // payouts on Feb 15 only; Feb 15 → Mar 1 has no payout in the schedule
+    const stub = { principal: '120000', interest_rate: '12', payout_frequency: 'monthly' as const, start_date: '2026-01-15', maturity_date: '2026-03-01' }
+    expect(payoutSchedule(stub)).toEqual(['2026-02-15'])
+    expect(interestEarnedSoFar(stub, '2026-02-28').total.toString()).toBe('1200')
+    expect(interestEarnedSoFar(stub, '2026-03-05').total.toString()).toBe('1200')
+    // before the first payout it accrues pro rata: 16 of 31 days
+    expect(interestEarnedSoFar(stub, '2026-01-31').accrued.toFixed(2)).toBe('619.35')
+  })
 })

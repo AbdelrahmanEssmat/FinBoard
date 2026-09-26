@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Button, Input, Sheet } from '@/components/ui'
 import { useInvestmentCategories } from '@/api/queries'
-import { useUndoableDelete, useUpsert } from '@/api/mutations'
+import { useUndoableDelete, useUpdateRows, useUpsert } from '@/api/mutations'
 import { newId } from '@/utils/ids'
 
 export function InvestmentCategoriesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data } = useInvestmentCategories()
   const upsert = useUpsert('investment_categories', { silent: true })
+  const rename = useUpdateRows('investment_categories', { silent: true })
   const remove = useUndoableDelete('investment_categories', { invalidate: ['holdings'], label: 'Category' })
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -21,7 +22,7 @@ export function InvestmentCategoriesSheet({ open, onClose }: { open: boolean; on
             {editing === c.id ? (
               <>
                 <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9" />
-                <button aria-label="Save" onClick={async () => { await upsert.mutateAsync([{ id: c.id, name: draft.trim() || c.name }]); setEditing(null) }} className="p-2 text-positive">
+                <button aria-label="Save" onClick={async () => { await rename.mutateAsync([{ id: c.id, name: draft.trim() || c.name }]); setEditing(null) }} className="p-2 text-positive">
                   <Check className="h-4 w-4" />
                 </button>
                 <button aria-label="Cancel" onClick={() => setEditing(null)} className="p-2 text-muted">

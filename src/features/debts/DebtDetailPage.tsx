@@ -137,7 +137,7 @@ export default function DebtDetailPage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         title="Delete this debt?"
-        message="Its payments and their account transactions will be removed too."
+        message="Its payments, and the account transactions they created (including the original borrow or lend), are removed too, so your balances go back to before this debt."
         onConfirm={() => {
           deleteDebt(debt)
           navigate('/debts')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRateTable, convert, crossRate } from '@/domain/currency'
+import { buildRateTable, buildRateTableAt, convert, crossRate, rateResolver } from '@/domain/currency'
 
 const rates = { USD: 1, EGP: '50', EUR: '0.9', SAR: '3.75' }
 
@@ -30,5 +30,18 @@ describe('currency conversion', () => {
     expect(buildRateTable(rows, '2026-09-15').EGP).toBe('52')
     expect(buildRateTable(rows).EGP).toBe('55')
     expect(buildRateTable(rows).USD).toBe(1)
+  })
+  it('historical tables use the rate of that day, falling back to the earliest known rate', () => {
+    const rows = [
+      { quote: 'EGP', rate: '48', rate_date: '2026-09-01', user_id: null },
+      { quote: 'EGP', rate: '50', rate_date: '2026-09-10', user_id: null },
+    ]
+    expect(buildRateTableAt(rows, '2026-09-05').EGP).toBe('48')
+    expect(buildRateTableAt(rows, '2026-09-20').EGP).toBe('50')
+    // before any rate was recorded: earliest known, not missing
+    expect(buildRateTableAt(rows, '2026-01-01').EGP).toBe('48')
+    const at = rateResolver(rows)
+    expect(convert('10', 'USD', 'EGP', at('2026-09-05'))!.toString()).toBe('480')
+    expect(at('2026-09-05')).toBe(at('2026-09-05')) // memoised
   })
 })

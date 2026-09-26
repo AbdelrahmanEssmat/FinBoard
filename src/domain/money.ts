@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js'
 
-Decimal.set({ precision: 30, rounding: Decimal.ROUND_HALF_EVEN })
+// Half away from zero, the same as Postgres round(numeric), so app and database always agree to the cent.
+Decimal.set({ precision: 30, rounding: Decimal.ROUND_HALF_UP })
 
 /** Anything the database or a form can hand us. */
 export type NumericInput = Decimal | number | string | null | undefined
@@ -25,9 +26,9 @@ export function sum(values: NumericInput[]): Decimal {
   return values.reduce<Decimal>((acc, v) => acc.plus(d(v)), ZERO)
 }
 
-/** Round to a currency's minor unit. */
+/** Round to a currency's minor unit (half away from zero, like Postgres). */
 export function roundMoney(value: NumericInput, decimals = 2): Decimal {
-  return d(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_EVEN)
+  return d(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
 }
 
 /** String for the wire (Postgres numeric accepts strings). */

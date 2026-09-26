@@ -4,7 +4,7 @@ import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
 import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Pill, Select, Sheet } from '@/components/ui'
 import { useAccounts, useCertificates, usePayouts, useSubAccounts } from '@/api/queries'
-import { useRpc, useUndoableDelete, useUpsert } from '@/api/mutations'
+import { useRpc, useUndoableDelete, useUpdateRows } from '@/api/mutations'
 import { byId } from '@/utils'
 import { daysUntil, interestEarnedSoFar, nextPayoutDate, PAYOUT_LABELS, payoutAmount, totalExpectedInterest } from '@/domain/certificates'
 import { formatDate, todayIso } from '@/domain/format'
@@ -27,7 +27,7 @@ export default function CertificateDetailPage() {
   const [logSub, setLogSub] = useState('')
   const remove = useUndoableDelete('certificates', { invalidate: ['certificate_payouts'], label: 'Certificate' })
   const logPayout = useRpc('log_certificate_payout', ['certificate_payouts', 'transactions', 'sub_accounts'])
-  const updatePayout = useUpsert('certificate_payouts', { silent: true })
+  const updatePayout = useUpdateRows('certificate_payouts', { silent: true })
   const today = todayIso()
 
   if (!cert) return <div className="py-12 text-center text-muted">Not found</div>
@@ -105,7 +105,7 @@ export default function CertificateDetailPage() {
                   {p.status === 'logged' ? <CheckCircle2 className="h-4 w-4 text-positive" /> : p.status === 'pending' && p.due_date <= today ? <Pill tone="warning">due</Pill> : p.status === 'skipped' ? <Pill>skipped</Pill> : null}
                 </span>
               }
-              onClick={p.status === 'pending' ? () => { setLogging(p); setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '') } : undefined}
+              onClick={p.status !== 'logged' ? () => { setLogging(p); setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '') } : undefined}
             />
           </div>
         ))}

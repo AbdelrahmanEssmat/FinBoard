@@ -11,9 +11,10 @@ describe('money', () => {
     expect(d('abc').toString()).toBe('0')
     expect(d(12.34).toString()).toBe('12.34')
   })
-  it('sums and rounds half-even', () => {
+  it('sums and rounds half away from zero like Postgres', () => {
     expect(sum(['1.005', '2.005']).toString()).toBe('3.01')
-    expect(roundMoney('2.345').toString()).toBe('2.34')
+    expect(roundMoney('2.345').toString()).toBe('2.35')
+    expect(roundMoney('-2.345').toString()).toBe('-2.35')
     expect(roundMoney('2.355').toString()).toBe('2.36')
     expect(toDb('10')).toBe('10.0000')
   })

@@ -3,11 +3,28 @@ import { ALL_TABLES } from '@/api/queries'
 import { downloadFile, toCsv } from '@/utils'
 import type { TableName } from '@/api/database.types'
 
+/**
+ * Parents before children: debts and debt payments reference transactions, payouts reference
+ * certificates (whose schedule the database regenerates on insert), so those come last.
+ */
 const IMPORT_ORDER: TableName[] = [
   'currencies', 'settings', 'accounts', 'sub_accounts', 'categories', 'tags', 'contacts', 'investment_categories',
-  'exchange_rates', 'gold_prices', 'certificates', 'holdings', 'gold_items', 'debts', 'recurring_transactions', 'budgets',
-  'transactions', 'debt_payments', 'certificate_payouts', 'net_worth_snapshots',
+  'exchange_rates', 'gold_prices', 'certificates', 'holdings', 'gold_items', 'recurring_transactions', 'budgets',
+  'transactions', 'debts', 'debt_payments', 'certificate_payouts', 'net_worth_snapshots',
 ]
+
+/** Rows that can already exist under another id are matched on their natural key instead. */
+const ON_CONFLICT: Partial<Record<TableName, string>> = {
+  currencies: 'user_id,code',
+  settings: 'user_id',
+  exchange_rates: 'user_id,quote,rate_date',
+  certificate_payouts: 'certificate_id,due_date',
+  net_worth_snapshots: 'user_id,snapshot_date',
+  budgets: 'user_id,category_id',
+}
+
+/** Append-only history: rows already present are skipped, never updated. */
+const INSERT_ONLY = new Set<TableName>(['gold_prices'])
 
 /** Columns the database computes itself; never re-import them. */
 const SKIP_COLUMNS: Partial<Record<TableName, string[]>> = {
@@ -64,7 +81,7 @@ export async function exportTransactionsCsv() {
 export async function importAll(file: File): Promise<number> {
   const text = await file.text()
   const parsed = JSON.parse(text) as { app?: string; tables?: Record<string, Record<string, unknown>[]> }
-  if (parsed.app !== 'financial-tracker' || !parsed.tables) throw new Error('This file is not a Financial Tracker backup')
+  if ((parsed.app !== 'financial-tracker' && parsed.app !== 'finboard') || !parsed.tables) throw new Error('This file is not a FinBoard backup')
   const { data: userData } = await supabase.auth.getUser()
   const uid = userData.user?.id
   if (!uid) throw new Error('Not signed in')
@@ -86,13 +103,83 @@ export async function importAll(file: File): Promise<number> {
       const chunk = writable.slice(i, i + 500)
        
       const q = (supabase as any).from(table)
-      const { error } = table === 'currencies' ? await q.upsert(chunk, { onConflict: 'user_id,code' }) : table === 'settings' ? await q.upsert(chunk, { onConflict: 'user_id' }) : await q.upsert(chunk)
-      if (error) throw new Error(`${table}: ${error.message}`)
+      const conflict = ON_CONFLICT[table]
+      const { error } = INSERT_ONLY.has(table)
+        ? await q.upsert(chunk, { ignoreDuplicates: true })
+        : conflict
+          ? await q.upsert(chunk, { onConflict: conflict })
+          : await q.upsert(chunk)
+      if (error) throw new Error(`${table}: ${error.message}. Nothing is lost: fix the file or try again, restoring is safe to repeat.`)
       count += chunk.length
     }
   }
   // balances are trigger-maintained; recompute from imported transactions
   const { data: subs } = await supabase.from('sub_accounts').select('id')
   for (const s of subs ?? []) await supabase.rpc('recompute_sub_account_balance', { p_sub_account_id: s.id })
+  await removeUnusedDefaultDuplicates(parsed.tables)
   return count
+}
+
+/**
+ * A new account starts with default categories, a Cash and a Thndr account. After restoring a
+ * backup those appear twice. Remove only the ones that duplicate a restored item by name and
+ * have never been used, so nothing with data attached is ever deleted.
+ */
+async function removeUnusedDefaultDuplicates(tables: Record<string, Record<string, unknown>[]>) {
+  const key = (...parts: unknown[]) => parts.map((p) => String(p ?? '').toLowerCase()).join('|')
+
+  const backupCats = tables.categories ?? []
+  if (backupCats.length) {
+    const ids = new Set(backupCats.map((c) => c.id))
+    const names = new Set(backupCats.map((c) => key(c.kind, c.name)))
+    const { data: cats } = await supabase.from('categories').select('id,kind,name')
+    const candidates = (cats ?? []).filter((c) => !ids.has(c.id) && names.has(key(c.kind, c.name))).map((c) => c.id)
+    if (candidates.length) {
+      const [{ data: tx }, { data: bud }, { data: rec }, { data: kids }] = await Promise.all([
+        supabase.from('transactions').select('category_id').in('category_id', candidates),
+        supabase.from('budgets').select('category_id').in('category_id', candidates),
+        supabase.from('recurring_transactions').select('category_id').in('category_id', candidates),
+        supabase.from('categories').select('parent_id').in('parent_id', candidates),
+      ])
+      const used = new Set([...(tx ?? []), ...(bud ?? []), ...(rec ?? [])].map((r) => r.category_id).concat((kids ?? []).map((k) => k.parent_id)))
+      const unused = candidates.filter((id) => !used.has(id))
+      if (unused.length) await supabase.from('categories').delete().in('id', unused)
+    }
+  }
+
+  const backupAccounts = tables.accounts ?? []
+  if (backupAccounts.length) {
+    const ids = new Set(backupAccounts.map((a) => a.id))
+    const names = new Set(backupAccounts.map((a) => key(a.name)))
+    const { data: accounts } = await supabase.from('accounts').select('id,name')
+    for (const a of (accounts ?? []).filter((x) => !ids.has(x.id) && names.has(key(x.name)))) {
+      const { data: subs } = await supabase.from('sub_accounts').select('id,balance,opening_balance').eq('account_id', a.id)
+      const subIds = (subs ?? []).map((s) => s.id)
+      const empty = (subs ?? []).every((s) => Number(s.balance) === 0 && Number(s.opening_balance) === 0)
+      if (!empty) continue
+      if (subIds.length) {
+        const { count } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).or(`sub_account_id.in.(${subIds.join(',')}),to_sub_account_id.in.(${subIds.join(',')})`)
+        if (count) continue
+      }
+      const [{ count: holdings }, { count: certs }] = await Promise.all([
+        supabase.from('holdings').select('id', { count: 'exact', head: true }).eq('account_id', a.id),
+        supabase.from('certificates').select('id', { count: 'exact', head: true }).eq('account_id', a.id),
+      ])
+      if (!holdings && !certs) await supabase.from('accounts').delete().eq('id', a.id)
+    }
+  }
+
+  const backupInv = tables.investment_categories ?? []
+  if (backupInv.length) {
+    const ids = new Set(backupInv.map((c) => c.id))
+    const names = new Set(backupInv.map((c) => key(c.name)))
+    const { data: inv } = await supabase.from('investment_categories').select('id,name')
+    const candidates = (inv ?? []).filter((c) => !ids.has(c.id) && names.has(key(c.name))).map((c) => c.id)
+    if (candidates.length) {
+      const { data: used } = await supabase.from('holdings').select('category_id').in('category_id', candidates)
+      const usedIds = new Set((used ?? []).map((h) => h.category_id))
+      const unused = candidates.filter((id) => !usedIds.has(id))
+      if (unused.length) await supabase.from('investment_categories').delete().in('id', unused)
+    }
+  }
 }

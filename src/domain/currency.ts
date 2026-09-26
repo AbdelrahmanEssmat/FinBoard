@@ -27,6 +27,36 @@ export function buildRateTable(rows: RateRow[], date?: string): RateTable {
   return table
 }
 
+/**
+ * Rates that applied on `date`. A currency with no rate on or before that date (rates only
+ * started being recorded later) falls back to its earliest known rate, rather than being
+ * treated as missing, which would make old amounts count as zero.
+ */
+export function buildRateTableAt(rows: RateRow[], date: string): RateTable {
+  const table = buildRateTable(rows, date)
+  const earliest = new Map<string, RateRow>()
+  for (const row of rows) {
+    if (row.quote in table) continue
+    const cur = earliest.get(row.quote)
+    if (!cur || row.rate_date < cur.rate_date || (row.rate_date === cur.rate_date && isBetter(row, cur))) earliest.set(row.quote, row)
+  }
+  for (const [code, row] of earliest) table[code] = row.rate
+  return table
+}
+
+/** Memoised date → rate table lookup for converting many dated amounts. */
+export function rateResolver(rows: RateRow[]): (date: string) => RateTable {
+  const cache = new Map<string, RateTable>()
+  return (date) => {
+    let t = cache.get(date)
+    if (!t) {
+      t = buildRateTableAt(rows, date)
+      cache.set(date, t)
+    }
+    return t
+  }
+}
+
 function isBetter(a: RateRow, b: RateRow): boolean {
   if (a.rate_date !== b.rate_date) return a.rate_date > b.rate_date
   const aManual = a.user_id !== null

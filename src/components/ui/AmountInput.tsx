@@ -9,6 +9,7 @@ export function AmountInput({
   onCurrencyChange,
   placeholder = '0.00',
   className,
+  disabled,
 }: {
   value: string
   onChange: (v: string) => void
@@ -17,12 +18,14 @@ export function AmountInput({
   onCurrencyChange?: (c: string) => void
   placeholder?: string
   className?: string
+  disabled?: boolean
 }) {
   return (
     <div
       className={cn(
         'flex h-14 items-stretch rounded-xl border border-border bg-surface transition-shadow',
         'focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40',
+        disabled && 'opacity-60',
         className,
       )}
     >
@@ -31,6 +34,7 @@ export function AmountInput({
         value={value}
         placeholder={placeholder}
         enterKeyHint="done"
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value.replace(/[^\d.,-]/g, ''))}
         className="tnum min-w-0 flex-1 bg-transparent px-4 text-xl font-semibold text-text placeholder:text-faint focus:outline-none"
       />
@@ -38,6 +42,7 @@ export function AmountInput({
         <select
           value={currency}
           onChange={(e) => onCurrencyChange(e.target.value)}
+          disabled={disabled}
           aria-label="Currency"
           className="appearance-none rounded-r-xl border-l border-border bg-surface-2 px-4 text-[16px] font-semibold text-muted focus:outline-none sm:text-sm"
         >

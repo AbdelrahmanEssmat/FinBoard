@@ -24,7 +24,8 @@ export default function CertificatesPage() {
   const active = (certs ?? []).filter((c) => !c.is_closed)
   const closed = (certs ?? []).filter((c) => c.is_closed)
   const total = active.reduce((a, c) => a.plus(toDisplayOrZero(c.principal, c.currency)), d(0))
-  const monthlyIncome = active.reduce((a, c) => {
+  // matured certificates no longer pay interest
+  const monthlyIncome = active.filter((c) => c.maturity_date > today).reduce((a, c) => {
     const per = payoutAmount(c)
     const perMonth = c.payout_frequency === 'monthly' ? per : c.payout_frequency === 'quarterly' ? per.div(3) : c.payout_frequency === 'semi_annual' ? per.div(6) : c.payout_frequency === 'annual' ? per.div(12) : d(0)
     return a.plus(toDisplayOrZero(perMonth, c.currency))
@@ -68,7 +69,7 @@ export default function CertificatesPage() {
                       trailing={
                         <span className="flex flex-col items-end gap-1">
                           <Amount value={c.principal} currency={c.currency} className="font-semibold" />
-                          {matureIn <= 30 ? <Pill tone="warning">matures in {matureIn} d</Pill> : next ? <span className="text-[11px] text-muted">next {formatDate(next)}</span> : null}
+                          {matureIn <= 0 ? <Pill tone="accent">matured · close it</Pill> : matureIn <= 30 ? <Pill tone="warning">matures in {matureIn} d</Pill> : next ? <span className="text-[11px] text-muted">next {formatDate(next)}</span> : null}
                         </span>
                       }
                       chevron

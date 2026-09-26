@@ -50,7 +50,7 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
       }
     >
       <div className="space-y-5 pb-2">
-        <p className="text-sm text-muted">Enter the price per gram in EGP. Your value is used until the next automatic update comes in with a newer time.</p>
+        <p className="text-sm text-muted">Enter the price per gram in EGP. Your price is used for the next 24 hours, then automatic prices take over again.</p>
         <div className="grid grid-cols-2 gap-4">
           {KARATS.map((k) => (
             <Field key={k} label={`${k}K`} hint={prices.perGram[k] ? `now ${d(prices.perGram[k]).toFixed(0)}` : undefined}>

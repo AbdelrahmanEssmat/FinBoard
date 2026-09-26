@@ -6,21 +6,56 @@ import type { Insert, Row, SubAccount, TableName, Transaction } from '@/api/data
 
 type AnyRow = { id: string } & Record<string, unknown>
 
-/** Merge rows into every cached query for a table (keys starting with the table name). */
+/** Identity of a cached row: currencies are keyed by code and settings by user; everything else by id. */
+function rowKey(table: TableName, row: Record<string, unknown>): unknown {
+  if (table === 'currencies') return row.code
+  if (table === 'settings') return row.user_id
+  return row.id
+}
+
+/**
+ * Whether a row belongs in a cached query. Transactions are cached per date range
+ * (['transactions', from, to]) and for Cloud interest (['transactions', 'yield']); other
+ * tables have a single list. `undefined` means "no constraint".
+ */
+export function rowFitsQuery(table: TableName, key: readonly unknown[], row: AnyRow): boolean | undefined {
+  if (table !== 'transactions') return undefined
+  if (key[1] === 'yield') return row.source === 'yield'
+  const date = row.date as string | undefined
+  if (!date) return undefined
+  const from = key[1] as string | null | undefined
+  const to = key[2] as string | null | undefined
+  return (!from || date >= from) && (!to || date <= to)
+}
+
+/**
+ * Merge rows into every cached list for a table. Rows are only added to (and are removed
+ * from) lists whose date range they fall in. Non-list caches (e.g. the settings object) are left alone.
+ */
 export function cacheUpsert(qc: QueryClient, table: TableName, rows: AnyRow[]) {
-  qc.setQueriesData<AnyRow[]>({ queryKey: [table] }, (old) => {
-    const list = old ? [...old] : []
+  const caches = qc.getQueriesData<unknown>({ queryKey: [table] })
+  // the full current version of each row from any cached list, so a partial change that moves a
+  // row into another list (e.g. a new date) carries all of its fields with it
+  const known = new Map<unknown, AnyRow>()
+  for (const [, data] of caches) if (Array.isArray(data)) for (const r of data as AnyRow[]) known.set(rowKey(table, r), r)
+  for (const [key, old] of caches) {
+    if (old !== undefined && !Array.isArray(old)) continue
+    const list = [...((old as AnyRow[] | undefined) ?? [])]
     for (const row of rows) {
-      const i = list.findIndex((r) => r.id === row.id)
-      if (i >= 0) list[i] = { ...list[i], ...row }
-      else list.unshift(row)
+      const i = list.findIndex((r) => rowKey(table, r) === rowKey(table, row))
+      const merged = { ...(i >= 0 ? list[i] : known.get(rowKey(table, row))), ...row } as AnyRow
+      const fits = rowFitsQuery(table, key, merged)
+      if (i >= 0) {
+        if (fits === false) list.splice(i, 1)
+        else list[i] = merged
+      } else if (fits !== false) list.unshift(merged)
     }
-    return list
-  })
+    qc.setQueryData(key, list)
+  }
 }
 
 export function cacheRemove(qc: QueryClient, table: TableName, ids: string[]) {
-  qc.setQueriesData<AnyRow[]>({ queryKey: [table] }, (old) => (old ? old.filter((r) => !ids.includes(r.id)) : old))
+  qc.setQueriesData<unknown>({ queryKey: [table] }, (old: unknown) => (Array.isArray(old) ? (old as AnyRow[]).filter((r) => !ids.includes(r.id)) : old))
 }
 
 /** Optimistically mirror the SQL balance trigger for a transaction. */
@@ -76,6 +111,41 @@ export function useUpsert<T extends TableName>(table: T, opts: { invalidate?: Ta
 }
 
 /** Generic delete with optimistic removal. */
+/**
+ * Change only some columns of existing rows (`{ id, ...changedColumns }`). Use this instead of
+ * useUpsert for partial edits: an upsert must satisfy every NOT NULL column even when the row exists.
+ */
+export function useUpdateRows<T extends TableName>(table: T, opts: { invalidate?: TableName[]; silent?: boolean } = {}) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (patches: ({ id: string } & Insert<T>)[]) => {
+      let queued = false
+      for (const { id, ...patch } of patches) {
+        const res = await submit({ kind: 'update', table, id, patch: patch as Insert<TableName> })
+        queued = queued || res.queued
+      }
+      return { queued }
+    },
+    onMutate: async (patches) => {
+      await qc.cancelQueries({ queryKey: [table] })
+      const prev = qc.getQueriesData<unknown>({ queryKey: [table] })
+      cacheUpsert(qc, table, patches as unknown as AnyRow[])
+      return { prev }
+    },
+    onError: (err, _p, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => {
+      if (!opts.silent) notifyQueued(res.queued)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: [table] })
+      opts.invalidate?.forEach((t) => void qc.invalidateQueries({ queryKey: [t] }))
+    },
+  })
+}
+
 export function useDeleteRows<T extends TableName>(table: T, opts: { invalidate?: TableName[] } = {}) {
   const qc = useQueryClient()
   return useMutation({

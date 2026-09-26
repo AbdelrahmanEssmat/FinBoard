@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
-import { useAccounts, useContacts, useSubAccounts } from '@/api/queries'
+import { useAccounts, useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
 import { useUpsert, useSaveTransaction } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
@@ -14,6 +14,7 @@ import type { Debt, DebtDirection, Recurrence } from '@/api/database.types'
 export function DebtForm({ open, onClose, direction, initial }: { open: boolean; onClose: () => void; direction: DebtDirection; initial?: Debt | null }) {
   const { data: contacts } = useContacts()
   const { data: subs } = useSubAccounts()
+  const { data: payments } = useDebtPayments()
   const { data: accounts } = useAccounts()
   const accMap = useMemo(() => byId(accounts), [accounts])
   const currencies = useActiveCurrencies()
@@ -61,7 +62,19 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   }, [open, initial, direction])
 
   const subsForCurrency = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
-  const valid = d(amount).gt(0) && (contactId || newContact.trim()) && (!plan || parseInt(planCount) >= 1)
+  // keep the chosen balance in the debt's currency whenever the currency or the balances change
+  useEffect(() => {
+    if (!open) return
+    setSubId((cur) => (subsForCurrency.some((s) => s.id === cur) ? cur : subsForCurrency.find((s) => s.id === prefs.lastSubAccountId)?.id ?? subsForCurrency[0]?.id ?? ''))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currency, subs])
+  const effectiveSubId = subsForCurrency.some((s) => s.id === subId) ? subId : ''
+
+  // once money has moved (a linked transaction or any repayment) the currency is fixed
+  const paidSoFar = (payments ?? []).filter((p) => p.debt_id === initial?.id).reduce((a, p) => a.plus(d(p.amount)), d(0))
+  const currencyLocked = Boolean(initial && (initial.transaction_id || paidSoFar.gt(0)))
+  const belowPaid = Boolean(initial) && d(amount).lt(paidSoFar)
+  const valid = d(amount).gt(0) && !belowPaid && (contactId || newContact.trim()) && (!plan || parseInt(planCount) >= 1)
 
   const save = async () => {
     if (!valid) return
@@ -72,7 +85,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     }
     const id = initial?.id ?? newId()
     let txId: string | null = initial?.transaction_id ?? null
-    if (!initial && moveMoney && subId) {
+    if (!initial && moveMoney && effectiveSubId) {
       txId = newId()
       await saveTx.mutateAsync({
         row: {
@@ -81,7 +94,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
           date,
           amount: toDb(amount),
           currency,
-          sub_account_id: subId,
+          sub_account_id: effectiveSubId,
           category_id: null,
           tags: [],
           notes: `${dir === 'i_owe' ? 'Borrowed from' : 'Lent to'} ${newContact.trim() || (contacts?.find((c) => c.id === cid)?.name ?? '')}`,
@@ -105,9 +118,9 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         plan_amount: plan && planAmount ? toDb(planAmount) : null,
         plan_frequency: plan ? planFreq : null,
         plan_start_date: plan ? planStart || date : null,
-        sub_account_id: moveMoney ? subId || null : initial?.sub_account_id ?? null,
+        sub_account_id: moveMoney ? effectiveSubId || null : initial?.sub_account_id ?? null,
         transaction_id: txId,
-        status: initial?.status ?? 'open',
+        // status (open/settled) is worked out by the database from the payments
       },
     ])
     prefs.remember({ lastCurrency: currency })
@@ -151,7 +164,12 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
             <Input value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="Who?" />
           </Field>
         ) : null}
-        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} onCurrencyChange={setCurrency} />
+        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} onCurrencyChange={currencyLocked ? undefined : setCurrency} />
+        {belowPaid ? (
+          <p className="-mt-2 text-xs text-negative">
+            {paidSoFar.toFixed(2)} {currency} has already been paid, so the amount can't be lower than that.
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Date">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -196,7 +214,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
             <Toggle checked={moveMoney} onChange={setMoveMoney} label={dir === 'i_owe' ? 'Money came into an account' : 'Money left an account'} description="Records the matching transaction" />
             {moveMoney ? (
               <Field label="Account">
-                <Select value={subId} onChange={(e) => setSubId(e.target.value)}>
+                <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                   <option value="">Choose…</option>
                   {subsForCurrency.map((s) => (
                     <option key={s.id} value={s.id}>

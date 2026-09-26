@@ -69,7 +69,7 @@ export function SubAccountForm({ open, onClose, accountId, initial, onDelete }: 
         open={confirm}
         onClose={() => setConfirm(false)}
         title={`Delete ${initial?.currency ?? ''} balance?`}
-        message="Its transactions will be deleted as well. You can undo for a few seconds."
+        message="Its own transactions are deleted too. If it has transfers to other accounts or debt payments, it can't be deleted: archive it instead so your history stays correct."
         onConfirm={() => {
           onDelete?.()
           onClose()

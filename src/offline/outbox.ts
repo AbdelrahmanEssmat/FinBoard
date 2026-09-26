@@ -13,6 +13,8 @@ export interface OutboxEntry {
   createdAt: number
   attempts: number
   lastError?: string
+  /** true when the last failure was a lost connection (retry later), false when the server rejected it */
+  networkError?: boolean
 }
 
 class OfflineDb extends Dexie {
@@ -25,9 +27,11 @@ class OfflineDb extends Dexie {
 
 export const offlineDb = new OfflineDb()
 
-export async function enqueue(op: OutboxOp): Promise<void> {
-  await offlineDb.outbox.add({ op, createdAt: Date.now(), attempts: 0 })
+/** Adds an operation to the end of the queue and returns its id (ids increase, so they give the replay order). */
+export async function enqueue(op: OutboxOp): Promise<number> {
+  const id = await offlineDb.outbox.add({ op, createdAt: Date.now(), attempts: 0 })
   notify()
+  return id as number
 }
 
 export async function pendingCount(): Promise<number> {

@@ -50,7 +50,9 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   }, [open, initial])
 
   const payoutSubs = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
-  const valid = accountId && name.trim() && d(principal).gt(0) && d(rate).gte(0) && start && maturity && maturity > start
+  // the payout account must hold the certificate's currency; a stale choice from another currency is never sent
+  const effectivePayoutSubId = payoutSubs.some((s) => s.id === payoutSubId) ? payoutSubId : ''
+  const valid = accountId && name.trim() && d(principal).gt(0) && d(rate).gte(0) && start && maturity && maturity > start && (!autoLog || effectivePayoutSubId)
   const preview = valid ? { amount: payoutAmount({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }), count: payoutSchedule({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }).length } : null
 
   const setYears = (y: number) => setMaturity(format(addYears(parseISO(start), y), 'yyyy-MM-dd'))
@@ -69,7 +71,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
         start_date: start,
         maturity_date: maturity,
         auto_log_income: autoLog,
-        payout_sub_account_id: payoutSubId || null,
+        payout_sub_account_id: effectivePayoutSubId || null,
         notes: notes.trim() || null,
         is_closed: closed,
       },
@@ -140,7 +142,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
         <Toggle checked={autoLog} onChange={setAutoLog} label="Auto-log payouts as income" description="Adds an Interest income transaction on each payout date" />
         {autoLog ? (
           <Field label="Payout account">
-            <Select value={payoutSubId} onChange={(e) => setPayoutSubId(e.target.value)}>
+            <Select value={effectivePayoutSubId} onChange={(e) => setPayoutSubId(e.target.value)}>
               <option value="">Choose…</option>
               {payoutSubs.map((s) => (
                 <option key={s.id} value={s.id}>

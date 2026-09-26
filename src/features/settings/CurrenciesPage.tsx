@@ -47,7 +47,7 @@ export default function CurrenciesPage() {
               checked={c.is_active}
               onChange={(v) => {
                 if (!v && c.code === settings?.base_currency) return
-                void upsert.mutateAsync([{ user_id: c.user_id, code: c.code, is_active: v }])
+                void upsert.mutateAsync([{ ...c, is_active: v }]) // full row: an upsert must satisfy every required column
               }}
               label={`${c.code} · ${c.symbol}`}
               description={c.name + (c.code === settings?.base_currency ? ' · base currency' : '')}

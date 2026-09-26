@@ -18,6 +18,8 @@ export interface GoldItemLike {
   karat: Karat | number
   weight_grams: NumericInput
   purchase_price: NumericInput
+  /** currency of purchase_price and workmanship_cost; EGP when omitted */
+  purchase_currency?: string
   workmanship_cost?: NumericInput
 }
 
@@ -51,7 +53,11 @@ export interface GoldSummary {
   missingPrice: boolean
 }
 
-export function goldSummary(items: GoldItemLike[], prices: GoldPriceTable): GoldSummary {
+/**
+ * Totals in EGP (gold prices are EGP per gram). Purchase costs in other currencies are converted
+ * with `toEgp`; without a converter only EGP costs can be summed correctly.
+ */
+export function goldSummary(items: GoldItemLike[], prices: GoldPriceTable, toEgp: (amount: Decimal, currency: string) => Decimal = (a) => a): GoldSummary {
   let grams = new Decimal(0)
   let value = new Decimal(0)
   let cost = new Decimal(0)
@@ -61,7 +67,7 @@ export function goldSummary(items: GoldItemLike[], prices: GoldPriceTable): Gold
     const v = goldItemValue(it, prices)
     if (v === null) missingPrice = true
     else value = value.plus(v)
-    cost = cost.plus(goldItemCost(it))
+    cost = cost.plus(toEgp(goldItemCost(it), it.purchase_currency ?? 'EGP'))
   }
   const gain = value.minus(cost)
   return { grams, value, cost, gain, gainPercent: cost.isZero() ? null : gain.div(cost).times(100), missingPrice }

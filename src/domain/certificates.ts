@@ -70,7 +70,11 @@ export function totalExpectedInterest(c: CertificateInput): Decimal {
   return payoutAmount(c).times(payoutSchedule(c).length)
 }
 
-/** Interest earned so far: paid-out periods plus pro-rata accrual of the current period. */
+/**
+ * Interest earned so far: paid-out periods plus pro-rata accrual of the current period.
+ * Only periods that end in a payout accrue. A short stub between the last payout and
+ * maturity pays nothing (the database schedule has no payout for it), so it accrues nothing.
+ */
 export function interestEarnedSoFar(c: CertificateInput, today: string): { paid: Decimal; accrued: Decimal; total: Decimal } {
   const t = parseISO(today)
   const start = parseISO(c.start_date)
@@ -81,11 +85,12 @@ export function interestEarnedSoFar(c: CertificateInput, today: string): { paid:
   const schedule = payoutSchedule(c)
   const paidDates = schedule.filter((dt) => dt <= today)
   const paid = amount.times(paidDates.length)
-  // accrual inside the current period
+  // accrual inside the current period, only if that period ends with a payout
+  const nextPayout = schedule[paidDates.length]
   const periodStart = paidDates.length ? parseISO(paidDates[paidDates.length - 1]!) : start
-  const periodEnd = schedule[paidDates.length] ? parseISO(schedule[paidDates.length]!) : maturity
+  const periodEnd = nextPayout ? parseISO(nextPayout) : null
   let accrued = zero
-  if (isBefore(t, maturity) && isAfter(periodEnd, periodStart)) {
+  if (periodEnd && isBefore(t, maturity) && isAfter(periodEnd, periodStart)) {
     const periodDays = differenceInCalendarDays(periodEnd, periodStart)
     const elapsed = Math.min(periodDays, differenceInCalendarDays(t, periodStart))
     accrued = amount.times(elapsed).div(periodDays)

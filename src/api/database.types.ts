@@ -75,6 +75,8 @@ export type SubAccount = {
   yield_rate: number | null
   yield_frequency: Recurrence | null
   yield_since: string | null
+  /** last day interest was accrued up to (server-managed) */
+  yield_accrued_through: string | null
   created_at: string
   updated_at: string
 }
@@ -140,6 +142,8 @@ export type RecurringTransaction = {
   frequency: Recurrence
   interval_count: number
   next_date: string
+  /** occurrences are anchor_date + k × interval (server-managed) */
+  anchor_date: string | null
   end_date: string | null
   auto_post: boolean
   is_active: boolean

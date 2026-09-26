@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { Button, Card, Divider } from '@/components/ui'
 import { Amount, ListRow, PageHeader, Section } from '@/components/shared'
-import { useHoldings, useInvestmentCategories } from '@/api/queries'
+import { useAccounts, useHoldings, useInvestmentCategories, useSubAccounts } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
 import { formatPercent } from '@/domain/format'
@@ -20,6 +20,13 @@ export default function InvestmentsPage() {
   const { data: categories } = useInvestmentCategories()
   const { toDisplayOrZero, display } = useConvert()
   const clouds = useClouds()
+  const { data: subs } = useSubAccounts()
+  const { data: accounts } = useAccounts()
+  // uninvested cash sitting on investment platforms (net worth counts it as investments too)
+  const platformCash = useMemo(() => {
+    const platformIds = new Set((accounts ?? []).filter((a) => a.type === 'investment' && !a.is_archived).map((a) => a.id))
+    return (subs ?? []).filter((s) => platformIds.has(s.account_id) && s.yield_rate === null && !s.is_archived).reduce((a, s) => a.plus(toDisplayOrZero(s.balance, s.currency)), d(0))
+  }, [accounts, subs, toDisplayOrZero])
   const [form, setForm] = useState<{ open: boolean; item?: Holding | null }>({ open: false })
   const [cats, setCats] = useState(false)
 
@@ -36,7 +43,7 @@ export default function InvestmentsPage() {
   const holdingsValue = rows.reduce((a, r) => a.plus(r.valueDisplay), d(0))
   const holdingsCost = rows.reduce((a, r) => a.plus(r.costDisplay), d(0))
   const holdingsPl = holdingsValue.minus(holdingsCost)
-  const total = holdingsValue.plus(clouds.total)
+  const total = holdingsValue.plus(clouds.total).plus(platformCash)
   const lastUpdate = (holdings ?? []).map((h) => h.price_updated_at).filter(Boolean).sort().pop() ?? null
   const groups = (categories ?? []).map((c) => ({ c, rows: rows.filter((r) => r.h.category_id === c.id) })).filter((g) => g.rows.length)
   const uncategorised = rows.filter((r) => !r.h.category_id || !categories?.some((c) => c.id === r.h.category_id))
@@ -73,6 +80,11 @@ export default function InvestmentsPage() {
                 </span>
               ) : null}
             </span>
+            {!platformCash.isZero() ? (
+              <span className="text-muted">
+                Cash <Amount value={platformCash} currency={display} className="font-medium text-text" compact />
+              </span>
+            ) : null}
             <span className="text-muted">
               Clouds <Amount value={clouds.total} currency={display} className="font-medium text-text" compact />
               {clouds.projectedMonthlyDisplay.gt(0) ? (

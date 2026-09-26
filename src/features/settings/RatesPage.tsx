@@ -8,7 +8,7 @@ import { useRates } from '@/api/queries'
 import { useUserId } from '@/app/providers/AuthProvider'
 import { newId } from '@/utils/ids'
 import { crossRate } from '@/domain/currency'
-import { d } from '@/domain/money'
+import { d, type Decimal } from '@/domain/money'
 import { formatDate, todayIso } from '@/domain/format'
 import { relativeTime } from '@/utils'
 import { refreshRatesFromClient } from '@/api/ratesProvider'
@@ -27,26 +27,34 @@ export default function RatesPage() {
   const today = todayIso()
 
   const others = currencies.filter((c) => c.code !== base)
-  const manualToday = (code: string) => rows?.find((r) => r.quote === code && r.user_id && r.rate_date === today && r.source === 'manual')
+  /**
+   * Rates are stored as "1 USD = rate QUOTE", and USD itself is always 1. So an override of
+   * USD while the base is, say, EGP is stored as a rate for the base currency (1 USD = 1/X EGP).
+   */
+  const storedQuote = (code: string) => (code === 'USD' && base !== 'USD' ? base : code)
+  const manualToday = (code: string) => rows?.find((r) => r.quote === storedQuote(code) && r.user_id && r.rate_date === today && r.source === 'manual')
 
   const saveOverride = async () => {
-    if (!editing || !userId || !d(value).lte(0) === false) {
-      /* fallthrough */
-    }
     if (!editing || !userId || !d(value).gt(0)) return
-    // user enters "1 base = X quote"; store as USD-based
-    const baseUsd = rates[base] ? d(rates[base]) : null
-    let usdRate = d(value)
-    if (base !== 'USD') {
-      if (editing === 'USD') usdRate = baseUsd ? baseUsd.div(d(value)) : d(0)
-      else usdRate = baseUsd ? d(value).times(baseUsd) : d(0)
-    }
-    if (!usdRate.gt(0)) {
-      toast.error('Missing USD rate for the base currency')
-      return
+    // the user enters "1 base = X editing"
+    const x = d(value)
+    let quote = editing
+    let usdRate: Decimal
+    if (base === 'USD') {
+      usdRate = x // 1 USD = X quote
+    } else if (editing === 'USD') {
+      quote = base
+      usdRate = d(1).div(x) // 1 base = X USD  ⇒  1 USD = 1/X base
+    } else {
+      const baseUsd = rates[base] ? d(rates[base]) : null
+      if (!baseUsd || !baseUsd.gt(0)) {
+        toast.error(`Set a rate for USD first, so ${editing} can be converted`)
+        return
+      }
+      usdRate = x.times(baseUsd) // 1 USD = baseUsd base = baseUsd·X quote
     }
     const existing = manualToday(editing)
-    await upsert.mutateAsync([{ id: existing?.id ?? newId(), user_id: userId, quote: editing, rate: usdRate.toFixed(8), rate_date: today, source: 'manual', provider: 'manual', fetched_at: new Date().toISOString() }])
+    await upsert.mutateAsync([{ id: existing?.id ?? newId(), user_id: userId, quote, rate: usdRate.toFixed(8), rate_date: today, source: 'manual', provider: 'manual', fetched_at: new Date().toISOString() }])
     setEditing(null)
   }
 

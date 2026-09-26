@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useBudgets, useCategories, useRecurring, useSnapshots, useSubAccounts, useTransactions } from '@/api/queries'
-import { useConvert, useMoneyFormatter } from '@/hooks/useMoney'
+import { useConvert, useHistoricalConvert, useMoneyFormatter } from '@/hooks/useMoney'
 import { convert } from '@/domain/currency'
 import { d, type NumericInput } from '@/domain/money'
 import { todayIso } from '@/domain/format'
@@ -8,7 +8,9 @@ import {
   categoryBreakdown, categoryChanges, fixedVsVariable, generateInsights, largestTransactions, monthlySeries, periodTotals, previousRange,
   spendingProjection, topPayees, weekPattern, type DateRange,
 } from '@/domain/insights'
-import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
+import { addDaysIso, byId, daysBetween, endOfMonthIso, startOfMonthIso } from '@/utils'
+
+const minIso = (a: string, b: string) => (a < b ? a : b)
 
 export type ReportPeriod = 'this' | 'last' | '3' | '6' | '12'
 
@@ -44,7 +46,8 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
   const { data: recurring } = useRecurring()
   const { data: budgets } = useBudgets()
   const { data: snapshots } = useSnapshots()
-  const { toDisplayOrZero, display, rates, between } = useConvert()
+  const { between } = useConvert()
+  const { toDisplayAt, tableAt, display } = useHistoricalConvert()
   const fmt = useMoneyFormatter()
   const today = todayIso()
 
@@ -56,12 +59,17 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
       if (filters.tag && !t.tags.includes(filters.tag)) return false
       return true
     })
-    const toBase = (amount: NumericInput, currency: string) => toDisplayOrZero(amount, currency)
+    // every amount is converted at the rate of its own date
+    const toBase = (amount: NumericInput, currency: string, date: string) => toDisplayAt(amount, currency, date)
     const money = (v: NumericInput) => fmt(v, display, { compact: true })
     const fixedCategoryIds = new Set((recurring ?? []).filter((r) => r.type === 'expense' && r.category_id).map((r) => r.category_id!))
+    const isCurrentMonth = period === 'this'
+    const elapsedTo = today < range.to ? today : range.to
 
     const totals = periodTotals(filtered, range, toBase)
-    const prevTotals = periodTotals(filtered, prev, toBase)
+    // a month in progress is compared with the same number of days of the previous month
+    const prevCompareTo = isCurrentMonth ? minIso(prev.to, addDaysIso(prev.from, daysBetween(range.from, elapsedTo))) : prev.to
+    const prevTotals = periodTotals(filtered, { from: prev.from, to: prevCompareTo }, toBase)
     const expenseCats = categoryBreakdown(filtered, range, 'expense', catMap, toBase)
     const prevExpenseCats = categoryBreakdown(filtered, prev, 'expense', catMap, toBase)
     const incomeCats = categoryBreakdown(filtered, range, 'income', catMap, toBase)
@@ -70,19 +78,22 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     const largest = largestTransactions(filtered, range, toBase, 5)
     const fixed = fixedVsVariable(filtered, range, toBase, fixedCategoryIds, catMap)
     const months = monthlySeries(filtered, range, toBase)
-    const isCurrentMonth = period === 'this'
     const projection = isCurrentMonth ? spendingProjection(filtered, range, today, toBase) : null
-    const week = weekPattern(filtered, range, toBase)
+    // only days that have happened count towards per-day averages
+    const week = weekPattern(filtered, { from: range.from, to: elapsedTo }, toBase)
 
-    // net worth change over the period (from daily snapshots), split into savings vs valuation
+    // Net worth change over the period, split into savings vs valuation. Snapshots are taken at
+    // the end of a day, so the starting point is the last snapshot *before* the period, and
+    // savings are counted only for the days after the start snapshot up to the end snapshot.
     let netWorthChange: { total: ReturnType<typeof d>; fromSavings: ReturnType<typeof d>; start: string; end: string } | null = null
     const snaps = (snapshots ?? []).filter((s) => s.snapshot_date <= range.to)
-    const startSnap = [...snaps].reverse().find((s) => s.snapshot_date <= range.from) ?? snaps.find((s) => s.snapshot_date >= range.from)
+    const startSnap = [...snaps].reverse().find((s) => s.snapshot_date < range.from) ?? snaps.find((s) => s.snapshot_date >= range.from)
     const endSnap = snaps[snaps.length - 1]
     if (startSnap && endSnap && startSnap.snapshot_date < endSnap.snapshot_date && !filters.accountId && !filters.tag) {
-      const a = convert(startSnap.total, startSnap.base_currency, display, rates) ?? d(startSnap.total)
-      const b = convert(endSnap.total, endSnap.base_currency, display, rates) ?? d(endSnap.total)
-      netWorthChange = { total: b.minus(a), fromSavings: totals.net, start: startSnap.snapshot_date, end: endSnap.snapshot_date }
+      const a = convert(startSnap.total, startSnap.base_currency, display, tableAt(startSnap.snapshot_date)) ?? d(startSnap.total)
+      const b = convert(endSnap.total, endSnap.base_currency, display, tableAt(endSnap.snapshot_date)) ?? d(endSnap.total)
+      const saved = periodTotals(filtered, { from: addDaysIso(startSnap.snapshot_date, 1), to: endSnap.snapshot_date }, toBase).net
+      netWorthChange = { total: b.minus(a), fromSavings: saved, start: startSnap.snapshot_date, end: endSnap.snapshot_date }
     }
 
     // budgets over limit (this month only)
@@ -98,8 +109,8 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
 
     const insights = generateInsights({ txs: filtered, range, today, toBase, categories: catMap, fixedCategoryIds, money, isCurrentMonth, netWorthChange, budgetsOver })
     const allTags = Array.from(new Set((txs ?? []).flatMap((t) => t.tags))).sort()
-    const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency)), d(0))
+    const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency, t.date)), d(0))
 
-    return { range, prev, totals, prevTotals, expenseCats, incomeCats, changes, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
-  }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayOrZero, display, rates, between, fmt, today, period, isLoading])
+    return { range, prev, prevCompareTo, totals, prevTotals, expenseCats, incomeCats, changes, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
+  }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
 }

@@ -58,6 +58,9 @@ export function TransactionForm({
   const currency = sub?.currency ?? prefs.lastCurrency ?? 'EGP'
   const toCurrency = toSub?.currency ?? currency
   const crossCurrency = type === 'transfer' && toCurrency !== currency
+  // transactions created by a debt payment, certificate payout or Cloud interest are tied to that record:
+  // amount, account and date are changed there, not here (notes, tags and category stay editable)
+  const linked = Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield'))
 
   useEffect(() => {
     if (!open) return
@@ -92,7 +95,9 @@ export function TransactionForm({
   useEffect(() => {
     if (!crossCurrency || !open) return
     const conv = between(amount || 0, currency, toCurrency)
-    if (conv && (!initial || initial.to_amount == null)) setToAmount(conv.toDecimalPlaces(2).toString())
+    // keep the saved received amount only while both currencies are unchanged; otherwise suggest a fresh one
+    const keepSaved = initial && initial.to_amount != null && initial.to_currency === toCurrency && initial.currency === currency
+    if (conv && !keepSaved) setToAmount(conv.toDecimalPlaces(2).toString())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, currency, toCurrency, crossCurrency, open])
 
@@ -170,10 +175,10 @@ export function TransactionForm({
           <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : 'recurring rule'}.</p>
         )}
 
-        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} />
+        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} disabled={linked} />
 
         <Field label={type === 'transfer' ? 'From' : 'Account'}>
-          <Select value={subId} onChange={(e) => setSubId(e.target.value)}>
+          <Select value={subId} onChange={(e) => setSubId(e.target.value)} disabled={linked}>
             {!activeSubs.length ? <option value="">No accounts yet</option> : null}
             {activeSubs.map((s) => (
               <option key={s.id} value={s.id}>
@@ -209,12 +214,12 @@ export function TransactionForm({
         {type === 'transfer' ? (
           // a transfer between my own accounts has no payee
           <Field label="Date">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
           </Field>
         ) : (
           <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
             <Field label="Date">
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
             </Field>
             <Field label={type === 'income' ? 'From' : 'Paid to'}>
               <Input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Optional" />
