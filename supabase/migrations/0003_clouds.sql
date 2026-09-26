@@ -4,7 +4,9 @@
 -- moves in and out with normal transfers; interest is posted automatically as
 -- income transactions (source = 'yield') by accrue_yield(), which runs from the
 -- nightly job and whenever the app opens.
--- Run AFTER 0001_init.sql.
+-- Run AFTER 0001_init.sql. Safe to run as one transaction (Supabase SQL Editor) and safe to re-run:
+-- the new enum value is only referenced as text or inside function bodies, which PostgreSQL
+-- evaluates later, after the value has been committed.
 -- =============================================================================
 
 alter type public.transaction_source add value if not exists 'yield';
@@ -15,7 +17,11 @@ alter table public.sub_accounts
   add column if not exists yield_since     date;
 
 -- one interest posting per cloud per day
-create unique index if not exists transactions_yield_uniq on public.transactions (sub_account_id, date) where source = 'yield';
+-- Yield postings are the only transactions whose source_id is their own sub-account (recurring,
+-- debt and certificate rows point source_id at the rule/debt/payout). Keying the index on that
+-- avoids referencing the new enum value, which cannot be used until it is committed.
+drop index if exists public.transactions_yield_uniq;
+create unique index transactions_yield_uniq on public.transactions (sub_account_id, date) where source_id = sub_account_id;
 
 -- ---------------------------------------------------------------------------
 -- Post missing interest for every cloud of a user, up to today. Daily clouds
@@ -36,7 +42,7 @@ begin
            for update of sa
   loop
     acc_name := coalesce(s.name, 'Cloud') || ' · ' || s.account_name;
-    select max(date) into last_d from public.transactions where sub_account_id = s.id and source = 'yield';
+    select max(date) into last_d from public.transactions where sub_account_id = s.id and source::text = 'yield';
     if s.yield_frequency = 'daily' then
       -- first posting is the day after yield_since (or after the last posting)
       d := coalesce(last_d, coalesce(s.yield_since, current_date)) + 1;
@@ -46,7 +52,7 @@ begin
         if amt > 0 then
           insert into public.transactions (user_id, type, date, amount, currency, sub_account_id, category_id, notes, source, source_id)
           values (p_user, 'income', d, amt, s.currency, s.id, cat, acc_name || ' daily yield', 'yield', s.id)
-          on conflict (sub_account_id, date) where source = 'yield' do nothing;
+          on conflict (sub_account_id, date) where source_id = sub_account_id do nothing;
           n := n + 1;
         end if;
         d := d + 1;
@@ -62,7 +68,7 @@ begin
           if amt > 0 then
             insert into public.transactions (user_id, type, date, amount, currency, sub_account_id, category_id, notes, source, source_id)
             values (p_user, 'income', d, amt, s.currency, s.id, cat, acc_name || ' monthly yield', 'yield', s.id)
-            on conflict (sub_account_id, date) where source = 'yield' do nothing;
+            on conflict (sub_account_id, date) where source_id = sub_account_id do nothing;
             n := n + 1;
           end if;
         end if;
