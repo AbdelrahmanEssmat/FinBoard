@@ -143,7 +143,7 @@ export function TransactionForm({
       onClose={onClose}
       title={initial ? 'Edit transaction' : type === 'income' ? 'Add income' : type === 'transfer' ? 'Transfer' : 'Add expense'}
       footer={
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {initial ? (
             <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
               <Trash2 className="h-4 w-4 text-negative" />
@@ -206,14 +206,21 @@ export function TransactionForm({
           </Field>
         )}
 
-        <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
+        {type === 'transfer' ? (
+          // a transfer between my own accounts has no payee
           <Field label="Date">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label={type === 'income' ? 'From' : 'Paid to'}>
-            <Input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Optional" />
-          </Field>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
+            <Field label="Date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label={type === 'income' ? 'From' : 'Paid to'}>
+              <Input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Optional" />
+            </Field>
+          </div>
+        )}
         <Field label="Notes">
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
         </Field>

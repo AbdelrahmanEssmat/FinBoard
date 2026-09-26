@@ -92,7 +92,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
       onClose={onClose}
       title={initial ? 'Edit recurring' : 'New recurring'}
       footer={
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {initial ? (
             <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
               <Trash2 className="h-4 w-4 text-negative" />

@@ -31,10 +31,10 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {Object.entries(groups).map(([day, items]) => (
         <section key={day}>
-          {grouped ? <h3 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{dayLabel(day)}</h3> : null}
+          {grouped ? <h3 className="mb-2.5 px-1 text-xs font-semibold uppercase tracking-[0.06em] text-muted">{dayLabel(day)}</h3> : null}
           <Card className="overflow-hidden">
             {items.map((t, i) => {
               const cat = t.category_id ? cats.get(t.category_id) : undefined

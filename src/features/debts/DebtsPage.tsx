@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { HandCoins, Plus, Users } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { ArrowDownLeft, ArrowUpRight, HandCoins, Plus, Users } from 'lucide-react'
+import { Amount, EmptyState, ListRow, PageHeader, StatCard } from '@/components/shared'
 import { Button, Card, Divider, Pill, ProgressBar, Segmented } from '@/components/ui'
 import { formatDate } from '@/domain/format'
 import { DebtForm } from '@/features/debts/components/DebtForm'
@@ -45,14 +45,8 @@ export default function DebtsPage() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4">
-        <Card padded>
-          <div className="text-xs text-muted">Owed to me</div>
-          <Amount value={totals.owedToMe} currency={display} size="lg" className="text-positive" />
-        </Card>
-        <Card padded>
-          <div className="text-xs text-muted">I owe</div>
-          <Amount value={totals.iOwe} currency={display} size="lg" className="text-negative" />
-        </Card>
+        <StatCard label="Owed to me" icon={ArrowDownLeft} iconClass="text-positive" value={<Amount value={totals.owedToMe} currency={display} className="text-positive" />} />
+        <StatCard label="I owe" icon={ArrowUpRight} iconClass="text-negative" value={<Amount value={totals.iOwe} currency={display} className="text-negative" />} />
       </div>
 
       <Segmented className="mb-6" value={tab} onChange={(t) => setParams({ tab: t })} options={[{ value: 'owed_to_me', label: 'Owed to me' }, { value: 'i_owe', label: 'I owe' }, { value: 'people', label: 'People' }]} />

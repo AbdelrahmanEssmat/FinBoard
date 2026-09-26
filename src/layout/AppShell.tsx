@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <TopBar />
         <OfflineBanner online={online} pending={pending} />
 
-        <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-3 md:px-10 md:pb-12 md:pt-10">{children}</main>
+        <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 md:px-10 md:pb-12 md:pt-10">{children}</main>
 
         {location.pathname !== '/more' && !keyboardOpen ? (
           <button

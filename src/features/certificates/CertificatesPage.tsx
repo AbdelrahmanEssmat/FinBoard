@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Percent, Plus } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Amount, EmptyState, ListRow, PageHeader, SectionTitle, StatCard } from '@/components/shared'
 import { Button, Card, Divider, Pill } from '@/components/ui'
 import { useAccounts, useCertificates, usePayouts } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
@@ -47,14 +47,8 @@ export default function CertificatesPage() {
       ) : (
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-4">
-            <Card padded>
-              <div className="text-xs text-muted">Invested</div>
-              <Amount value={total} currency={display} size="lg" />
-            </Card>
-            <Card padded>
-              <div className="text-xs text-muted">Interest / month</div>
-              <Amount value={monthlyIncome} currency={display} size="lg" className="text-positive" />
-            </Card>
+            <StatCard label="Invested" value={<Amount value={total} currency={display} />} />
+            <StatCard label="Interest / month" value={<Amount value={monthlyIncome} currency={display} className="text-positive" />} />
           </div>
           {pendingDue ? <div className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">{pendingDue} payout{pendingDue > 1 ? 's' : ''} waiting to be logged.</div> : null}
           <div>

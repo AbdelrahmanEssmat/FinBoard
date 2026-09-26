@@ -13,6 +13,7 @@ export function Card({ className, children, padded, ...rest }: HTMLAttributes<HT
   )
 }
 
+/** Hairline between rows. Above an icon row it is inset to align with the row's text (CSS in styles/index.css). */
 export function Divider({ className }: { className?: string }) {
-  return <div className={cn('mx-5 h-px bg-border', className)} />
+  return <div className={cn('divider mx-5 h-px bg-border', className)} />
 }

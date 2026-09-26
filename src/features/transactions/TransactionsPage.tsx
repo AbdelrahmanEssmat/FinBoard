@@ -133,7 +133,7 @@ export default function TransactionsPage() {
         <TransactionList transactions={filtered} onSelect={setEdit} emptyText={activeFilters || filters.text ? 'No transactions match these filters.' : `Nothing recorded in ${monthLabel} yet.`} />
       )}
 
-      <Sheet open={showFilters} onClose={() => setShowFilters(false)} title="Filters" footer={<div className="flex gap-2"><Button variant="secondary" size="lg" onClick={() => setFilters(EMPTY)}>Clear</Button><Button full size="lg" onClick={() => setShowFilters(false)}>Done</Button></div>}>
+      <Sheet open={showFilters} onClose={() => setShowFilters(false)} title="Filters" footer={<div className="flex gap-3"><Button variant="secondary" size="lg" onClick={() => setFilters(EMPTY)}>Clear</Button><Button full size="lg" onClick={() => setShowFilters(false)}>Done</Button></div>}>
         <div className="space-y-5">
           <Select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value as Filters['type'] })}>
             <option value="">All types</option>

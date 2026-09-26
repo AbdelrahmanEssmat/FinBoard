@@ -73,7 +73,7 @@ export function HoldingForm({ open, onClose, initial }: { open: boolean; onClose
       onClose={onClose}
       title={initial ? 'Edit holding' : 'New holding'}
       footer={
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {initial ? (
             <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
               <Trash2 className="h-4 w-4 text-negative" />

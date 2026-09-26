@@ -64,21 +64,13 @@ export default function AccountsPage() {
 
 function AccountRow({ account, onClick }: { account: AccountWithBalances; onClick: () => void }) {
   const { display } = useAccountsWithBalances()
-  const multi = account.subs.length > 1 || (account.subs[0] && account.subs[0].currency !== display)
   return (
     <ListRow
       icon={iconFor(account.icon)}
       color={account.color}
       title={account.name}
-      subtitle={
-        multi ? (
-          <span className="flex flex-wrap gap-x-2">
-            {account.subs.map((s) => (
-              <Amount key={s.id} value={s.balance} currency={s.currency} size="sm" />
-            ))}
-          </span>
-        ) : undefined
-      }
+      // what the account holds, e.g. "EGP · USD" or "Cash balance · Daily Cloud"; amounts live on the right and in the detail page
+      subtitle={account.subs.map((s) => s.name || s.currency).join(' · ') || undefined}
       trailing={<Amount value={account.total} currency={display} className="font-semibold" />}
       chevron
       onClick={onClick}

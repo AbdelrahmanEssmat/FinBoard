@@ -135,6 +135,11 @@ select,
   touch-action: manipulation;
 }
 
+/* List dividers above icon rows start where the text starts (20px padding + 40px icon + 14px gap) */
+.divider:has(+ [data-icon-row]) {
+  margin-left: 4.625rem;
+}
+
 /* Tabular numbers for amounts */
 .tnum {
   font-variant-numeric: tabular-nums;
