@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* "dark:" utilities apply to both the dark and the dim theme */
+@custom-variant dark (&:where(.dark, .dark *, .dim, .dim *));
 
 /* ------------------------------------------------------------------ */
 /* Design tokens                                                       */
@@ -56,6 +57,27 @@
   --color-warning-soft: #45361a;
   --color-gold: #f5c542;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
+/* dim: halfway between light and dark, a soft blue-grey for evenings */
+.dim {
+  --color-bg: #2b3140;
+  --color-surface: #353c4d;
+  --color-surface-2: #404859;
+  --color-border: #4d5668;
+  --color-text: #f2f4f8;
+  --color-muted: #b9c1cf;
+  --color-faint: #8f99ac;
+  --color-accent: #82a8ff;
+  --color-accent-soft: #3a4a6d;
+  --color-positive: #63e2a0;
+  --color-positive-soft: #2f5041;
+  --color-negative: #ff9191;
+  --color-negative-soft: #5a3a3e;
+  --color-warning: #ffd166;
+  --color-warning-soft: #55482b;
+  --color-gold: #ffd659;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 20px rgba(0, 0, 0, 0.16);
 }
 
 /* ------------------------------------------------------------------ */
