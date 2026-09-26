@@ -8,6 +8,8 @@ import pkg from './package.json' with { type: 'json' }
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // Expose SUPABASE_* as well as VITE_* so either naming works on the hosting provider.
+  envPrefix: ['VITE_', 'SUPABASE_'],
   plugins: [
     react(),
     tailwindcss(),

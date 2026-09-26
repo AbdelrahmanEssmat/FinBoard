@@ -18,8 +18,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the design and data model.
 
 1. supabase.com → **New project**. Pick a name, a strong database password and the region closest to you (Frankfurt `eu-central-1` is a good choice from Egypt).
 2. Wait for it to provision, then open **Project Settings → API** and copy:
-   - **Project URL** → `VITE_SUPABASE_URL`
-   - **anon public** key → `VITE_SUPABASE_ANON_KEY`
+   - **Project URL** → `SUPABASE_URL`
+   - **anon public** key → `SUPABASE_ANON_KEY`
    - **service_role** key → keep secret; used only by the scheduled jobs (never in the app)
 3. **Authentication → Providers → Email**: keep Email enabled. If you want to sign in without confirming an email, turn **Confirm email** off (it is only you). Under **Authentication → URL Configuration**, set *Site URL* to your future app URL (e.g. `https://finance-yourname.vercel.app`) and add it to *Redirect URLs* — needed for magic links.
 4. **SQL Editor → New query**: paste the whole of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and **Run**. This creates all tables, triggers, functions and Row Level Security policies. It also creates your starter categories, currencies and a Cash + Thndr account the first time you sign in.
@@ -92,7 +92,7 @@ Exchange rates: [ExchangeRate-API open endpoint](https://www.exchangerate-api.co
    git push -u origin main
    ```
 2. vercel.com → **Add New → Project** → import the repo. Framework preset: **Vite** (detected automatically). Build command `npm run build`, output `dist`.
-3. **Environment Variables**: add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Production + Preview).
+3. **Environment Variables**: add `SUPABASE_URL` and `SUPABASE_ANON_KEY` (Production + Preview).
 4. **Deploy**. Your app is at `https://<project>.vercel.app`. Put that URL into Supabase → Authentication → URL Configuration (Site URL + Redirect URLs).
 
 **Option B – from your laptop**

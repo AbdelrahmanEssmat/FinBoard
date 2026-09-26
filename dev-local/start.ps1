@@ -46,4 +46,4 @@ if (-not $proxy) {
 }
 Start-Sleep -Seconds 2
 Write-Host "Local stack ready: http://127.0.0.1:54321  (login with test@local.test / any password)"
-Write-Host "Put in .env:  VITE_SUPABASE_URL=http://127.0.0.1:54321  VITE_SUPABASE_ANON_KEY=local"
+Write-Host "Put in .env:  SUPABASE_URL=http://127.0.0.1:54321  SUPABASE_ANON_KEY=local"

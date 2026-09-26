@@ -57,7 +57,7 @@ export default function LoginPage() {
 
         {!isConfigured ? (
           <div className="rounded-2xl bg-warning-soft p-4 text-sm text-warning">
-            The app is not connected to Supabase yet. Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to your environment and rebuild.
+            The app is not connected to Supabase yet. Add <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> to your environment and rebuild.
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4 rounded-3xl bg-surface p-5 shadow-[var(--shadow-card)]">
