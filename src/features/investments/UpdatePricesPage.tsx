@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button, Card, Divider, Input } from '@/components/ui'
@@ -12,7 +12,9 @@ import { cn } from '@/utils'
 /** Edit every holding's current price on one screen. */
 export default function UpdatePricesPage() {
   const navigate = useNavigate()
-  const { data: holdings } = useHoldings()
+  const { data: all } = useHoldings()
+  // sold-out holdings have no price to track
+  const holdings = useMemo(() => all?.filter((h) => d(h.units).gt(0)), [all])
   // partial update: only the price columns change (an upsert would need every required column)
   const upsert = useUpdateRows('holdings', { silent: true })
   const [prices, setPrices] = useState<Record<string, string>>({})

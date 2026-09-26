@@ -31,10 +31,12 @@ if (-not $failed) {
   $old = & $psql @common -d $db -tA -v ON_ERROR_STOP=1 -f "$dev\smoke.sql" 2>&1
   if ($LASTEXITCODE -ne 0) { Write-Host 'smoke.sql FAILED'; $old | Select-String 'ERROR' | Write-Host; $failed = $true } else { Write-Host 'smoke.sql OK' }
 }
-if (-not $failed) {
-  $out = & $psql @common -d $db -v ON_ERROR_STOP=1 -f "$dev\smoke-0004.sql" 2>&1
-  $out | ForEach-Object { "$_" } | Select-String -Pattern 'PASS|FAIL|ERROR|ALL 0004' | ForEach-Object { $_.Line -replace '^.*?(PASS|FAIL|ERROR|ALL)', '$1' }
-  if ($LASTEXITCODE -ne 0) { $failed = $true }
+foreach ($smoke in Get-ChildItem "$dev\smoke-0*.sql" | Sort-Object Name) {
+  if ($failed) { break }
+  $out = & $psql @common -d $db -v ON_ERROR_STOP=1 -f $smoke.FullName 2>&1
+  $code = $LASTEXITCODE
+  $out | ForEach-Object { "$_" } | Select-String -Pattern 'PASS|FAIL|ERROR|ALL 0' | ForEach-Object { $_.Line -replace '^.*?(PASS|FAIL|ERROR|ALL)', '$1' }
+  if ($code -ne 0) { $failed = $true }
 }
 & $psql @common -q -c "drop database if exists $db" 2>$null | Out-Null
 if ($failed) { Write-Host 'SQL TESTS FAILED'; exit 1 } else { Write-Host 'SQL TESTS PASSED' }

@@ -4,7 +4,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'other'
 export type TransactionType = 'income' | 'expense' | 'transfer'
-export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield'
+export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment'
 export type CategoryKind = 'income' | 'expense'
 export type PayoutFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'at_maturity'
 export type PayoutStatus = 'pending' | 'logged' | 'skipped'
@@ -212,9 +212,35 @@ export type Holding = {
   current_price: number
   currency: string
   price_updated_at: string | null
+  /** first purchase date, for the holding period */
+  bought_at: string | null
+  /** set when every unit has been sold */
+  closed_at: string | null
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+export type HoldingSale = {
+  id: string
+  user_id: string
+  holding_id: string
+  date: string
+  units: number
+  /** per unit */
+  sell_price: number
+  fees: number
+  /** buy price per unit at the time of the sale */
+  avg_cost: number
+  cost_basis: number
+  proceeds: number
+  realized: number
+  currency: string
+  bought_at: string | null
+  sub_account_id: string | null
+  transaction_id: string | null
+  notes: string | null
+  created_at: string
 }
 
 export type GoldItem = {
@@ -323,6 +349,7 @@ export type Database = {
       certificate_payouts: TableDef<CertificatePayout>
       investment_categories: TableDef<InvestmentCategory>
       holdings: TableDef<Holding>
+      holding_sales: TableDef<HoldingSale>
       gold_items: TableDef<GoldItem>
       gold_prices: TableDef<GoldPrice>
       contacts: TableDef<Contact>
@@ -336,6 +363,10 @@ export type Database = {
       compute_net_worth: { Args: { p_user: string; p_base: string; p_date?: string }; Returns: Json }
       post_due_recurring: { Args: { p_user?: string }; Returns: number }
       accrue_yield: { Args: { p_user?: string }; Returns: number }
+      sell_holding: {
+        Args: { p_holding_id: string; p_units: number | string; p_price: number | string; p_date: string; p_fees?: number | string; p_sub_account_id?: string | null; p_notes?: string | null; p_sale_id?: string; p_transaction_id?: string }
+        Returns: string
+      }
       process_certificate_payouts: { Args: { p_user?: string }; Returns: number }
       log_certificate_payout: { Args: { p_payout_id: string; p_sub_account_id?: string | null; p_transaction_id?: string }; Returns: string }
       record_debt_payment: {

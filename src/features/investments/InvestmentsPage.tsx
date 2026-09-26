@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { Button, Card, Divider } from '@/components/ui'
 import { Amount, ListRow, PageHeader, Section } from '@/components/shared'
-import { useHoldings, useInvestmentCategories } from '@/api/queries'
+import { useHoldingSales, useHoldings, useInvestmentCategories } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
-import { formatPercent } from '@/domain/format'
+import { formatDate, formatPercent } from '@/domain/format'
 import { relativeTime } from '@/utils'
 import { HoldingForm } from '@/features/investments/components/HoldingForm'
 import { InvestmentCategoriesSheet } from '@/features/investments/components/InvestmentCategoriesSheet'
 import { CloudsSection } from '@/features/investments/components/CloudsSection'
+import { SellHoldingSheet } from '@/features/investments/components/SellHoldingSheet'
+import { PerformanceSection } from '@/features/investments/components/PerformanceSection'
 import { useClouds } from '@/features/investments/useClouds'
 import type { Holding } from '@/api/database.types'
 
@@ -18,27 +20,32 @@ export default function InvestmentsPage() {
   const navigate = useNavigate()
   const { data: holdings } = useHoldings()
   const { data: categories } = useInvestmentCategories()
+  const { data: sales } = useHoldingSales()
   const { toDisplayOrZero, display } = useConvert()
   const clouds = useClouds()
   const [form, setForm] = useState<{ open: boolean; item?: Holding | null }>({ open: false })
   const [cats, setCats] = useState(false)
+  const [selling, setSelling] = useState<Holding | null>(null)
+  // sold-out holdings leave the lists; their results live in Performance and Sales history
+  const open = useMemo(() => (holdings ?? []).filter((h) => d(h.units).gt(0)), [holdings])
+  const closed = useMemo(() => (holdings ?? []).filter((h) => !d(h.units).gt(0)), [holdings])
 
   const rows = useMemo(
     () =>
-      (holdings ?? []).map((h) => {
+      open.map((h) => {
         const value = d(h.units).times(d(h.current_price))
         const cost = d(h.units).times(d(h.avg_cost))
         const pl = value.minus(cost)
         return { h, value, cost, pl, plPct: cost.isZero() ? null : pl.div(cost).times(100), valueDisplay: toDisplayOrZero(value, h.currency), costDisplay: toDisplayOrZero(cost, h.currency) }
       }),
-    [holdings, toDisplayOrZero],
+    [open, toDisplayOrZero],
   )
   const holdingsValue = rows.reduce((a, r) => a.plus(r.valueDisplay), d(0))
   const holdingsCost = rows.reduce((a, r) => a.plus(r.costDisplay), d(0))
   const holdingsPl = holdingsValue.minus(holdingsCost)
   // what this page lists: holdings plus Clouds (uninvested cash on a platform counts under Accounts)
   const total = holdingsValue.plus(clouds.total)
-  const lastUpdate = (holdings ?? []).map((h) => h.price_updated_at).filter(Boolean).sort().pop() ?? null
+  const lastUpdate = open.map((h) => h.price_updated_at).filter(Boolean).sort().pop() ?? null
   const groups = (categories ?? []).map((c) => ({ c, rows: rows.filter((r) => r.h.category_id === c.id) })).filter((g) => g.rows.length)
   const uncategorised = rows.filter((r) => !r.h.category_id || !categories?.some((c) => c.id === r.h.category_id))
 
@@ -93,10 +100,12 @@ export default function InvestmentsPage() {
 
         <CloudsSection />
 
+        <PerformanceSection holdings={holdings ?? []} sales={sales ?? []} categories={categories ?? []} />
+
         {!rows.length ? (
           <Section title="Holdings">
             <Card padded className="text-sm leading-relaxed text-muted">
-              No stocks or funds yet. Add your Thndr holdings with units, average cost and the latest price to track profit and loss.
+              {closed.length ? 'Everything has been sold. Add a new stock or fund to keep tracking.' : 'No stocks or funds yet. Add a fund or stock with its units, buy price and the latest price to track profit and loss, then sell it here to see what you made.'}
               <div className="mt-3">
                 <Button size="sm" variant="soft" onClick={() => setForm({ open: true, item: null })}>
                   Add holding
@@ -135,8 +144,35 @@ export default function InvestmentsPage() {
             </Section>
           ))
         )}
+
+        {closed.length ? (
+          <Section title="Closed positions">
+            <Card className="overflow-hidden">
+              {closed.map((h, i) => (
+                <div key={h.id}>
+                  {i > 0 ? <Divider /> : null}
+                  <ListRow
+                    title={h.name}
+                    subtitle={h.closed_at ? `Sold out · ${formatDate(h.closed_at)}` : 'No units left'}
+                    trailing={<span className="text-xs text-muted">Edit</span>}
+                    onClick={() => setForm({ open: true, item: h })}
+                  />
+                </div>
+              ))}
+            </Card>
+          </Section>
+        ) : null}
       </div>
-      <HoldingForm open={form.open} onClose={() => setForm({ open: false })} initial={form.item ?? null} />
+      <HoldingForm
+        open={form.open}
+        onClose={() => setForm({ open: false })}
+        initial={form.item ?? null}
+        onSell={(h) => {
+          setForm({ open: false })
+          setSelling(h)
+        }}
+      />
+      <SellHoldingSheet open={!!selling} holding={selling} onClose={() => setSelling(null)} />
       <InvestmentCategoriesSheet open={cats} onClose={() => setCats(false)} />
     </div>
   )

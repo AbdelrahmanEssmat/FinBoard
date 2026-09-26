@@ -60,6 +60,8 @@ export const usePayouts = (o?: Opts<Row<'certificate_payouts'>>) =>
 export const useInvestmentCategories = (o?: Opts<Row<'investment_categories'>>) =>
   useQuery({ ...tableQuery('investment_categories', [{ column: 'sort_order' }]), ...o })
 export const useHoldings = (o?: Opts<Row<'holdings'>>) => useQuery({ ...tableQuery('holdings', [{ column: 'name' }]), ...o })
+export const useHoldingSales = (o?: Opts<Row<'holding_sales'>>) =>
+  useQuery({ ...tableQuery('holding_sales', [{ column: 'date', ascending: false }, { column: 'created_at', ascending: false }]), ...o })
 export const useGoldItems = (o?: Opts<Row<'gold_items'>>) =>
   useQuery({ ...tableQuery('gold_items', [{ column: 'purchase_date', ascending: false }]), ...o })
 export const useGoldPrices = (o?: Opts<Row<'gold_prices'>>) =>
@@ -116,6 +118,6 @@ export function useYieldTransactions() {
 
 export const ALL_TABLES: TableName[] = [
   'currencies', 'settings', 'exchange_rates', 'accounts', 'sub_accounts', 'categories', 'tags', 'transactions',
-  'recurring_transactions', 'budgets', 'certificates', 'certificate_payouts', 'investment_categories', 'holdings',
+  'recurring_transactions', 'budgets', 'certificates', 'certificate_payouts', 'investment_categories', 'holdings', 'holding_sales',
   'gold_items', 'gold_prices', 'contacts', 'debts', 'debt_payments', 'net_worth_snapshots',
 ]

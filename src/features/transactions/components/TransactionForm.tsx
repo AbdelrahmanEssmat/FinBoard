@@ -60,7 +60,7 @@ export function TransactionForm({
   const crossCurrency = type === 'transfer' && toCurrency !== currency
   // transactions created by a debt payment, certificate payout or Cloud interest are tied to that record:
   // amount, account and date are changed there, not here (notes, tags and category stay editable)
-  const linked = Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield'))
+  const linked = Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield' || initial.source === 'investment'))
 
   useEffect(() => {
     if (!open) return
@@ -172,7 +172,7 @@ export function TransactionForm({
             ]}
           />
         ) : (
-          <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : 'recurring rule'}.</p>
+          <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : initial.source === 'investment' ? 'investment sale' : 'recurring rule'}.</p>
         )}
 
         <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} disabled={linked} />

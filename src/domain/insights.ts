@@ -33,14 +33,16 @@ export type ToBase = (amount: NumericInput, currency: string, date: string) => D
 const inRange = (t: TxLike, r: DateRange) => t.date >= r.from && t.date <= r.to
 
 /**
- * Real income / spending. Money borrowed or lent (and repayments) moves cash but is not
- * earned or spent, so debt transactions are excluded, as are transfers between own accounts.
+ * Real income / spending. Money borrowed or lent (and repayments) and money coming back from
+ * selling an investment move cash but are not earned or spent, so they are excluded, as are
+ * transfers between own accounts. (Investment profit is reported with the investments.)
  */
+const NOT_FLOW = new Set(['debt', 'investment'])
 export function isIncome(t: Pick<TxLike, 'type' | 'source'>): boolean {
-  return t.type === 'income' && t.source !== 'debt'
+  return t.type === 'income' && !NOT_FLOW.has(t.source ?? '')
 }
 export function isExpense(t: Pick<TxLike, 'type' | 'source'>): boolean {
-  return t.type === 'expense' && t.source !== 'debt'
+  return t.type === 'expense' && !NOT_FLOW.has(t.source ?? '')
 }
 const ZERO = () => d(0)
 
