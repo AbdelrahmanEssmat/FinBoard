@@ -11,6 +11,7 @@ import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import type { Transaction, TransactionType } from '@/api/database.types'
 import { CategoryPicker } from '@/features/categories/components/CategoryPicker'
+import { DEFAULT_CURRENCY, defaultFirst } from '@/domain/currency'
 
 export function TransactionForm({
   open,
@@ -55,7 +56,7 @@ export function TransactionForm({
 
   const sub = activeSubs.find((s) => s.id === subId) ?? subs?.find((s) => s.id === subId)
   const toSub = activeSubs.find((s) => s.id === toSubId)
-  const currency = sub?.currency ?? prefs.lastCurrency ?? 'EGP'
+  const currency = sub?.currency ?? DEFAULT_CURRENCY
   const toCurrency = toSub?.currency ?? currency
   const crossCurrency = type === 'transfer' && toCurrency !== currency
   // transactions created by a debt payment, certificate payout or Cloud interest are tied to that record:
@@ -78,9 +79,14 @@ export function TransactionForm({
     } else {
       setType(defaultType)
       setAmount('')
-      const preferred = activeSubs.find((s) => s.id === presetSubAccountId) ?? activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.id !== presetToSubAccountId) ?? activeSubs.find((s) => s.id !== presetToSubAccountId)
+      // default to an EGP balance: the last one used if it is EGP, else the first EGP balance
+      const ordered = defaultFirst(activeSubs)
+      const preferred =
+        activeSubs.find((s) => s.id === presetSubAccountId) ??
+        activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.currency === DEFAULT_CURRENCY && s.id !== presetToSubAccountId) ??
+        ordered.find((s) => s.id !== presetToSubAccountId)
       setSubId(preferred?.id ?? '')
-      setToSubId(presetToSubAccountId ?? activeSubs.find((s) => s.id !== preferred?.id)?.id ?? '')
+      setToSubId(presetToSubAccountId ?? ordered.find((s) => s.id !== preferred?.id)?.id ?? '')
       setToAmount('')
       setCategoryId(defaultType === 'income' ? prefs.lastIncomeCategoryId : prefs.lastExpenseCategoryId)
       setDate(todayIso())

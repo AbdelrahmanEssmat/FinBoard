@@ -5,7 +5,7 @@
  *   realized profit/loss = proceeds − cost basis.
  */
 import { d, Decimal, roundMoney, type NumericInput } from '@/domain/money'
-import { daysBetween } from '@/utils/dates'
+import { daysBetween, toIsoDate } from '@/utils/dates'
 
 export interface HoldingLike {
   id: string
@@ -191,4 +191,9 @@ export function performanceSummary<S extends SaleLike>(
     avgHoldingDays: daysCount ? Math.round(daysSum / daysCount) : null,
     byCategory: [...cat.values()].sort((a, b) => b.realized.plus(b.unrealized).comparedTo(a.realized.plus(a.unrealized))),
   }
+}
+
+/** True when a price was entered or confirmed today (on this device's calendar). */
+export function isPriceFresh(updatedAt: string | null | undefined, today: string = toIsoDate(new Date())): boolean {
+  return !!updatedAt && toIsoDate(new Date(updatedAt)) === today
 }

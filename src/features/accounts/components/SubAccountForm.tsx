@@ -5,6 +5,7 @@ import { useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
 import { toDb } from '@/domain/money'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export interface SubAccountFormValue {
   id: string
@@ -19,14 +20,14 @@ export function SubAccountForm({ open, onClose, accountId, initial, onDelete }: 
   const currencies = useActiveCurrencies()
   const upsert = useUpsert('sub_accounts')
   const [confirm, setConfirm] = useState(false)
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [label, setLabel] = useState('')
   const [opening, setOpening] = useState('')
   const [archived, setArchived] = useState(false)
 
   useEffect(() => {
     if (!open) return
-    setCurrency(initial?.currency ?? currencies[0]?.code ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setLabel(initial?.name ?? '')
     setOpening(initial ? String(initial.opening_balance) : '')
     setArchived(initial?.is_archived ?? false)

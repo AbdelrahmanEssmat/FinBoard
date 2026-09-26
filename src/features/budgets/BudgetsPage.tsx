@@ -11,6 +11,7 @@ import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { iconFor } from '@/utils/icons'
 import type { Budget } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export default function BudgetsPage() {
   const { data: budgets } = useBudgets()
@@ -113,7 +114,7 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
   const remove = useUndoableDelete('budgets', { label: 'Budget' })
   const [categoryId, setCategoryId] = useState('')
   const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [confirm, setConfirm] = useState(false)
   const available = (categories ?? []).filter((c) => c.kind === 'expense' && !c.parent_id && !c.is_archived && (c.id === initial?.category_id || !budgets?.some((b) => b.category_id === c.id)))
 
@@ -121,7 +122,7 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
     if (!open) return
     setCategoryId(initial?.category_id ?? available[0]?.id ?? '')
     setAmount(initial ? String(initial.amount) : '')
-    setCurrency(initial?.currency ?? currencies[0]?.code ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial])
 

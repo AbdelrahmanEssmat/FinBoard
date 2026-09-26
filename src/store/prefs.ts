@@ -8,7 +8,7 @@ export const THEME_COLORS: Record<'light' | 'mid' | 'dark', string> = { light: '
 interface Prefs {
   privacy: boolean
   theme: ThemePref
-  /** Display currency override; null = settings.base_currency */
+  /** Display currency override for this session only; every launch starts in the base currency (EGP) */
   displayCurrency: string | null
   lastSubAccountId: string | null
   lastCurrency: string | null
@@ -37,7 +37,13 @@ export const usePrefs = create<Prefs>()(
       setDisplayCurrency: (displayCurrency) => set({ displayCurrency }),
       remember: (p) => set(p),
     }),
-    { name: 'finance-prefs' },
+    {
+      name: 'finance-prefs',
+      // the top currency switch is a temporary view: don't carry it into the next launch
+      partialize: ({ displayCurrency: _session, ...rest }) => rest,
+      // ...and ignore one saved by an older version
+      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<Prefs>), displayCurrency: null }),
+    },
   ),
 )
 

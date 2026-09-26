@@ -10,6 +10,7 @@ import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
 import type { Debt, DebtDirection, Recurrence } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export function DebtForm({ open, onClose, direction, initial }: { open: boolean; onClose: () => void; direction: DebtDirection; initial?: Debt | null }) {
   const { data: contacts } = useContacts()
@@ -27,7 +28,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const [contactId, setContactId] = useState('')
   const [newContact, setNewContact] = useState('')
   const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [date, setDate] = useState(todayIso())
   const [dueDate, setDueDate] = useState('')
   const [reason, setReason] = useState('')
@@ -46,7 +47,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     setContactId(initial?.contact_id ?? contacts?.[0]?.id ?? '')
     setNewContact('')
     setAmount(initial ? String(initial.amount) : '')
-    setCurrency(initial?.currency ?? prefs.lastCurrency ?? currencies[0]?.code ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setDate(initial?.date ?? todayIso())
     setDueDate(initial?.due_date ?? '')
     setReason(initial?.reason ?? '')

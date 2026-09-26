@@ -11,6 +11,7 @@ import { todayIso } from '@/domain/format'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
 import { CategoryPicker } from '@/features/categories/components/CategoryPicker'
 import type { Recurrence, RecurringTransaction, TransactionType } from '@/api/database.types'
+import { DEFAULT_CURRENCY, defaultFirst } from '@/domain/currency'
 
 export function RecurringForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: RecurringTransaction | null }) {
   const { data: subs } = useSubAccounts()
@@ -41,7 +42,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
     setName(initial?.name ?? '')
     setType(initial?.type ?? 'expense')
     setAmount(initial ? String(initial.amount) : '')
-    setSubId(initial?.sub_account_id ?? activeSubs[0]?.id ?? '')
+    setSubId(initial?.sub_account_id ?? defaultFirst(activeSubs)[0]?.id ?? '')
     setToSubId(initial?.to_sub_account_id ?? '')
     setToAmount(initial?.to_amount != null ? String(initial.to_amount) : '')
     setCategoryId(initial?.category_id ?? null)
@@ -56,7 +57,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
 
   const sub = activeSubs.find((s) => s.id === subId)
   const toSub = activeSubs.find((s) => s.id === toSubId)
-  const currency = sub?.currency ?? 'EGP'
+  const currency = sub?.currency ?? DEFAULT_CURRENCY
   const cross = type === 'transfer' && toSub && toSub.currency !== currency
   const valid = name.trim() && d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId))
   const label = (s: (typeof activeSubs)[number]) => `${accMap.get(s.account_id)?.name ?? ''} · ${s.currency}${s.name ? ' · ' + s.name : ''}`

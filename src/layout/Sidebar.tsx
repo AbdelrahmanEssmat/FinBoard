@@ -3,6 +3,7 @@ import { Eye, EyeOff, Plus, Search } from 'lucide-react'
 import { usePrefs } from '@/store/prefs'
 import { cn } from '@/utils'
 import { CurrencyToggle } from '@/layout/CurrencyToggle'
+import { Brand } from '@/components/shared'
 import { SIDEBAR_EXTRA, TABS } from '@/layout/nav'
 
 export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
@@ -11,10 +12,9 @@ export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
   const items = [...TABS.filter((t) => t.to !== '/more'), ...SIDEBAR_EXTRA]
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:sticky md:top-0 md:flex md:h-dvh">
-      <div className="px-6 pb-5 pt-7">
-        <div className="text-lg font-semibold tracking-tight">FinBoard</div>
-        <div className="text-xs text-muted">Net worth &amp; spending</div>
-      </div>
+      <NavLink to="/" className="block px-5 pb-6 pt-7" aria-label="FinBoard home">
+        <Brand />
+      </NavLink>
       <div className="px-4">
         <button onClick={onQuickAdd} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent text-[15px] font-medium text-white shadow-sm hover:brightness-110">
           <Plus className="h-4 w-4" /> Add

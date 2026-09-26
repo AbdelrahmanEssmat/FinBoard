@@ -225,6 +225,15 @@ input[type='number']::-webkit-outer-spin-button {
   animation: fade-in 180ms ease-out backwards;
 }
 
+/* Brand wordmark: "Board" in the accent colour fading to violet (follows each theme's accent) */
+.brand-gradient-text {
+  background-image: linear-gradient(100deg, var(--color-accent) 10%, color-mix(in oklab, var(--color-accent) 45%, #a855f7) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.04em; /* keeps the last letter from being clipped */
+}
+
 /* Net-worth trend chart: the line draws itself in, the fill fades up behind it, today's point pulses */
 @keyframes trend-draw {
   from {

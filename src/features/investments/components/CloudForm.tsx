@@ -9,6 +9,7 @@ import { d, toDb } from '@/domain/money'
 import { effectiveAnnualRate, projectedMonthlyYield, type YieldFrequency } from '@/domain/yield'
 import { todayIso } from '@/domain/format'
 import type { SubAccount } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 const PRESETS: { label: string; rate: string; frequency: YieldFrequency }[] = [
   { label: 'Thndr Monthly Cloud · 20.29%', rate: '20.29', frequency: 'monthly' },
@@ -26,7 +27,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
 
   const [accountId, setAccountId] = useState('')
   const [name, setName] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [rate, setRate] = useState('')
   const [frequency, setFrequency] = useState<YieldFrequency>('monthly')
   const [since, setSince] = useState(todayIso())
@@ -38,7 +39,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
     if (!open) return
     setAccountId(initial?.account_id ?? platforms[0]?.id ?? others[0]?.id ?? '')
     setName(initial?.name ?? 'Monthly Cloud')
-    setCurrency(initial?.currency ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setRate(initial?.yield_rate != null ? String(initial.yield_rate) : '20.29')
     setFrequency(initial?.yield_frequency === 'daily' ? 'daily' : 'monthly')
     setSince(initial?.yield_since ?? todayIso())

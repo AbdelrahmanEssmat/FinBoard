@@ -10,6 +10,7 @@ import { d } from '@/domain/money'
 import { formatPercent, todayIso } from '@/domain/format'
 import { openPosition } from '@/domain/investments'
 import type { Holding } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 type EntryMode = 'unit' | 'total'
 
@@ -38,7 +39,7 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
   const [totalPaid, setTotalPaid] = useState('')
   const [totalNow, setTotalNow] = useState('')
   const [boughtAt, setBoughtAt] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [notes, setNotes] = useState('')
   const [confirm, setConfirm] = useState(false)
 
@@ -55,7 +56,7 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
     setTotalPaid('')
     setTotalNow('')
     setBoughtAt(initial ? (initial.bought_at ?? '') : todayIso())
-    setCurrency(initial?.currency ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setNotes(initial?.notes ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial])

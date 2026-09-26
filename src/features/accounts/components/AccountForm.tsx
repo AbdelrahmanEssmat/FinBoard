@@ -6,6 +6,7 @@ import { newId } from '@/utils/ids'
 import { toDb } from '@/domain/money'
 import type { Account, AccountType } from '@/api/database.types'
 import { ACCOUNT_TYPE_LABELS } from '@/features/accounts/useAccountsWithBalances'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 const DEFAULT_ICON: Record<AccountType, string> = { bank: 'landmark', cash: 'wallet', investment: 'trending-up', wallet: 'smartphone', other: 'coins' }
 
@@ -20,7 +21,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
   const [icon, setIcon] = useState('landmark')
   const [notes, setNotes] = useState('')
   const [archived, setArchived] = useState(false)
-  const [firstCurrency, setFirstCurrency] = useState('EGP')
+  const [firstCurrency, setFirstCurrency] = useState(DEFAULT_CURRENCY)
   const [opening, setOpening] = useState('')
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
     setIcon(initial?.icon ?? 'landmark')
     setNotes(initial?.notes ?? '')
     setArchived(initial?.is_archived ?? false)
-    setFirstCurrency(currencies[0]?.code ?? 'EGP')
+    setFirstCurrency(DEFAULT_CURRENCY)
     setOpening('')
   }, [open, initial, currencies])
 

@@ -10,6 +10,7 @@ import { d, toDb } from '@/domain/money'
 import { PAYOUT_LABELS, payoutAmount, payoutSchedule } from '@/domain/certificates'
 import { todayIso } from '@/domain/format'
 import type { Certificate, PayoutFrequency } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export function CertificateForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: Certificate | null }) {
   const { data: accounts } = useAccounts()
@@ -22,7 +23,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   const [accountId, setAccountId] = useState('')
   const [name, setName] = useState('')
   const [principal, setPrincipal] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [rate, setRate] = useState('')
   const [frequency, setFrequency] = useState<PayoutFrequency>('monthly')
   const [start, setStart] = useState(todayIso())
@@ -37,7 +38,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
     setAccountId(initial?.account_id ?? banks[0]?.id ?? '')
     setName(initial?.name ?? '')
     setPrincipal(initial ? String(initial.principal) : '')
-    setCurrency(initial?.currency ?? 'EGP')
+    setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setRate(initial ? String(initial.interest_rate) : '')
     setFrequency(initial?.payout_frequency ?? 'monthly')
     setStart(initial?.start_date ?? todayIso())

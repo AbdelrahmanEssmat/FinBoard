@@ -25,6 +25,8 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        // long-press the app icon (Android, Windows) to jump straight to the daily price round
+        shortcuts: [{ name: 'Update prices', short_name: 'Prices', url: '/investments/prices', icons: [{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' }] }],
         scope: '/',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

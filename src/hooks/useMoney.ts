@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { buildRateTable, convert, rateResolver, type RateTable } from '@/domain/currency'
+import { buildRateTable, convert, DEFAULT_CURRENCY, rateResolver, type RateTable } from '@/domain/currency'
 import { d, Decimal, type NumericInput } from '@/domain/money'
 import { formatMoney, type FormatMoneyOptions, type CurrencyMeta } from '@/domain/format'
 import { usePrefs } from '@/store/prefs'
@@ -7,7 +7,7 @@ import { useCurrencies, useRates, useSettings } from '@/api/queries'
 
 export function useBaseCurrency(): string {
   const { data } = useSettings()
-  return data?.base_currency ?? 'EGP'
+  return data?.base_currency ?? DEFAULT_CURRENCY
 }
 
 /** The currency totals are shown in: the user's toggle, else the base currency. */
@@ -19,7 +19,11 @@ export function useDisplayCurrency(): string {
 
 export function useActiveCurrencies(): CurrencyMeta[] {
   const { data } = useCurrencies()
-  return useMemo(() => (data ?? []).filter((c) => c.is_active).map((c) => ({ code: c.code, symbol: c.symbol, decimals: c.decimals })), [data])
+  // EGP always first in every currency picker
+  return useMemo(() => {
+    const list = (data ?? []).filter((c) => c.is_active).map((c) => ({ code: c.code, symbol: c.symbol, decimals: c.decimals }))
+    return [...list.filter((c) => c.code === DEFAULT_CURRENCY), ...list.filter((c) => c.code !== DEFAULT_CURRENCY)]
+  }, [data])
 }
 
 export function useRateTable(date?: string): { rates: RateTable; updatedAt: string | null; provider: string | null } {

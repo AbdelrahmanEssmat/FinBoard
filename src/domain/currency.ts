@@ -91,3 +91,11 @@ export function convertOrZero(amount: NumericInput, from: string, to: string, ra
 export function crossRate(from: string, to: string, rates: RateTable): Decimal | null {
   return convert(1, from, to, rates)
 }
+
+/** The currency every new form, picker and total starts in. */
+export const DEFAULT_CURRENCY = 'EGP'
+
+/** EGP items first, then the rest in their saved order (for picking a default balance). */
+export function defaultFirst<T extends { currency: string }>(items: T[]): T[] {
+  return [...items.filter((i) => i.currency === DEFAULT_CURRENCY), ...items.filter((i) => i.currency !== DEFAULT_CURRENCY)]
+}

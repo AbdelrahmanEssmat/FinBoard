@@ -7,6 +7,7 @@ import { newId } from '@/utils/ids'
 import { d, toDb } from '@/domain/money'
 import { KARATS } from '@/domain/gold'
 import type { GoldItem, GoldType } from '@/api/database.types'
+import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: GoldItem | null }) {
   const currencies = useActiveCurrencies()
@@ -17,7 +18,7 @@ export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClos
   const [type, setType] = useState<GoldType>('bar')
   const [weight, setWeight] = useState('')
   const [price, setPrice] = useState('')
-  const [currency, setCurrency] = useState('EGP')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [workmanship, setWorkmanship] = useState('')
   const [date, setDate] = useState('')
   const [notes, setNotes] = useState('')
@@ -30,7 +31,7 @@ export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClos
     setType(initial?.type ?? 'bar')
     setWeight(initial ? String(initial.weight_grams) : '')
     setPrice(initial ? String(initial.purchase_price) : '')
-    setCurrency(initial?.purchase_currency ?? 'EGP')
+    setCurrency(initial?.purchase_currency ?? DEFAULT_CURRENCY)
     setWorkmanship(initial && initial.workmanship_cost ? String(initial.workmanship_cost) : '')
     setDate(initial?.purchase_date ?? '')
     setNotes(initial?.notes ?? '')

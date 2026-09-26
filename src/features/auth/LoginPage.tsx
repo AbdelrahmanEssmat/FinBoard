@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Wallet } from 'lucide-react'
 import { supabase, isConfigured } from '@/api/supabase'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { Button, Field, Input } from '@/components/ui'
+import { Brand } from '@/components/shared'
 
 export default function LoginPage() {
   const { session } = useAuth()
@@ -47,13 +47,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg px-6 pt-safe pb-safe">
       <div className="anim-fade-up w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-accent text-white shadow-lg shadow-accent/30">
-            <Wallet className="h-7 w-7" />
-          </span>
-          <h1 className="text-2xl font-semibold tracking-tight">FinBoard</h1>
-          <p className="mt-1 text-sm text-muted">Your money, on every device.</p>
-        </div>
+        <h1 className="sr-only">FinBoard</h1>
+        <Brand variant="stacked" className="mb-9" />
 
         {!isConfigured ? (
           <div className="rounded-2xl bg-warning-soft p-4 text-sm text-warning">
