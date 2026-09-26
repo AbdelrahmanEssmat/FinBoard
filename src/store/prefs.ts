@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 
 export type ThemePref = 'system' | 'light' | 'mid' | 'dark'
 
-export const THEME_COLORS: Record<'light' | 'mid' | 'dark', string> = { light: '#f4f5f8', mid: '#bdb6ab', dark: '#161b24' }
+export const THEME_COLORS: Record<'light' | 'mid' | 'dark', string> = { light: '#f4f5f8', mid: '#cbc5ba', dark: '#161b24' }
 
 interface Prefs {
   privacy: boolean

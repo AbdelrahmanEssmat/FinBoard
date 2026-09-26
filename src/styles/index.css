@@ -61,22 +61,22 @@
 /* mid: a true middle ground – warm stone surfaces (~70% luminance) with dark ink text.
    Neither the glare of white nor a dark room; think paper under lamplight. */
 .mid {
-  --color-bg: #bdb6ab;
-  --color-surface: #d3cdc2;
-  --color-surface-2: #c5beb2;
-  --color-border: #aaa295;
+  --color-bg: #cbc5ba;
+  --color-surface: #e2ddd3;
+  --color-surface-2: #d4cec3;
+  --color-border: #b9b1a4;
   --color-text: #24211d;
-  --color-muted: #514b43;
-  --color-faint: #746d63;
-  --color-accent: #1f4fc4;
-  --color-accent-soft: #b3bfe3;
-  --color-positive: #1c6b3a;
-  --color-positive-soft: #b4d2bd;
-  --color-negative: #a12626;
-  --color-negative-soft: #e2b9b4;
-  --color-warning: #7f5405;
-  --color-warning-soft: #dfcda0;
-  --color-gold: #7a5f00;
+  --color-muted: #554f47;
+  --color-faint: #7a7368;
+  --color-accent: #2152c8;
+  --color-accent-soft: #c0cbec;
+  --color-positive: #1e6e3c;
+  --color-positive-soft: #bfdcc7;
+  --color-negative: #a62828;
+  --color-negative-soft: #ebc5c0;
+  --color-warning: #825606;
+  --color-warning-soft: #e8d8ad;
+  --color-gold: #7d6200;
   --shadow-card: 0 1px 2px rgba(40, 32, 20, 0.08), 0 6px 20px rgba(40, 32, 20, 0.1);
 }
 
