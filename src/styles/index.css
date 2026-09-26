@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 
-/* "dark:" utilities apply to both the dark and the dim theme */
-@custom-variant dark (&:where(.dark, .dark *, .dim, .dim *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ */
 /* Design tokens                                                       */
@@ -59,25 +58,26 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 20px rgba(0, 0, 0, 0.22);
 }
 
-/* dim: halfway between light and dark, a soft blue-grey for evenings */
-.dim {
-  --color-bg: #2b3140;
-  --color-surface: #353c4d;
-  --color-surface-2: #404859;
-  --color-border: #4d5668;
-  --color-text: #f2f4f8;
-  --color-muted: #b9c1cf;
-  --color-faint: #8f99ac;
-  --color-accent: #82a8ff;
-  --color-accent-soft: #3a4a6d;
-  --color-positive: #63e2a0;
-  --color-positive-soft: #2f5041;
-  --color-negative: #ff9191;
-  --color-negative-soft: #5a3a3e;
-  --color-warning: #ffd166;
-  --color-warning-soft: #55482b;
-  --color-gold: #ffd659;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 20px rgba(0, 0, 0, 0.16);
+/* mid: a true middle ground – warm stone surfaces (~70% luminance) with dark ink text.
+   Neither the glare of white nor a dark room; think paper under lamplight. */
+.mid {
+  --color-bg: #bdb6ab;
+  --color-surface: #d3cdc2;
+  --color-surface-2: #c5beb2;
+  --color-border: #aaa295;
+  --color-text: #24211d;
+  --color-muted: #514b43;
+  --color-faint: #746d63;
+  --color-accent: #1f4fc4;
+  --color-accent-soft: #b3bfe3;
+  --color-positive: #1c6b3a;
+  --color-positive-soft: #b4d2bd;
+  --color-negative: #a12626;
+  --color-negative-soft: #e2b9b4;
+  --color-warning: #7f5405;
+  --color-warning-soft: #dfcda0;
+  --color-gold: #7a5f00;
+  --shadow-card: 0 1px 2px rgba(40, 32, 20, 0.08), 0 6px 20px rgba(40, 32, 20, 0.1);
 }
 
 /* ------------------------------------------------------------------ */

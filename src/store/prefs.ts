@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type ThemePref = 'system' | 'light' | 'dim' | 'dark'
+export type ThemePref = 'system' | 'light' | 'mid' | 'dark'
 
-export const THEME_COLORS: Record<'light' | 'dim' | 'dark', string> = { light: '#f4f5f8', dim: '#2b3140', dark: '#161b24' }
+export const THEME_COLORS: Record<'light' | 'mid' | 'dark', string> = { light: '#f4f5f8', mid: '#bdb6ab', dark: '#161b24' }
 
 interface Prefs {
   privacy: boolean
@@ -42,8 +42,10 @@ export const usePrefs = create<Prefs>()(
 )
 
 /** Resolve the preference to the concrete theme ("system" follows the OS between light and dark). */
-export function resolveTheme(theme: ThemePref): 'light' | 'dim' | 'dark' {
+export function resolveTheme(theme: ThemePref): 'light' | 'mid' | 'dark' {
   if (theme === 'system') return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // 'dim' was a short-lived name for the same slot
+  if ((theme as string) === 'dim') return 'mid'
   return theme
 }
 
@@ -51,7 +53,7 @@ export function applyTheme(theme: ThemePref) {
   const root = document.documentElement
   const resolved = resolveTheme(theme)
   root.classList.toggle('dark', resolved === 'dark')
-  root.classList.toggle('dim', resolved === 'dim')
+  root.classList.toggle('mid', resolved === 'mid')
   root.style.colorScheme = resolved === 'light' ? 'light' : 'dark'
   let meta = document.querySelector('meta[name="theme-color"]:not([media])') as HTMLMetaElement | null
   if (!meta) {

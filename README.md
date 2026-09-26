@@ -2,7 +2,7 @@
 
 A calm, mobile-first personal finance PWA for Egypt: net worth, accounts in several currencies,
 bank certificates, Thndr holdings, gold (Egyptian local prices), debts with installments,
-income/spending with budgets and reports. Light, dim and dark themes. One Supabase backend, real-time sync between your
+income/spending with budgets and reports. Light, mid and dark themes. One Supabase backend, real-time sync between your
 iPhone and your Windows laptop, works offline.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design and data model.

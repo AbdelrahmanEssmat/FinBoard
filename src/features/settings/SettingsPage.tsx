@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Coins, Download, LogOut, Moon, RefreshCw, Sun, SunMoon, Upload, Monitor, Eye, Smartphone } from 'lucide-react'
+import { Coins, Download, LogOut, Moon, RefreshCw, Sun, Contrast, Upload, Monitor, Eye, Smartphone } from 'lucide-react'
 import { Button, Card, ConfirmDialog, Divider, Field, Segmented, Select, Toggle } from '@/components/ui'
 import { ListRow, PageHeader, SectionTitle } from '@/components/shared'
 import { useCurrencies, useSettings } from '@/api/queries'
@@ -93,7 +93,7 @@ export default function SettingsPage() {
               options={[
                 { value: 'system', label: <span className="flex items-center justify-center gap-1"><Monitor className="h-4 w-4" /> Auto</span> },
                 { value: 'light', label: <span className="flex items-center justify-center gap-1"><Sun className="h-4 w-4" /> Light</span> },
-                { value: 'dim', label: <span className="flex items-center justify-center gap-1"><SunMoon className="h-4 w-4" /> Dim</span> },
+                { value: 'mid', label: <span className="flex items-center justify-center gap-1"><Contrast className="h-4 w-4" /> Mid</span> },
                 { value: 'dark', label: <span className="flex items-center justify-center gap-1"><Moon className="h-4 w-4" /> Dark</span> },
               ]}
             />
