@@ -1,4 +1,4 @@
-# Architecture
+# FinBoard – Architecture
 
 Personal finance tracker: one PWA used on Windows (Chrome/Edge) and iPhone (Safari), sharing
 one Supabase project in real time.

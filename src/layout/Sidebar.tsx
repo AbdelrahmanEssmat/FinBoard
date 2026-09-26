@@ -12,7 +12,7 @@ export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:sticky md:top-0 md:flex md:h-dvh">
       <div className="px-6 pb-5 pt-7">
-        <div className="text-lg font-semibold tracking-tight">Finance</div>
+        <div className="text-lg font-semibold tracking-tight">FinBoard</div>
         <div className="text-xs text-muted">Net worth &amp; spending</div>
       </div>
       <div className="px-4">

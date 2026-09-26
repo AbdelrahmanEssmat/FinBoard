@@ -51,7 +51,7 @@ export default function LoginPage() {
           <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-accent text-white shadow-lg shadow-accent/30">
             <Wallet className="h-7 w-7" />
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">FinBoard</h1>
           <p className="mt-1 text-sm text-muted">Your money, on every device.</p>
         </div>
 

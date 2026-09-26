@@ -15,11 +15,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Financial Tracker',
-        short_name: 'Finance',
-        description: 'Personal net worth, accounts, debts and spending tracker',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        name: 'FinBoard',
+        short_name: 'FinBoard',
+        description: 'Your net worth, accounts, debts and spending in one place',
+        theme_color: '#2b5ce6',
+        background_color: '#f4f5f8',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
@@ -27,7 +27,7 @@ export default defineConfig({
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

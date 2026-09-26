@@ -1,4 +1,4 @@
-# Financial Tracker
+# FinBoard
 
 A calm, mobile-first personal finance PWA for Egypt: net worth, accounts in several currencies,
 bank certificates, Thndr holdings, gold (Egyptian local prices), debts with installments,
@@ -111,7 +111,7 @@ vercel --prod            # answer the prompts; add the two env vars when asked o
 
 **iPhone (Safari):** open your app URL → tap **Share** (square with arrow) → **Add to Home Screen** → **Add**. It opens full-screen with its own icon, respects the notch, and keeps you signed in.
 
-**Windows (Chrome or Edge):** open the URL → click the **install icon** at the right end of the address bar (or ⋮ menu → **Install Financial Tracker**). It gets a Start-menu entry and its own window.
+**Windows (Chrome or Edge):** open the URL → click the **install icon** at the right end of the address bar (or ⋮ menu → **Install FinBoard**). It gets a Start-menu entry and its own window.
 
 Both installs cache the app shell and your recent data. Changes made offline are queued and synced when you're back online; you'll see a small banner while that happens.
 

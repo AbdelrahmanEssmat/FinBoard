@@ -127,7 +127,7 @@ export default function SettingsPage() {
         <Divider />
         <ListRow icon={LogOut} color="#dc2626" title="Sign out" onClick={() => void supabase.auth.signOut()} />
       </Card>
-      <p className="text-center text-xs text-faint">Financial Tracker · v{__APP_VERSION__}</p>
+      <p className="text-center text-xs text-faint">FinBoard · v{__APP_VERSION__}</p>
 
       <ConfirmDialog
         open={Boolean(importConfirm)}
