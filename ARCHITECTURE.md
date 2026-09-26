@@ -21,27 +21,46 @@ one Supabase project in real time.
 
 ## Folder structure
 
+Layers, top to bottom. A layer may import from the layers below it, never above.
+
 ```
 src/
-  app/            router, providers, layouts (MobileTabs, DesktopSidebar), auth gate
-  components/ui   Button, Input, Select, Sheet, Card, Amount, EmptyState, Toast...
-  domain/         PURE calculations, no React, unit tested:
-                    money.ts        Decimal helpers, rounding, formatting
-                    currency.ts     convert(amount, from, to, rates)
-                    certificates.ts payout schedule, accrued interest, next payout
-                    installments.ts paid/remaining/overdue for debts
-                    networth.ts     net worth from balances, holdings, gold, debts
-                    gold.ts         value by karat + workmanship
-                    recurring.ts    next occurrence
-  features/       one folder per screen area (accounts, transactions, certificates,
-                  investments, gold, debts, budgets, reports, dashboard, settings, search)
-                  each has: queries.ts (TanStack), components, forms
-  lib/            supabase client, database types, offline outbox, realtime, format, prefs
+  app/                 Composition root: App (providers), router, AuthGate, providers/AuthProvider
+  layout/              The responsive frame: AppShell, Sidebar, TopBar, TabBar, OfflineBanner,
+                       QuickAddSheet, CurrencyToggle, nav.ts (single source of nav items)
+  features/<area>/     One folder per screen area. Pages live at the top level of the folder
+                       (XxxPage.tsx, default export, lazily routed); feature-only components in
+                       components/; feature hooks as useXxx.ts.
+                         accounts, transactions, debts, certificates, investments, gold, budgets,
+                         reports, dashboard, categories, settings, search, auth, more
+  components/shared/   Composite blocks used by several features, may read app state:
+                       Amount (privacy-aware money), PageHeader, BackButton, Section/SectionTitle,
+                       ListRow, EmptyState, StatCard
+  components/ui/       Dumb primitives, one per file: Button, Input, Select, Textarea, Field/FormStack,
+                       AmountInput, Segmented, Toggle, Sheet, ConfirmDialog, Card/Divider, Pill,
+                       ProgressBar, Skeleton, ColorPicker, IconPicker, Toaster
+  hooks/               App-wide React hooks: useMoney (display currency, rates, conversion,
+                       formatting), useGoldPrices, useNetWorth, useConnectivity, useRealtimeSync,
+                       useDailyJobs
+  api/                 Everything that talks to Supabase: supabase client, database.types,
+                       queries (TanStack Query hooks per table), mutations (optimistic + outbox),
+                       queryClient, ratesProvider (client-side rate fetch), backup (export/import)
+  offline/             Dexie outbox, mutate() (execute-or-queue, flush), IndexedDB persister
+  store/               zustand stores: prefs (theme, privacy, last-used), toasts (incl. undo)
+  domain/              PURE calculations, no React, unit tested:
+                         money, format, currency, certificates, installments, recurring,
+                         gold, networth, insights (report analytics)
+  utils/               cn, collections, dates (local-date safe), files (download/CSV), icons, ids
+  styles/index.css     Tailwind v4 theme tokens (light + dark), base styles, motion
 supabase/
-  migrations/     0001_init.sql (schema + RLS + triggers + functions), 0002_cron.sql
-  functions/      fetch-rates, fetch-gold (Deno edge functions)
-  seed.sql        starter categories, currencies, your accounts
+  migrations/          0001_init.sql (schema + RLS + triggers + functions), 0002_cron.sql
+  functions/           fetch-rates, fetch-gold (Deno edge functions)
+dev-local/             Optional Windows stand-in for Supabase (Postgres + PostgREST + fake auth)
 ```
+
+Conventions: absolute imports via `@/…`; pages are the only default exports; money is `Decimal`
+everywhere except at the Supabase boundary (strings out, numbers in); no feature imports another
+feature's components except through its public hooks (e.g. `useDebtViews`).
 
 ## Data model (Postgres, every user table has `user_id` + RLS `user_id = auth.uid()`)
 

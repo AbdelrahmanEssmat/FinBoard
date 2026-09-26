@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, RefreshCw, Settings2, TrendingUp } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/ui'
-import { useHoldings, useInvestmentCategories } from '@/lib/data/tables'
-import { useConvert } from '@/lib/data/derived'
+import { Plus, RefreshCw, Settings2, TrendingUp } from 'lucide-react'
+import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, Divider } from '@/components/ui'
+import { useHoldings, useInvestmentCategories } from '@/api/queries'
+import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
 import { formatPercent } from '@/domain/format'
-import { relativeTime } from '@/lib/utils'
-import { HoldingForm } from './HoldingForm'
-import { InvestmentCategoriesSheet } from './InvestmentCategoriesSheet'
-import type { Holding } from '@/lib/database.types'
+import { relativeTime } from '@/utils'
+import { HoldingForm } from '@/features/investments/components/HoldingForm'
+import { InvestmentCategoriesSheet } from '@/features/investments/components/InvestmentCategoriesSheet'
+import type { Holding } from '@/api/database.types'
 
 export default function InvestmentsPage() {
   const navigate = useNavigate()
@@ -39,11 +40,7 @@ export default function InvestmentsPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Investments"
         subtitle={lastUpdate ? `Prices updated ${relativeTime(lastUpdate)}` : undefined}
         action={
@@ -60,8 +57,8 @@ export default function InvestmentsPage() {
       {!holdings?.length ? (
         <EmptyState icon={TrendingUp} title="No holdings yet" description="Add your Thndr stocks, funds and gold funds. Update prices manually whenever you like." action={<Button onClick={() => setForm({ open: true, item: null })}>Add holding</Button>} />
       ) : (
-        <div className="space-y-6">
-          <Card className="p-5">
+        <div className="space-y-8">
+          <Card padded>
             <div className="text-xs text-muted">Market value</div>
             <Amount value={total} currency={display} size="xl" />
             <div className="mt-1 flex items-center gap-2 text-sm">

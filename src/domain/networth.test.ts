@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computeNetWorth } from './networth'
-import { goldSummary, pricesFromSpot } from './gold'
+import { computeNetWorth } from '@/domain/networth'
+import { goldSummary, pricesFromSpot } from '@/domain/gold'
 
 const rates = { USD: 1, EGP: '50' }
 

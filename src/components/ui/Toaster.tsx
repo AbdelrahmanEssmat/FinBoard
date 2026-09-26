@@ -1,6 +1,6 @@
 import { CheckCircle2, Info, XCircle } from 'lucide-react'
-import { useToasts } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { useToasts } from '@/store/toasts'
+import { cn } from '@/utils'
 
 export function Toaster() {
   const { toasts, dismiss } = useToasts()

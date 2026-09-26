@@ -1,4 +1,4 @@
-import { d, Decimal, type NumericInput } from './money'
+import { d, Decimal, type NumericInput } from '@/domain/money'
 
 export type Karat = 24 | 22 | 21 | 18
 export const KARATS: Karat[] = [24, 22, 21, 18]

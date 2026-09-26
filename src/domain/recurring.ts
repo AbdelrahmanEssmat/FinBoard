@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { addPeriod, type Recurrence } from './installments'
+import { addPeriod, type Recurrence } from '@/domain/installments'
 
 export interface RecurringLike {
   frequency: Recurrence

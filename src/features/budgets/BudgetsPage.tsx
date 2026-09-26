@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, PieChart, Plus, Trash2 } from 'lucide-react'
-import { Amount, Button, Card, ConfirmDialog, EmptyState, Field, Input, PageHeader, ProgressBar, Select, Sheet } from '@/components/ui'
-import { useBudgets, useCategories, useTransactions } from '@/lib/data/tables'
-import { useUndoableDelete, useUpsert } from '@/lib/data/mutations'
-import { useActiveCurrencies, useConvert } from '@/lib/data/derived'
-import { newId } from '@/lib/ids'
-import { byId, endOfMonthIso, startOfMonthIso } from '@/lib/utils'
+import { PieChart, Plus, Trash2 } from 'lucide-react'
+import { Amount, EmptyState, PageHeader } from '@/components/shared'
+import { Button, Card, ConfirmDialog, Field, Input, ProgressBar, Select, Sheet } from '@/components/ui'
+import { useBudgets, useCategories, useTransactions } from '@/api/queries'
+import { useUndoableDelete, useUpsert } from '@/api/mutations'
+import { useActiveCurrencies, useConvert } from '@/hooks/useMoney'
+import { newId } from '@/utils/ids'
+import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
 import { d, toDb } from '@/domain/money'
-import { iconFor } from '@/lib/icons'
-import type { Budget } from '@/lib/database.types'
+import { iconFor } from '@/utils/icons'
+import type { Budget } from '@/api/database.types'
 
 export default function BudgetsPage() {
-  const navigate = useNavigate()
   const { data: budgets } = useBudgets()
   const { data: categories } = useCategories()
   const { data: txs } = useTransactions({ from: startOfMonthIso(), to: endOfMonthIso() })
@@ -44,11 +43,7 @@ export default function BudgetsPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Budgets"
         subtitle={`${new Date().toLocaleDateString('en-GB', { month: 'long' })} · ${daysLeft} days left`}
         action={
@@ -60,8 +55,8 @@ export default function BudgetsPage() {
       {!budgets?.length ? (
         <EmptyState icon={PieChart} title="No budgets yet" description="Set a monthly limit per category and watch progress through the month." action={<Button onClick={() => setForm({ open: true, item: null })}>Add budget</Button>} />
       ) : (
-        <div className="space-y-4">
-          <Card className="p-5">
+        <div className="space-y-5">
+          <Card padded>
             <div className="flex items-end justify-between">
               <div>
                 <div className="text-xs text-muted">Spent this month</div>
@@ -73,7 +68,7 @@ export default function BudgetsPage() {
             </div>
             <ProgressBar className="mt-3" value={totalBudget.isZero() ? 0 : totalSpent.div(totalBudget).times(100).toNumber()} color={totalSpent.gt(totalBudget) ? 'var(--color-negative)' : undefined} />
           </Card>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {rows.map(({ b, cat, spent, pct, left }) => {
               const Icon = iconFor(cat?.icon)
               const over = pct > 100
@@ -150,7 +145,7 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         <Field label="Category">
           <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={Boolean(initial)}>
             {available.map((c) => (

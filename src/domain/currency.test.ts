@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRateTable, convert, crossRate } from './currency'
+import { buildRateTable, convert, crossRate } from '@/domain/currency'
 
 const rates = { USD: 1, EGP: '50', EUR: '0.9', SAR: '3.75' }
 

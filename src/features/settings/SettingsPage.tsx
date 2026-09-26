@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Coins, Download, LogOut, Moon, RefreshCw, Sun, Upload, Monitor, Eye, Smartphone } from 'lucide-react'
-import { Button, Card, ConfirmDialog, Divider, Field, ListRow, PageHeader, Segmented, Select, Toggle, SectionTitle } from '@/components/ui'
-import { useCurrencies, useSettings } from '@/lib/data/tables'
-import { useUpsert } from '@/lib/data/mutations'
-import { usePrefs, type ThemePref } from '@/lib/prefs'
-import { useAuth, useUserId } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
-import { exportAll, exportTransactionsCsv, importAll } from './backup'
-import { toast } from '@/lib/toast'
+import { Coins, Download, LogOut, Moon, RefreshCw, Sun, Upload, Monitor, Eye, Smartphone } from 'lucide-react'
+import { Button, Card, ConfirmDialog, Divider, Field, Segmented, Select, Toggle } from '@/components/ui'
+import { ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { useCurrencies, useSettings } from '@/api/queries'
+import { useUpsert } from '@/api/mutations'
+import { usePrefs, type ThemePref } from '@/store/prefs'
+import { useAuth, useUserId } from '@/app/providers/AuthProvider'
+import { supabase } from '@/api/supabase'
+import { exportAll, exportTransactionsCsv, importAll } from '@/api/backup'
+import { toast } from '@/store/toasts'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -57,20 +58,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="anim-fade-up space-y-6">
+    <div className="anim-fade-up space-y-8">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2 md:hidden">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Settings"
         subtitle={session?.user.email}
       />
 
       <section>
         <SectionTitle>Money</SectionTitle>
-        <Card className="space-y-4 p-4">
+        <Card padded className="space-y-5">
           <Field label="Base currency" hint="Totals and net worth are shown in this currency by default">
             <Select value={settings?.base_currency ?? 'EGP'} onChange={(e) => void setBase(e.target.value)}>
               {(currencies ?? []).filter((c) => c.is_active).map((c) => (
@@ -88,7 +85,7 @@ export default function SettingsPage() {
 
       <section>
         <SectionTitle>Appearance</SectionTitle>
-        <Card className="space-y-3 p-4">
+        <Card padded className="space-y-4">
           <Field label="Theme">
             <Segmented
               value={theme}
@@ -118,7 +115,7 @@ export default function SettingsPage() {
 
       <section>
         <SectionTitle>Install</SectionTitle>
-        <Card className="p-4 text-sm text-muted">
+        <Card padded className="text-sm leading-relaxed text-muted">
           <p className="flex items-start gap-2"><Smartphone className="mt-0.5 h-4 w-4 shrink-0" /> <span><b className="text-text">iPhone:</b> open this site in Safari → Share → <b className="text-text">Add to Home Screen</b>.</span></p>
           <p className="mt-2 flex items-start gap-2"><Monitor className="mt-0.5 h-4 w-4 shrink-0" /> <span><b className="text-text">Windows:</b> in Chrome or Edge click the install icon in the address bar, or menu → <b className="text-text">Install app</b>.</span></p>
         </Card>

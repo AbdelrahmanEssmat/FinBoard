@@ -1,5 +1,5 @@
 import { addDays, addMonths, addWeeks, addYears, format, parseISO } from 'date-fns'
-import { d, Decimal, sum, type NumericInput } from './money'
+import { d, Decimal, sum, type NumericInput } from '@/domain/money'
 
 export type Recurrence = 'daily' | 'weekly' | 'monthly' | 'yearly'
 

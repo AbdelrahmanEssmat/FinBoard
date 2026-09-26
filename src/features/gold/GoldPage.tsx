@@ -1,21 +1,21 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Gem, Pencil, Plus } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, Pill, SectionTitle } from '@/components/ui'
-import { useGoldItems } from '@/lib/data/tables'
-import { useConvert, useGoldPriceTable } from '@/lib/data/derived'
+import { Gem, Pencil, Plus } from 'lucide-react'
+import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, Divider, Pill } from '@/components/ui'
+import { useGoldItems } from '@/api/queries'
+import { useConvert } from '@/hooks/useMoney'
+import { useGoldPriceTable } from '@/hooks/useGoldPrices'
 import { goldItemCost, goldItemValue, goldSummary, KARATS } from '@/domain/gold'
 import { formatDate, formatPercent } from '@/domain/format'
-import { relativeTime } from '@/lib/utils'
+import { relativeTime } from '@/utils'
 import { d } from '@/domain/money'
-import { GoldItemForm } from './GoldItemForm'
-import { GoldPriceOverrideSheet } from './GoldPriceOverrideSheet'
-import type { GoldItem } from '@/lib/database.types'
+import { GoldItemForm } from '@/features/gold/components/GoldItemForm'
+import { GoldPriceOverrideSheet } from '@/features/gold/components/GoldPriceOverrideSheet'
+import type { GoldItem } from '@/api/database.types'
 
 const TYPE_LABEL = { bar: 'Bar', coin: 'Coin', jewelry: 'Jewelry' }
 
 export default function GoldPage() {
-  const navigate = useNavigate()
   const { data: items } = useGoldItems()
   const prices = useGoldPriceTable()
   const { toDisplayOrZero, display } = useConvert()
@@ -32,11 +32,7 @@ export default function GoldPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Gold"
         action={
           <Button size="sm" variant="soft" onClick={() => setForm({ open: true, item: null })}>
@@ -45,7 +41,7 @@ export default function GoldPage() {
         }
       />
 
-      <Card className="mb-4 p-5">
+      <Card padded className="mb-6">
         <div className="flex items-start justify-between">
           <div>
             <div className="text-xs text-muted">Price per gram (EGP)</div>
@@ -71,8 +67,8 @@ export default function GoldPage() {
       {!items?.length ? (
         <EmptyState icon={Gem} title="No gold yet" description="Add bars, coins or jewelry by karat and weight. Value uses Egyptian local prices per gram." action={<Button onClick={() => setForm({ open: true, item: null })}>Add gold</Button>} />
       ) : (
-        <div className="space-y-6">
-          <Card className="p-5">
+        <div className="space-y-8">
+          <Card padded>
             <div className="text-xs text-muted">Current value · {summary.grams.toFixed(2)} g</div>
             <Amount value={valueDisplay} currency={display} size="xl" />
             <div className="mt-1 text-sm">

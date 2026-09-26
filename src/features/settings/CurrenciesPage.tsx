@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus } from 'lucide-react'
-import { Button, Card, Divider, Field, Input, PageHeader, Sheet, Toggle } from '@/components/ui'
-import { useCurrencies, useSettings } from '@/lib/data/tables'
-import { useUpsert } from '@/lib/data/mutations'
-import { useUserId } from '@/lib/auth'
+import { Plus } from 'lucide-react'
+import { Button, Card, Divider, Field, Input, Sheet, Toggle } from '@/components/ui'
+import { PageHeader } from '@/components/shared'
+import { useCurrencies, useSettings } from '@/api/queries'
+import { useUpsert } from '@/api/mutations'
+import { useUserId } from '@/app/providers/AuthProvider'
 
 export default function CurrenciesPage() {
-  const navigate = useNavigate()
   const { data: currencies } = useCurrencies()
   const { data: settings } = useSettings()
   const upsert = useUpsert('currencies', { silent: true, invalidate: ['exchange_rates'] })
@@ -31,11 +30,7 @@ export default function CurrenciesPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Currencies"
         subtitle="Active currencies appear in forms and the display toggle"
         action={
@@ -44,7 +39,7 @@ export default function CurrenciesPage() {
           </Button>
         }
       />
-      <Card className="overflow-hidden px-4">
+      <Card className="overflow-hidden px-5">
         {(currencies ?? []).map((c, i) => (
           <div key={c.code}>
             {i > 0 ? <Divider className="mx-0" /> : null}
@@ -61,7 +56,7 @@ export default function CurrenciesPage() {
         ))}
       </Card>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add currency" footer={<Button full size="lg" onClick={add} disabled={!/^[A-Za-z]{3}$/.test(code)}>Add</Button>}>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Code" hint="ISO code, e.g. EUR">
             <Input autoFocus value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={3} placeholder="EUR" className="uppercase" />
           </Field>

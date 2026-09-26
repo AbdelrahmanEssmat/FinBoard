@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Tags } from 'lucide-react'
-import { Button, Card, Divider, EmptyState, ListRow, PageHeader, Segmented } from '@/components/ui'
-import { useCategories } from '@/lib/data/tables'
-import { iconFor } from '@/lib/icons'
-import { CategoryForm } from './CategoryForm'
-import type { Category, CategoryKind } from '@/lib/database.types'
+import { Plus, Tags } from 'lucide-react'
+import { Button, Card, Divider, Segmented } from '@/components/ui'
+import { EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { useCategories } from '@/api/queries'
+import { iconFor } from '@/utils/icons'
+import { CategoryForm } from '@/features/categories/components/CategoryForm'
+import type { Category, CategoryKind } from '@/api/database.types'
 
 export default function CategoriesPage() {
-  const navigate = useNavigate()
   const { data } = useCategories()
   const [kind, setKind] = useState<CategoryKind>('expense')
   const [form, setForm] = useState<{ open: boolean; item?: Category | null; parentId?: string | null }>({ open: false })
@@ -18,11 +17,7 @@ export default function CategoriesPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Categories"
         action={
           <Button size="sm" variant="soft" onClick={() => setForm({ open: true, item: null, parentId: null })}>
@@ -30,7 +25,7 @@ export default function CategoriesPage() {
           </Button>
         }
       />
-      <Segmented className="mb-4" value={kind} onChange={setKind} options={[{ value: 'expense', label: 'Expenses' }, { value: 'income', label: 'Income' }]} />
+      <Segmented className="mb-6" value={kind} onChange={setKind} options={[{ value: 'expense', label: 'Expenses' }, { value: 'income', label: 'Income' }]} />
       {!parents.length ? (
         <EmptyState icon={Tags} title="No categories" description="Create categories to organise your spending and income." action={<Button onClick={() => setForm({ open: true, item: null })}>Add category</Button>} />
       ) : (

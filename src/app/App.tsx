@@ -1,9 +1,10 @@
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { RouterProvider } from 'react-router-dom'
-import { idbPersister, queryClient } from '@/lib/queryClient'
-import { AuthProvider } from '@/lib/auth'
+import { idbPersister } from '@/offline/persister'
+import { queryClient } from '@/api/queryClient'
+import { AuthProvider } from '@/app/providers/AuthProvider'
 import { Toaster } from '@/components/ui'
-import { router } from './router'
+import { router } from '@/app/router'
 
 export function App() {
   return (

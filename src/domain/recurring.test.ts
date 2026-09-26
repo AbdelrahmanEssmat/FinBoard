@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueOccurrences, upcomingOccurrences } from './recurring'
+import { dueOccurrences, upcomingOccurrences } from '@/domain/recurring'
 
 describe('recurring', () => {
   const r = { frequency: 'monthly' as const, interval_count: 1, next_date: '2026-07-31', is_active: true }

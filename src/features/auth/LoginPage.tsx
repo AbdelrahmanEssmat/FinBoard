@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Wallet } from 'lucide-react'
-import { supabase, isConfigured } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth'
+import { supabase, isConfigured } from '@/api/supabase'
+import { useAuth } from '@/app/providers/AuthProvider'
 import { Button, Field, Input } from '@/components/ui'
 
 export default function LoginPage() {

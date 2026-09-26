@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Percent, Plus } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, Pill, SectionTitle } from '@/components/ui'
-import { useAccounts, useCertificates, usePayouts } from '@/lib/data/tables'
-import { useConvert } from '@/lib/data/derived'
-import { byId } from '@/lib/utils'
+import { Percent, Plus } from 'lucide-react'
+import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, Divider, Pill } from '@/components/ui'
+import { useAccounts, useCertificates, usePayouts } from '@/api/queries'
+import { useConvert } from '@/hooks/useMoney'
+import { byId } from '@/utils'
 import { d } from '@/domain/money'
 import { daysUntil, nextPayoutDate, PAYOUT_LABELS, payoutAmount } from '@/domain/certificates'
 import { formatDate, todayIso } from '@/domain/format'
-import { CertificateForm } from './CertificateForm'
+import { CertificateForm } from '@/features/certificates/components/CertificateForm'
 
 export default function CertificatesPage() {
   const navigate = useNavigate()
@@ -33,11 +34,7 @@ export default function CertificatesPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Certificates"
         action={
           <Button size="sm" variant="soft" onClick={() => setAdding(true)}>
@@ -48,13 +45,13 @@ export default function CertificatesPage() {
       {!certs?.length ? (
         <EmptyState icon={Percent} title="No certificates yet" description="Track bank certificates and deposits: payouts, interest earned and maturity dates." action={<Button onClick={() => setAdding(true)}>Add certificate</Button>} />
       ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="p-4">
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 gap-4">
+            <Card padded>
               <div className="text-xs text-muted">Invested</div>
               <Amount value={total} currency={display} size="lg" />
             </Card>
-            <Card className="p-4">
+            <Card padded>
               <div className="text-xs text-muted">Interest / month</div>
               <Amount value={monthlyIncome} currency={display} size="lg" className="text-positive" />
             </Card>
@@ -86,7 +83,7 @@ export default function CertificatesPage() {
                   </div>
                 )
               })}
-              {!active.length ? <p className="p-4 text-sm text-muted">None active.</p> : null}
+              {!active.length ? <p className="p-5 text-sm text-muted">None active.</p> : null}
             </Card>
           </div>
           {closed.length ? (

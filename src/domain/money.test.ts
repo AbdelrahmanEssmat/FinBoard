@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { d, roundMoney, sum, toDb, percentChange } from './money'
-import { formatMoney, formatNumber, formatDate } from './format'
+import { d, roundMoney, sum, toDb, percentChange } from '@/domain/money'
+import { formatMoney, formatNumber, formatDate } from '@/domain/format'
 
 describe('money', () => {
   it('parses strings, numbers and nulls without floating point drift', () => {

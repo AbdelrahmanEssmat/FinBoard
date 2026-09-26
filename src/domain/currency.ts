@@ -1,4 +1,4 @@
-import { d, Decimal, type NumericInput } from './money'
+import { d, Decimal, type NumericInput } from '@/domain/money'
 
 /**
  * Rates are always expressed against USD: 1 USD = rate QUOTE.

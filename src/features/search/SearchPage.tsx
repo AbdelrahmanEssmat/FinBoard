@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Gem, HandCoins, Landmark, Percent, Search, TrendingUp, Users } from 'lucide-react'
-import { Card, Divider, EmptyState, Input, ListRow, PageHeader, SectionTitle, Amount } from '@/components/ui'
-import { useAccounts, useCategories, useCertificates, useContacts, useDebts, useGoldItems, useHoldings, useTransactions } from '@/lib/data/tables'
-import { byId } from '@/lib/utils'
-import { iconFor } from '@/lib/icons'
-import { TransactionList } from '@/features/transactions/TransactionList'
-import { TransactionForm } from '@/features/transactions/TransactionForm'
-import type { Transaction } from '@/lib/database.types'
+import { Gem, HandCoins, Landmark, Percent, Search, TrendingUp, Users } from 'lucide-react'
+import { Card, Divider, Input } from '@/components/ui'
+import { EmptyState, ListRow, PageHeader, SectionTitle, Amount } from '@/components/shared'
+import { useAccounts, useCategories, useCertificates, useContacts, useDebts, useGoldItems, useHoldings, useTransactions } from '@/api/queries'
+import { byId } from '@/utils'
+import { iconFor } from '@/utils/icons'
+import { TransactionList } from '@/features/transactions/components/TransactionList'
+import { TransactionForm } from '@/features/transactions/components/TransactionForm'
+import type { Transaction } from '@/api/database.types'
 import { formatDate } from '@/domain/format'
 
 export default function SearchPage() {
@@ -47,20 +48,16 @@ export default function SearchPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Search"
       />
-      <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search transactions, people, accounts, holdings…" className="mb-4 h-12" />
+      <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search transactions, people, accounts, holdings…" className="mb-6 h-12" />
       {!results ? (
         <EmptyState icon={Search} title="Search everything" description="Type at least two characters." />
       ) : total === 0 ? (
         <EmptyState icon={Search} title="No matches" description={`Nothing found for “${q}”.`} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {results.accounts.length ? (
             <section>
               <SectionTitle>Accounts</SectionTitle>

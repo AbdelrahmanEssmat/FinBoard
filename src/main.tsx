@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
-import './index.css'
-import { App } from './app/App'
-import { applyTheme, usePrefs } from './lib/prefs'
+import '@/styles/index.css'
+import { App } from '@/app/App'
+import { applyTheme, usePrefs } from '@/store/prefs'
 
 applyTheme(usePrefs.getState().theme)
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(usePrefs.getState().theme))

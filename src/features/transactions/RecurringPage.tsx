@@ -1,17 +1,16 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Repeat } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, Pill } from '@/components/ui'
-import { useAccounts, useCategories, useRecurring, useSubAccounts } from '@/lib/data/tables'
-import { byId } from '@/lib/utils'
-import { iconFor } from '@/lib/icons'
+import { Plus, Repeat } from 'lucide-react'
+import { Amount, EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { Button, Card, Divider, Pill } from '@/components/ui'
+import { useAccounts, useCategories, useRecurring, useSubAccounts } from '@/api/queries'
+import { byId } from '@/utils'
+import { iconFor } from '@/utils/icons'
 import { formatDate } from '@/domain/format'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
-import { RecurringForm } from './RecurringForm'
-import type { RecurringTransaction } from '@/lib/database.types'
+import { RecurringForm } from '@/features/transactions/components/RecurringForm'
+import type { RecurringTransaction } from '@/api/database.types'
 
 export default function RecurringPage() {
-  const navigate = useNavigate()
   const { data } = useRecurring()
   const { data: categories } = useCategories()
   const { data: subs } = useSubAccounts()
@@ -50,11 +49,7 @@ export default function RecurringPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Recurring"
         subtitle="Salary, rent, subscriptions"
         action={
@@ -66,7 +61,7 @@ export default function RecurringPage() {
       {!data?.length ? (
         <EmptyState icon={Repeat} title="No recurring items" description="Add your salary, rent or subscriptions and they will be posted automatically on their due date." action={<Button onClick={() => setForm({ open: true, item: null })}>Add recurring</Button>} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <Card className="overflow-hidden">
             {active.map((r, i) => (
               <div key={r.id}>
@@ -74,7 +69,7 @@ export default function RecurringPage() {
                 {row(r)}
               </div>
             ))}
-            {!active.length ? <p className="p-4 text-sm text-muted">Nothing active.</p> : null}
+            {!active.length ? <p className="p-5 text-sm text-muted">Nothing active.</p> : null}
           </Card>
           {paused.length ? (
             <div>

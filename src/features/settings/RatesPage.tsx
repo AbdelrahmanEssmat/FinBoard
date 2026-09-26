@@ -1,21 +1,20 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, RefreshCw } from 'lucide-react'
-import { Button, Card, Divider, Field, Input, ListRow, PageHeader, Pill, Sheet } from '@/components/ui'
-import { useActiveCurrencies, useBaseCurrency, useRateTable } from '@/lib/data/derived'
-import { useUpsert } from '@/lib/data/mutations'
-import { useRates } from '@/lib/data/tables'
-import { useUserId } from '@/lib/auth'
-import { newId } from '@/lib/ids'
+import { Pencil, RefreshCw } from 'lucide-react'
+import { Button, Card, Divider, Field, Input, Pill, Sheet } from '@/components/ui'
+import { ListRow, PageHeader } from '@/components/shared'
+import { useActiveCurrencies, useBaseCurrency, useRateTable } from '@/hooks/useMoney'
+import { useUpsert } from '@/api/mutations'
+import { useRates } from '@/api/queries'
+import { useUserId } from '@/app/providers/AuthProvider'
+import { newId } from '@/utils/ids'
 import { crossRate } from '@/domain/currency'
 import { d } from '@/domain/money'
 import { formatDate, todayIso } from '@/domain/format'
-import { relativeTime } from '@/lib/utils'
-import { refreshRatesFromClient } from './rates'
-import { toast } from '@/lib/toast'
+import { relativeTime } from '@/utils'
+import { refreshRatesFromClient } from '@/api/ratesProvider'
+import { toast } from '@/store/toasts'
 
 export default function RatesPage() {
-  const navigate = useNavigate()
   const base = useBaseCurrency()
   const currencies = useActiveCurrencies()
   const { rates, updatedAt, provider } = useRateTable()
@@ -66,11 +65,7 @@ export default function RatesPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Exchange rates"
         subtitle={updatedAt ? `Updated ${relativeTime(updatedAt)}${provider ? ' · ' + provider : ''}` : 'No automatic rates yet'}
         action={
@@ -104,7 +99,7 @@ export default function RatesPage() {
             </div>
           )
         })}
-        {!others.length ? <p className="p-4 text-sm text-muted">Enable another currency first.</p> : null}
+        {!others.length ? <p className="p-5 text-sm text-muted">Enable another currency first.</p> : null}
       </Card>
       <p className="mt-3 px-1 text-xs text-faint">Automatic rates come from exchangerate-api.com once a day. A manual rate for today wins over the automatic one until tomorrow’s update. Historical net worth always uses the rate that applied on each day.</p>
 

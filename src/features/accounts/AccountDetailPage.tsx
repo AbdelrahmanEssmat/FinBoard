@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react'
+import { createElement, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Amount, Button, Card, ConfirmDialog, Divider, ListRow, PageHeader, SectionTitle, Sheet } from '@/components/ui'
-import { useAccounts, useCertificates, useSubAccounts, useTransactions } from '@/lib/data/tables'
-import { useUndoableDelete } from '@/lib/data/mutations'
-import { iconFor } from '@/lib/icons'
-import { useConvert } from '@/lib/data/derived'
+import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, ConfirmDialog, Divider, Sheet } from '@/components/ui'
+import { useAccounts, useCertificates, useSubAccounts, useTransactions } from '@/api/queries'
+import { useUndoableDelete } from '@/api/mutations'
+import { iconFor } from '@/utils/icons'
+import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
-import { AccountForm, SubAccountForm } from './AccountForm'
-import { TransactionList } from '@/features/transactions/TransactionList'
-import { TransactionForm } from '@/features/transactions/TransactionForm'
-import type { SubAccount, Transaction } from '@/lib/database.types'
+import { AccountForm } from '@/features/accounts/components/AccountForm'
+import { SubAccountForm } from '@/features/accounts/components/SubAccountForm'
+import { TransactionList } from '@/features/transactions/components/TransactionList'
+import { TransactionForm } from '@/features/transactions/components/TransactionForm'
+import type { SubAccount, Transaction } from '@/api/database.types'
 import { formatDate } from '@/domain/format'
 
 export default function AccountDetailPage() {
@@ -41,16 +43,11 @@ export default function AccountDetailPage() {
   }, [txs, mySubs])
 
   if (!account) return <div className="py-12 text-center text-muted">Account not found</div>
-  const Icon = iconFor(account.icon)
 
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title={account.name}
         action={
           <Button size="icon" variant="ghost" onClick={() => setMenu(true)} aria-label="More">
@@ -59,10 +56,10 @@ export default function AccountDetailPage() {
         }
       />
 
-      <Card className="mb-6 p-5">
+      <Card padded className="mb-8">
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl text-white" style={{ background: account.color }}>
-            <Icon className="h-6 w-6" />
+            {createElement(iconFor(account.icon), { className: 'h-6 w-6' })}
           </span>
           <div>
             <div className="text-xs text-muted">Balance</div>
@@ -86,7 +83,7 @@ export default function AccountDetailPage() {
       >
         Balances
       </SectionTitle>
-      <Card className="mb-6 overflow-hidden">
+      <Card className="mb-8 overflow-hidden">
         {mySubs.map((s, i) => (
           <div key={s.id}>
             {i > 0 ? <Divider /> : null}
@@ -104,13 +101,13 @@ export default function AccountDetailPage() {
             />
           </div>
         ))}
-        {!mySubs.length ? <p className="p-4 text-sm text-muted">No balances yet. Add a currency.</p> : null}
+        {!mySubs.length ? <p className="p-5 text-sm text-muted">No balances yet. Add a currency.</p> : null}
       </Card>
 
       {myCerts.length ? (
         <>
           <SectionTitle>Certificates</SectionTitle>
-          <Card className="mb-6 overflow-hidden">
+          <Card className="mb-8 overflow-hidden">
             {myCerts.map((c, i) => (
               <div key={c.id}>
                 {i > 0 ? <Divider /> : null}
@@ -125,7 +122,7 @@ export default function AccountDetailPage() {
       <TransactionList transactions={recent} onSelect={setEditTx} emptyText="No transactions for this account yet." />
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={account.name}>
-        <div className="space-y-1 pb-2">
+        <div className="space-y-1 pb-3">
           <button onClick={() => { setMenu(false); setEditing(true) }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-surface-2">
             <Pencil className="h-4 w-4 text-muted" /> Edit account
           </button>

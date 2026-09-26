@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Repeat, SlidersHorizontal, X } from 'lucide-react'
-import { Amount, Button, Card, Input, PageHeader, Select, Sheet, Skeleton } from '@/components/ui'
-import { useAccounts, useCategories, useSubAccounts, useTransactions } from '@/lib/data/tables'
-import { useConvert } from '@/lib/data/derived'
+import { Amount, PageHeader } from '@/components/shared'
+import { Button, Card, Input, Select, Sheet, Skeleton } from '@/components/ui'
+import { useAccounts, useCategories, useSubAccounts, useTransactions } from '@/api/queries'
+import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
-import { byId, endOfMonthIso, startOfMonthIso } from '@/lib/utils'
-import { TransactionList } from './TransactionList'
-import { TransactionForm } from './TransactionForm'
-import type { Transaction, TransactionType } from '@/lib/database.types'
+import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
+import { TransactionList } from '@/features/transactions/components/TransactionList'
+import { TransactionForm } from '@/features/transactions/components/TransactionForm'
+import type { Transaction, TransactionType } from '@/api/database.types'
 
 interface Filters {
   accountId: string
@@ -89,7 +90,7 @@ export default function TransactionsPage() {
         }
       />
 
-      <Card className="mb-4 flex items-center justify-between p-2">
+      <Card className="mb-6 flex items-center justify-between p-2">
         <button onClick={() => shift(-1)} aria-label="Previous month" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-2">
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -109,7 +110,7 @@ export default function TransactionsPage() {
         </button>
       </Card>
 
-      <div className="mb-3">
+      <div className="mb-4">
         <Input value={filters.text} onChange={(e) => setFilters({ ...filters, text: e.target.value })} placeholder="Search this month…" />
       </div>
 
@@ -133,7 +134,7 @@ export default function TransactionsPage() {
       )}
 
       <Sheet open={showFilters} onClose={() => setShowFilters(false)} title="Filters" footer={<div className="flex gap-2"><Button variant="secondary" size="lg" onClick={() => setFilters(EMPTY)}>Clear</Button><Button full size="lg" onClick={() => setShowFilters(false)}>Done</Button></div>}>
-        <div className="space-y-4">
+        <div className="space-y-5">
           <Select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value as Filters['type'] })}>
             <option value="">All types</option>
             <option value="expense">Expenses</option>

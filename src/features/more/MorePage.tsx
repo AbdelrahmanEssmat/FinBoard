@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { Percent, TrendingUp, Gem, PieChart, BarChart3, Repeat, Tags, Settings, Search, Users, LogOut } from 'lucide-react'
-import { Card, Divider, ListRow, PageHeader } from '@/components/ui'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth'
+import { Card, Divider } from '@/components/ui'
+import { ListRow, PageHeader } from '@/components/shared'
+import { supabase } from '@/api/supabase'
+import { useAuth } from '@/app/providers/AuthProvider'
 
 const groups = [
   {
@@ -36,7 +37,7 @@ export default function MorePage() {
   const navigate = useNavigate()
   const { session } = useAuth()
   return (
-    <div className="anim-fade-up space-y-6">
+    <div className="anim-fade-up space-y-8">
       <PageHeader title="More" subtitle={session?.user.email} />
       {groups.map((g) => (
         <section key={g.title}>

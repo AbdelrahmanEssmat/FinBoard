@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { HandCoins, Plus, Users } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, Pill, ProgressBar, Segmented } from '@/components/ui'
+import { Amount, EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { Button, Card, Divider, Pill, ProgressBar, Segmented } from '@/components/ui'
 import { formatDate } from '@/domain/format'
-import { DebtForm } from './DebtForm'
-import { ContactForm } from './ContactForm'
-import { useDebtViews, type DebtView } from './hooks'
-import type { Contact } from '@/lib/database.types'
+import { DebtForm } from '@/features/debts/components/DebtForm'
+import { ContactForm } from '@/features/debts/components/ContactForm'
+import { useDebtViews, type DebtView } from '@/features/debts/useDebtViews'
+import type { Contact } from '@/api/database.types'
 
 type Tab = 'i_owe' | 'owed_to_me' | 'people'
 
@@ -43,18 +44,18 @@ export default function DebtsPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <Card className="p-4">
+      <div className="mb-6 grid grid-cols-2 gap-4">
+        <Card padded>
           <div className="text-xs text-muted">Owed to me</div>
           <Amount value={totals.owedToMe} currency={display} size="lg" className="text-positive" />
         </Card>
-        <Card className="p-4">
+        <Card padded>
           <div className="text-xs text-muted">I owe</div>
           <Amount value={totals.iOwe} currency={display} size="lg" className="text-negative" />
         </Card>
       </div>
 
-      <Segmented className="mb-4" value={tab} onChange={(t) => setParams({ tab: t })} options={[{ value: 'owed_to_me', label: 'Owed to me' }, { value: 'i_owe', label: 'I owe' }, { value: 'people', label: 'People' }]} />
+      <Segmented className="mb-6" value={tab} onChange={(t) => setParams({ tab: t })} options={[{ value: 'owed_to_me', label: 'Owed to me' }, { value: 'i_owe', label: 'I owe' }, { value: 'people', label: 'People' }]} />
 
       {tab === 'people' ? (
         !byPerson.length ? (
@@ -85,7 +86,7 @@ export default function DebtsPage() {
           action={<Button onClick={() => setForm({ open: true, direction: tab })}>{tab === 'i_owe' ? 'Add what I owe' : 'Add what I’m owed'}</Button>}
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           <Card className="overflow-hidden">
             {items.map((x, i) => (
               <div key={x.id}>
@@ -93,7 +94,7 @@ export default function DebtsPage() {
                 <DebtRow debt={x} onClick={() => navigate(`/debts/${x.id}`)} />
               </div>
             ))}
-            {!items.length ? <p className="p-4 text-sm text-muted">Nothing open.</p> : null}
+            {!items.length ? <p className="p-5 text-sm text-muted">Nothing open.</p> : null}
           </Card>
           {settled.length ? (
             <div>
@@ -119,7 +120,7 @@ export default function DebtsPage() {
 
 function DebtRow({ debt, onClick }: { debt: DebtView; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex w-full flex-col gap-2 px-4 py-3 text-left hover:bg-surface-2">
+    <button onClick={onClick} className="flex w-full flex-col gap-2 px-5 py-4 text-left hover:bg-surface-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

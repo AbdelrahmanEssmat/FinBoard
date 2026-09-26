@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'soft'
 type Size = 'sm' | 'md' | 'lg' | 'icon'

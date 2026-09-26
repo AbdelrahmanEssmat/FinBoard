@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { debtProgress, installmentPlan, nextInstallment } from './installments'
+import { debtProgress, installmentPlan, nextInstallment } from '@/domain/installments'
 
 describe('debt progress', () => {
   it('paid, remaining, percent', () => {

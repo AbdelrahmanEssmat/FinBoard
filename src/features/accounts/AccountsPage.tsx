@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Landmark, Plus } from 'lucide-react'
-import { Amount, Button, Card, Divider, EmptyState, ListRow, PageHeader, SectionTitle, Skeleton } from '@/components/ui'
-import { iconFor } from '@/lib/icons'
-import { groupBy } from '@/lib/utils'
-import { ACCOUNT_TYPE_LABELS, useAccountsWithBalances, type AccountWithBalances } from './hooks'
-import { AccountForm } from './AccountForm'
-import type { AccountType } from '@/lib/database.types'
+import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, Divider, Skeleton } from '@/components/ui'
+import { iconFor } from '@/utils/icons'
+import { groupBy } from '@/utils'
+import { ACCOUNT_TYPE_LABELS, useAccountsWithBalances, type AccountWithBalances } from '@/features/accounts/useAccountsWithBalances'
+import { AccountForm } from '@/features/accounts/components/AccountForm'
+import type { AccountType } from '@/api/database.types'
 
 const ORDER: AccountType[] = ['bank', 'cash', 'wallet', 'investment', 'other']
 
@@ -40,7 +41,7 @@ export default function AccountsPage() {
       ) : isEmpty ? (
         <EmptyState icon={Landmark} title="Add your first account" description="Banks, cash on hand, wallets and investment platforms. Each account can hold balances in several currencies." action={<Button onClick={() => setAdding(true)}>Add account</Button>} />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {ORDER.filter((t) => groups[t]?.length).map((t) => (
             <section key={t}>
               <SectionTitle>{ACCOUNT_TYPE_LABELS[t]}</SectionTitle>

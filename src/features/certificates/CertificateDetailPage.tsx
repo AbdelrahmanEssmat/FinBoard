@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, ChevronLeft, Pencil, Trash2 } from 'lucide-react'
-import { Amount, Button, Card, ConfirmDialog, Divider, ListRow, PageHeader, Pill, SectionTitle, Select, Sheet } from '@/components/ui'
-import { useAccounts, useCertificates, usePayouts, useSubAccounts } from '@/lib/data/tables'
-import { useRpc, useUndoableDelete, useUpsert } from '@/lib/data/mutations'
-import { byId } from '@/lib/utils'
+import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
+import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, ConfirmDialog, Divider, Pill, Select, Sheet } from '@/components/ui'
+import { useAccounts, useCertificates, usePayouts, useSubAccounts } from '@/api/queries'
+import { useRpc, useUndoableDelete, useUpsert } from '@/api/mutations'
+import { byId } from '@/utils'
 import { daysUntil, interestEarnedSoFar, nextPayoutDate, PAYOUT_LABELS, payoutAmount, totalExpectedInterest } from '@/domain/certificates'
 import { formatDate, todayIso } from '@/domain/format'
-import { CertificateForm } from './CertificateForm'
-import type { CertificatePayout } from '@/lib/database.types'
+import { CertificateForm } from '@/features/certificates/components/CertificateForm'
+import type { CertificatePayout } from '@/api/database.types'
 
 export default function CertificateDetailPage() {
   const { id } = useParams()
@@ -47,11 +48,7 @@ export default function CertificateDetailPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title={cert.name}
         subtitle={accMap.get(cert.account_id)?.name}
         action={
@@ -66,7 +63,7 @@ export default function CertificateDetailPage() {
         }
       />
 
-      <Card className="mb-4 p-5">
+      <Card padded className="mb-6">
         <div className="text-xs text-muted">Principal</div>
         <Amount value={cert.principal} currency={cert.currency} size="xl" />
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -84,7 +81,7 @@ export default function CertificateDetailPage() {
       </Card>
 
       {pendingDue.length ? (
-        <Card className="mb-4 flex items-center justify-between gap-3 bg-warning-soft p-4">
+        <Card className="mb-6 flex items-center justify-between gap-4 bg-warning-soft p-5">
           <span className="text-sm text-warning">
             {pendingDue.length} payout{pendingDue.length > 1 ? 's' : ''} due to be logged as income
           </span>
@@ -112,12 +109,12 @@ export default function CertificateDetailPage() {
             />
           </div>
         ))}
-        {!mine.length ? <p className="p-4 text-sm text-muted">No payouts scheduled.</p> : null}
+        {!mine.length ? <p className="p-5 text-sm text-muted">No payouts scheduled.</p> : null}
       </Card>
 
       <Sheet open={Boolean(logging)} onClose={() => setLogging(null)} title="Log payout as income">
         {logging ? (
-          <div className="space-y-4 pb-2">
+          <div className="space-y-5 pb-2">
             <p className="text-sm text-muted">
               <Amount value={logging.amount} currency={cert.currency} className="font-semibold text-text" /> due {formatDate(logging.due_date)}
             </p>

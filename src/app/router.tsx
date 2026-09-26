@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
-import { AppShell } from './layout/AppShell'
-import { AuthGate } from './AuthGate'
+import { AppShell } from '@/layout/AppShell'
+import { AuthGate } from '@/app/AuthGate'
 import { Skeleton } from '@/components/ui'
 
 const load = (factory: () => Promise<{ default: React.ComponentType }>) => {

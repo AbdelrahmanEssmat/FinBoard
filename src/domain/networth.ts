@@ -1,7 +1,7 @@
-import { convertOrZero, type RateTable } from './currency'
-import { d, Decimal, type NumericInput } from './money'
-import { goldItemValue, type GoldItemLike, type GoldPriceTable } from './gold'
-import { debtProgress, type PaymentLike } from './installments'
+import { convertOrZero, type RateTable } from '@/domain/currency'
+import { d, Decimal, type NumericInput } from '@/domain/money'
+import { goldItemValue, type GoldItemLike, type GoldPriceTable } from '@/domain/gold'
+import { debtProgress, type PaymentLike } from '@/domain/installments'
 
 export interface SubAccountLike {
   id: string

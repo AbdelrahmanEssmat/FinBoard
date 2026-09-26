@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
-import { Button, Card, Divider, Input, PageHeader } from '@/components/ui'
-import { useHoldings } from '@/lib/data/tables'
-import { useUpsert } from '@/lib/data/mutations'
+
+import { Button, Card, Divider, Input } from '@/components/ui'
+import { PageHeader } from '@/components/shared'
+import { useHoldings } from '@/api/queries'
+import { useUpsert } from '@/api/mutations'
 import { d } from '@/domain/money'
-import { toast } from '@/lib/toast'
+import { toast } from '@/store/toasts'
 
 /** Edit every holding's current price on one screen. */
 export default function UpdatePricesPage() {
@@ -31,11 +32,7 @@ export default function UpdatePricesPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title="Update prices"
         subtitle="Type the latest price for each holding"
         action={
@@ -48,7 +45,7 @@ export default function UpdatePricesPage() {
         {(holdings ?? []).map((h, i) => (
           <div key={h.id}>
             {i > 0 ? <Divider /> : null}
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex items-center gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[15px] font-medium">{h.name}</div>
                 <div className="text-xs text-muted">
@@ -59,7 +56,7 @@ export default function UpdatePricesPage() {
             </div>
           </div>
         ))}
-        {!holdings?.length ? <p className="p-4 text-sm text-muted">No holdings yet.</p> : null}
+        {!holdings?.length ? <p className="p-5 text-sm text-muted">No holdings yet.</p> : null}
       </Card>
     </div>
   )

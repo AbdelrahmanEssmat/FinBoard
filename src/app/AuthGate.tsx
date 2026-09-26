@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/lib/auth'
-import { isConfigured } from '@/lib/supabase'
+import { useAuth } from '@/app/providers/AuthProvider'
+import { isConfigured } from '@/api/supabase'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGate({ children }: { children: ReactNode }) {

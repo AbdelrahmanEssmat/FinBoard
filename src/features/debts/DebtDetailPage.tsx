@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Amount, Button, Card, ConfirmDialog, Divider, ListRow, PageHeader, Pill, ProgressBar, SectionTitle } from '@/components/ui'
-import { useUndoableDelete } from '@/lib/data/mutations'
+import { CheckCircle2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Button, Card, ConfirmDialog, Divider, Pill, ProgressBar } from '@/components/ui'
+import { useUndoableDelete } from '@/api/mutations'
 import { formatDate } from '@/domain/format'
-import { DebtForm } from './DebtForm'
-import { DebtPaymentForm } from './DebtPaymentForm'
-import { useDebtViews } from './hooks'
-import type { DebtPayment } from '@/lib/database.types'
+import { DebtForm } from '@/features/debts/components/DebtForm'
+import { DebtPaymentForm } from '@/features/debts/components/DebtPaymentForm'
+import { useDebtViews } from '@/features/debts/useDebtViews'
+import type { DebtPayment } from '@/api/database.types'
 
 export default function DebtDetailPage() {
   const { id } = useParams()
@@ -27,11 +28,7 @@ export default function DebtDetailPage() {
   return (
     <div className="anim-fade-up">
       <PageHeader
-        back={
-          <button onClick={() => navigate(-1)} aria-label="Back" className="-ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        }
+        back
         title={debt.contact?.name ?? 'Debt'}
         subtitle={positive ? 'Owes you' : 'You owe'}
         action={
@@ -46,7 +43,7 @@ export default function DebtDetailPage() {
         }
       />
 
-      <Card className="mb-6 p-5">
+      <Card padded className="mb-8">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-xs text-muted">Remaining</div>
@@ -69,7 +66,7 @@ export default function DebtDetailPage() {
             of <Amount value={debt.amount} currency={debt.currency} size="sm" />
           </span>
         </div>
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <dt className="text-muted">Date</dt>
           <dd>{formatDate(debt.date)}</dd>
           {debt.due_date ? (
@@ -101,7 +98,7 @@ export default function DebtDetailPage() {
       {debt.plan.length > 1 || debt.plan_count ? (
         <>
           <SectionTitle>Installment plan</SectionTitle>
-          <Card className="mb-6 overflow-hidden">
+          <Card className="mb-8 overflow-hidden">
             {debt.plan.map((p, i) => (
               <div key={p.index}>
                 {i > 0 ? <Divider /> : null}
@@ -131,7 +128,7 @@ export default function DebtDetailPage() {
             <ListRow title={formatDate(p.date)} subtitle={p.notes ?? (p.sub_account_id ? 'Recorded in account' : 'No account')} trailing={<Amount value={p.amount} currency={debt.currency} className="font-medium" />} onClick={() => setConfirmPayment(p)} />
           </div>
         ))}
-        {!debt.payments.length ? <p className="p-4 text-sm text-muted">No payments yet.</p> : null}
+        {!debt.payments.length ? <p className="p-5 text-sm text-muted">No payments yet.</p> : null}
       </Card>
 
       <DebtForm open={edit} onClose={() => setEdit(false)} direction={debt.direction} initial={debt} />

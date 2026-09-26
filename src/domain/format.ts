@@ -1,5 +1,5 @@
 import { format as dfFormat, parseISO, isValid } from 'date-fns'
-import { d, type NumericInput } from './money'
+import { d, type NumericInput } from '@/domain/money'
 
 export interface CurrencyMeta {
   code: string

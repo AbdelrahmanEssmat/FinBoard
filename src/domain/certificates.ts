@@ -1,5 +1,5 @@
 import { addMonths, addYears, differenceInCalendarDays, isAfter, isBefore, parseISO, format } from 'date-fns'
-import { d, Decimal, roundMoney, type NumericInput } from './money'
+import { d, Decimal, roundMoney, type NumericInput } from '@/domain/money'
 
 export type PayoutFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'at_maturity'
 
