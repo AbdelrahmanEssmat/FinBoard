@@ -46,8 +46,8 @@ export function Brand({ variant = 'inline', className }: { variant?: 'inline' | 
   }
   // icon + name on one row, the slogan on its own line underneath so it never wraps
   return (
-    <div className={className}>
-      <div className="flex items-center gap-3">
+    <div className={cn('flex flex-col items-center text-center', className)}>
+      <div className="flex items-center justify-center gap-3">
         <BrandMark className="h-10 w-10" />
         <Wordmark className="text-[24px]" />
       </div>
