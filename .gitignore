@@ -1,0 +1,16 @@
+node_modules
+dist
+dev-dist
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+supabase/.temp
+supabase/.branches
+.vercel
+.netlify
+coverage
+dev-local/bin
+dev-local/data
+dev-local/*.log
