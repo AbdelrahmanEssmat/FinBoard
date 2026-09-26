@@ -60,22 +60,21 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname.startsWith('/rest/v1/')) {
-    const target = POSTGREST + url.pathname.slice('/rest/v1'.length) + url.search
     const headers = { ...req.headers }
     delete headers.host
     delete headers.connection
-    const chunks = []
-    for await (const c of req) chunks.push(c)
-    const body = chunks.length ? Buffer.concat(chunks) : undefined
-    try {
-      const upstream = await fetch(target, { method: req.method, headers, body, duplex: 'half' })
-      const out = {}
-      upstream.headers.forEach((v, k) => { if (k !== 'content-encoding' && k !== 'transfer-encoding') out[k] = v })
-      res.writeHead(upstream.status, { ...out, ...cors })
-      res.end(Buffer.from(await upstream.arrayBuffer()))
-    } catch (e) {
-      json(res, 502, { message: 'postgrest unreachable: ' + e.message })
-    }
+    delete headers.expect
+    const upstream = http.request(
+      { host: '127.0.0.1', port: 3001, method: req.method, path: url.pathname.slice('/rest/v1'.length) + url.search, headers },
+      (up) => {
+        const out = { ...up.headers }
+        delete out['transfer-encoding']
+        res.writeHead(up.statusCode ?? 502, { ...out, ...cors })
+        up.pipe(res)
+      },
+    )
+    upstream.on('error', (e) => json(res, 502, { message: 'postgrest unreachable: ' + e.message }))
+    req.pipe(upstream)
     return
   }
 

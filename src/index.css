@@ -1,0 +1,164 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable', 'Segoe UI', Inter, Roboto, system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Mono', ui-monospace, Menlo, monospace;
+
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f2f5;
+  --color-border: #e6e8ec;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-faint: #94a3b8;
+  --color-accent: #2563eb;
+  --color-accent-soft: #e8efff;
+  --color-positive: #16a34a;
+  --color-positive-soft: #e6f6ec;
+  --color-negative: #dc2626;
+  --color-negative-soft: #fdeaea;
+  --color-warning: #d97706;
+  --color-warning-soft: #fdf1df;
+  --color-gold: #ca8a04;
+
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.dark {
+  --color-bg: #0b0f17;
+  --color-surface: #141a24;
+  --color-surface-2: #1c2431;
+  --color-border: #232c3a;
+  --color-text: #eef2f7;
+  --color-muted: #9aa7b8;
+  --color-faint: #6b7789;
+  --color-accent: #4f86ff;
+  --color-accent-soft: #1a2a4d;
+  --color-positive: #34d399;
+  --color-positive-soft: #10301f;
+  --color-negative: #f87171;
+  --color-negative-soft: #3a1717;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #3a2a0d;
+  --color-gold: #fbbf24;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100%;
+}
+
+/* iPhone safe areas */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.h-tabbar {
+  height: calc(4rem + env(safe-area-inset-bottom));
+}
+
+/* Privacy blur */
+.privacy-blur {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 150ms ease;
+}
+
+/* Tabular numbers for amounts */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.anim-fade-up {
+  animation: fade-up 220ms ease-out both;
+}
+.anim-sheet {
+  animation: sheet-up 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.anim-scale {
+  animation: scale-in 180ms ease-out both;
+}
+.anim-fade {
+  animation: fade-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up,
+  .anim-sheet,
+  .anim-scale,
+  .anim-fade {
+    animation: none;
+  }
+}
