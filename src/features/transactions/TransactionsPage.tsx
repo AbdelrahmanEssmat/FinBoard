@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Repeat, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Repeat, SlidersHorizontal, X } from 'lucide-react'
 import { Amount, PageHeader } from '@/components/shared'
 import { Button, Card, Input, Select, Sheet, Skeleton } from '@/components/ui'
 import { useAccounts, useCategories, useSubAccounts, useTransactions } from '@/api/queries'
@@ -34,6 +34,7 @@ export default function TransactionsPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [showFilters, setShowFilters] = useState(false)
   const [edit, setEdit] = useState<Transaction | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const subMap = useMemo(() => byId(subs), [subs])
   const catMap = useMemo(() => byId(categories), [categories])
@@ -87,6 +88,9 @@ export default function TransactionsPage() {
             </Button>
             <Button size="icon" variant={activeFilters ? 'soft' : 'ghost'} aria-label="Filters" onClick={() => setShowFilters(true)}>
               <SlidersHorizontal className="h-5 w-5" />
+            </Button>
+            <Button size="sm" variant="soft" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
         }
@@ -171,6 +175,7 @@ export default function TransactionsPage() {
         </div>
       </Sheet>
       <TransactionForm open={Boolean(edit)} onClose={() => setEdit(null)} initial={edit} />
+      <TransactionForm open={adding} onClose={() => setAdding(false)} defaultType="expense" />
     </div>
   )
 }
