@@ -15,13 +15,13 @@ export function LiquidityChip({ variant = 'bar', className }: { variant?: 'bar' 
 
   if (variant === 'sidebar') {
     return (
-      <button onClick={() => navigate('/liquidity')} className={cn('w-full rounded-2xl bg-surface-2 px-4 py-3 text-left transition-colors hover:bg-accent-soft', className)}>
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+      <button onClick={() => navigate('/liquidity')} className={cn('w-full rounded-2xl bg-surface-2 px-4 py-3 text-center transition-colors hover:bg-accent-soft', className)}>
+        <span className="flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
           <Droplets className="h-3.5 w-3.5 text-accent" /> Liquid now
         </span>
         <Amount value={l.total} currency={l.display} decimals={0} className="mt-1 block text-lg font-semibold" />
         {l.byCurrency.length ? (
-          <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
+          <span className="mt-1 flex flex-wrap justify-center gap-x-3 gap-y-0.5 text-xs text-muted">
             {l.byCurrency.map((c) => (
               <Amount key={c.currency} value={c.amount} currency={c.currency} decimals={0} />
             ))}
