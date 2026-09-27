@@ -17,6 +17,7 @@ import { todayIso } from '@/domain/format'
 import type { Transaction, TransactionType } from '@/api/database.types'
 import { CategoryPicker } from '@/features/categories/components/CategoryPicker'
 import { DEFAULT_CURRENCY, defaultFirst } from '@/domain/currency'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 export function TransactionForm({
   open,
@@ -119,8 +120,13 @@ export function TransactionForm({
       const payingCard = presetToSubAccountId
         ? activeSubs.find((s) => s.id === presetToSubAccountId && accMap.get(s.account_id)?.type === 'credit_card')
         : undefined
+      // the card's own bank first (when the card is linked to it)
+      const issuingBankId = payingCard ? accMap.get(payingCard.account_id)?.bank_account_id : null
       const bankForCard = payingCard
-        ? (activeSubs.find(
+        ? ((issuingBankId
+            ? activeSubs.find((s) => s.account_id === issuingBankId && s.currency === payingCard.currency && s.yield_rate === null)
+            : undefined) ??
+          activeSubs.find(
             (s) => s.id === prefs.lastSubAccountId && s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null,
           ) ??
           activeSubs.find((s) => s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null) ??
@@ -213,8 +219,6 @@ export function TransactionForm({
     onClose()
   }
 
-  const subLabel = (s: (typeof activeSubs)[number]) => `${accMap.get(s.account_id)?.name ?? 'Account'} · ${s.currency}${s.name ? ' · ' + s.name : ''}`
-
   return (
     <>
       <Sheet
@@ -272,11 +276,7 @@ export function TransactionForm({
           <Field label={type === 'transfer' ? 'From' : 'Account'}>
             <Select value={subId} onChange={(e) => setSubId(e.target.value)} disabled={linked}>
               {!activeSubs.length ? <option value="">No accounts yet</option> : null}
-              {activeSubs.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {subLabel(s)}
-                </option>
-              ))}
+              <BalanceOptions subs={activeSubs} />
             </Select>
           </Field>
 
@@ -309,13 +309,7 @@ export function TransactionForm({
             <>
               <Field label={payCard ? 'Card' : 'To'}>
                 <Select value={toSubId} onChange={(e) => setToSubId(e.target.value)}>
-                  {activeSubs
-                    .filter((s) => s.id !== subId)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {subLabel(s)}
-                      </option>
-                    ))}
+                  <BalanceOptions subs={activeSubs.filter((s) => s.id !== subId)} />
                 </Select>
               </Field>
               {payCard?.statement && payCard.statement.status !== 'nothing' ? (

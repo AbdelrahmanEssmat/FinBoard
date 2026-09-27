@@ -4,6 +4,7 @@ import { Amount, EmptyState, ListRow } from '@/components/shared'
 import { Card, Divider } from '@/components/ui'
 import { useAccounts, useCategories, useInstallmentPlans, useSubAccounts } from '@/api/queries'
 import { useHistoricalConvert } from '@/hooks/useMoney'
+import { accountDisplayName } from '@/features/accounts/accountLabels'
 import { isExpense, isIncome } from '@/domain/insights'
 import { d } from '@/domain/money'
 import { byId, groupBy } from '@/utils'
@@ -12,7 +13,17 @@ import { formatDate, todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
 import type { Transaction } from '@/api/database.types'
 
-export function TransactionList({ transactions, onSelect, emptyText, grouped = true }: { transactions: Transaction[]; onSelect?: (t: Transaction) => void; emptyText?: string; grouped?: boolean }) {
+export function TransactionList({
+  transactions,
+  onSelect,
+  emptyText,
+  grouped = true,
+}: {
+  transactions: Transaction[]
+  onSelect?: (t: Transaction) => void
+  emptyText?: string
+  grouped?: boolean
+}) {
   const { data: categories } = useCategories()
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
@@ -24,7 +35,8 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
   // purchases paid in installments: "12× installments" in the row
   const planByTx = useMemo(() => new Map((plans ?? []).filter((p) => p.transaction_id).map((p) => [p.transaction_id!, p])), [plans])
 
-  if (!transactions.length) return <EmptyState icon={Inbox} title="Nothing here yet" description={emptyText ?? 'Add an expense, income or transfer with the + button.'} />
+  if (!transactions.length)
+    return <EmptyState icon={Inbox} title="Nothing here yet" description={emptyText ?? 'Add an expense, income or transfer with the + button.'} />
 
   const today = todayIso()
   const yesterday = addDaysIso(today, -1)
@@ -39,12 +51,16 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
     return parent ? `${parent.name} › ${cat.name}` : cat.name
   }
   // what the day added up to (income minus spending, in the display currency at that day's rate)
-  const dayNet = (items: Transaction[]) => items.reduce((a, t) => (isIncome(t) ? a.plus(toDisplayAt(t.amount, t.currency, t.date)) : isExpense(t) ? a.minus(toDisplayAt(t.amount, t.currency, t.date)) : a), d(0))
+  const dayNet = (items: Transaction[]) =>
+    items.reduce(
+      (a, t) => (isIncome(t) ? a.plus(toDisplayAt(t.amount, t.currency, t.date)) : isExpense(t) ? a.minus(toDisplayAt(t.amount, t.currency, t.date)) : a),
+      d(0),
+    )
 
   const accountName = (subId: string) => {
     const s = subMap.get(subId)
     const a = s ? accMap.get(s.account_id) : undefined
-    return a ? `${a.name}${s && s.name ? ' · ' + s.name : ''}` : '—'
+    return a ? `${accountDisplayName(a, accMap)}${s && s.name ? ' · ' + s.name : ''}` : '—'
   }
 
   return (
@@ -53,7 +69,7 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
         <section key={day}>
           {grouped ? (
             <div className="mb-2.5 flex items-baseline justify-between gap-3 px-1">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">{dayLabel(day)}</h3>
+              <h3 className="text-muted text-xs font-semibold tracking-[0.06em] uppercase">{dayLabel(day)}</h3>
               {(() => {
                 const net = dayNet(items)
                 return net.isZero() ? null : <Amount value={net} currency={display} colored showSign compact size="sm" className="text-xs font-medium" />
@@ -65,12 +81,14 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
               const cat = t.category_id ? cats.get(t.category_id) : undefined
               const isTransfer = t.type === 'transfer'
               const Icon = isTransfer ? ArrowLeftRight : iconFor(cat?.icon)
-              const color = isTransfer ? '#64748b' : cat?.color ?? '#94a3b8'
+              const color = isTransfer ? '#64748b' : (cat?.color ?? '#94a3b8')
               const catName = categoryName(t.category_id)
               const title = t.payee || t.notes || catName || (isTransfer ? 'Transfer' : t.type === 'income' ? 'Income' : 'Expense')
               const subtitle = isTransfer
                 ? `${accountName(t.sub_account_id)} → ${t.to_sub_account_id ? accountName(t.to_sub_account_id) : '?'}`
-                : [catName, accountName(t.sub_account_id), planByTx.get(t.id) ? `${planByTx.get(t.id)!.months}× installments` : null].filter(Boolean).join(' · ')
+                : [catName, accountName(t.sub_account_id), planByTx.get(t.id) ? `${planByTx.get(t.id)!.months}× installments` : null]
+                    .filter(Boolean)
+                    .join(' · ')
               return (
                 <div key={t.id}>
                   {i > 0 ? <Divider /> : null}
@@ -84,7 +102,9 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
                       isTransfer ? (
                         <span className="flex flex-col items-end">
                           <Amount value={t.amount} currency={t.currency} className="text-sm font-medium" />
-                          {t.to_currency && t.to_currency !== t.currency ? <Amount value={t.to_amount ?? 0} currency={t.to_currency} size="sm" className="text-muted" /> : null}
+                          {t.to_currency && t.to_currency !== t.currency ? (
+                            <Amount value={t.to_amount ?? 0} currency={t.to_currency} size="sm" className="text-muted" />
+                          ) : null}
                         </span>
                       ) : (
                         <Amount value={t.type === 'expense' ? -t.amount : t.amount} currency={t.currency} colored showSign className="font-semibold" />

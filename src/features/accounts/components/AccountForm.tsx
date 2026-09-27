@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, ColorPicker, Field, FormStack, IconPicker, Input, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
+import { useAccounts } from '@/api/queries'
 import { newId } from '@/utils/ids'
 import { d, toDb } from '@/domain/money'
 import type { Account, AccountType } from '@/api/database.types'
@@ -9,7 +10,14 @@ import { ACCOUNT_TYPE_LABELS } from '@/features/accounts/useAccountsWithBalances
 import { DEFAULT_CURRENCY } from '@/domain/currency'
 import { isLiquidType } from '@/domain/liquidity'
 
-const DEFAULT_ICON: Record<AccountType, string> = { bank: 'landmark', cash: 'wallet', investment: 'trending-up', wallet: 'smartphone', credit_card: 'credit-card', other: 'coins' }
+const DEFAULT_ICON: Record<AccountType, string> = {
+  bank: 'landmark',
+  cash: 'wallet',
+  investment: 'trending-up',
+  wallet: 'smartphone',
+  credit_card: 'credit-card',
+  other: 'coins',
+}
 
 /** Create or edit an account (bank, cash, platform…). New accounts get their first currency balance here too. */
 export function AccountForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: Account | null }) {
@@ -29,6 +37,9 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
   const [statementDay, setStatementDay] = useState('')
   const [dueDay, setDueDay] = useState('')
   const [minPct, setMinPct] = useState('5')
+  const [bankId, setBankId] = useState('')
+  const { data: allAccounts } = useAccounts()
+  const banks = (allAccounts ?? []).filter((a) => a.type === 'bank' && !a.is_archived && a.id !== initial?.id)
   const isCard = type === 'credit_card'
 
   useEffect(() => {
@@ -45,6 +56,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
     setStatementDay(initial?.statement_day ? String(initial.statement_day) : '')
     setDueDay(initial?.due_day ? String(initial.due_day) : '')
     setMinPct(initial?.min_payment_pct != null ? String(initial.min_payment_pct) : '5')
+    setBankId(initial?.bank_account_id ?? '')
   }, [open, initial, currencies])
 
   const save = async () => {
@@ -56,12 +68,17 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
           statement_day: statementDay ? Number(statementDay) : null,
           due_day: dueDay ? Number(dueDay) : null,
           min_payment_pct: minPct !== '' && d(minPct).gte(0) ? d(minPct).toFixed(3) : null,
+          bank_account_id: bankId || null,
         }
-      : { credit_limit: null, statement_day: null, due_day: null, min_payment_pct: null }
+      : { credit_limit: null, statement_day: null, due_day: null, min_payment_pct: null, bank_account_id: null }
     await upsertAccount.mutateAsync([{ id, name: name.trim(), type, color, icon, notes: notes || null, is_archived: archived, ...card }])
     if (!initial) {
       // on a card, what you owe is a balance below zero
-      const start = isCard ? d(opening || 0).abs().neg() : d(opening || 0)
+      const start = isCard
+        ? d(opening || 0)
+            .abs()
+            .neg()
+        : d(opening || 0)
       await upsertSub.mutateAsync([{ id: newId(), account_id: id, currency: firstCurrency, opening_balance: toDb(start), balance: toDb(start) }])
     }
     onClose()
@@ -82,7 +99,16 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
         <Field label="Name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CIB, Cash, Thndr" />
         </Field>
-        <Field label="Type" hint={isCard ? 'Borrowed money: shown as what you owe, never as liquid money' : isLiquidType(type) ? 'Counts as liquid money (spendable any time)' : 'Not counted as liquid money'}>
+        <Field
+          label="Type"
+          hint={
+            isCard
+              ? 'Borrowed money: shown as what you owe, never as liquid money'
+              : isLiquidType(type)
+                ? 'Counts as liquid money (spendable any time)'
+                : 'Not counted as liquid money'
+          }
+        >
           <Select
             value={type}
             onChange={(e) => {
@@ -115,7 +141,25 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
           </div>
         ) : null}
         {isCard ? (
-          <div className="space-y-5 rounded-2xl bg-surface-2 p-4">
+          <div className="bg-surface-2 space-y-5 rounded-2xl p-4">
+            <Field label="Issuing bank" hint="The bank the card is from: it's named after it and paid from it by default">
+              <Select
+                value={bankId}
+                onChange={(e) => {
+                  setBankId(e.target.value)
+                  // a new card with no name yet is named after its bank ("NBE" → shown as "NBE credit card")
+                  const bank = banks.find((b) => b.id === e.target.value)
+                  if (bank && !name.trim()) setName(bank.name)
+                }}
+              >
+                <option value="">Not linked</option>
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Credit limit" hint={initial ? 'In the card\u2019s main currency' : `In ${firstCurrency}`}>
               <Input inputMode="decimal" className="tnum" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="e.g. 50000" />
             </Field>
@@ -144,7 +188,10 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
             <Field label="Minimum payment (%)" hint={'Of the statement balance; your bank\u2019s terms, often 3\u20135%'}>
               <Input inputMode="decimal" className="tnum" value={minPct} onChange={(e) => setMinPct(e.target.value)} placeholder="5" />
             </Field>
-            <p className="text-xs leading-relaxed text-muted">Spend with the card by adding an expense on it. Pay it with a transfer from your bank to the card. With the statement and due days set, FinBoard tracks each statement, the minimum and the due date.</p>
+            <p className="text-muted text-xs leading-relaxed">
+              Spend with the card by adding an expense on it. Pay it with a transfer from your bank to the card. With the statement and due days set, FinBoard
+              tracks each statement, the minimum and the due date.
+            </p>
           </div>
         ) : null}
         <Field label="Colour">

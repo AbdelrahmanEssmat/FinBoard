@@ -65,6 +65,8 @@ export type Account = {
   due_day: number | null
   /** credit cards: minimum payment as % of the statement balance */
   min_payment_pct: number | null
+  /** credit cards: the bank account that issued the card */
+  bank_account_id: string | null
   created_at: string
   updated_at: string
 }
@@ -398,7 +400,17 @@ export type Database = {
       post_due_recurring: { Args: { p_user?: string }; Returns: number }
       accrue_yield: { Args: { p_user?: string }; Returns: number }
       sell_holding: {
-        Args: { p_holding_id: string; p_units: number | string; p_price: number | string; p_date: string; p_fees?: number | string; p_sub_account_id?: string | null; p_notes?: string | null; p_sale_id?: string; p_transaction_id?: string }
+        Args: {
+          p_holding_id: string
+          p_units: number | string
+          p_price: number | string
+          p_date: string
+          p_fees?: number | string
+          p_sub_account_id?: string | null
+          p_notes?: string | null
+          p_sale_id?: string
+          p_transaction_id?: string
+        }
         Returns: string
       }
       process_certificate_payouts: { Args: { p_user?: string }; Returns: number }

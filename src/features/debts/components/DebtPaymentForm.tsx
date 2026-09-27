@@ -1,21 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea } from '@/components/ui'
-import { useAccounts, useSubAccounts } from '@/api/queries'
+import { useSubAccounts } from '@/api/queries'
 import { useRpc } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { newId } from '@/utils/ids'
-import { byId } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { useDebtViews } from '@/features/debts/useDebtViews'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 /** Record a partial or full payment. Works standalone (choose the debt) or bound to one debt. */
 export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onClose: () => void; debtId?: string }) {
   const { open: openDebts } = useDebtViews()
   const { data: subs } = useSubAccounts()
-  const { data: accounts } = useAccounts()
-  const accMap = useMemo(() => byId(accounts), [accounts])
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
   const record = useRpc('record_debt_payment', ['debt_payments', 'debts', 'transactions', 'sub_accounts'])
@@ -97,12 +95,15 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
         ) : null}
         {debt ? (
           <>
-            <p className="text-sm text-muted">
-              Remaining: <span className="tnum font-medium text-text">{debt.remaining.toFixed(2)} {debt.currency}</span>
+            <p className="text-muted text-sm">
+              Remaining:{' '}
+              <span className="tnum text-text font-medium">
+                {debt.remaining.toFixed(2)} {debt.currency}
+              </span>
             </p>
             <AmountInput value={amount} onChange={setAmount} currency={debt.currency} currencies={currencies} />
             {overpay ? (
-              <p className="-mt-2 text-xs text-negative">
+              <p className="text-negative -mt-2 text-xs">
                 That is more than the {debt.remaining.toFixed(2)} {debt.currency} left on this debt.
               </p>
             ) : null}
@@ -112,12 +113,7 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
             <Field label={debt.direction === 'i_owe' ? 'Paid from' : 'Received into'} hint="Leave empty if no account was involved">
               <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                 <option value="">No account</option>
-                {subsForCurrency.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {accMap.get(s.account_id)?.name} · {s.currency}
-                    {s.name ? ' · ' + s.name : ''}
-                  </option>
-                ))}
+                <BalanceOptions subs={subsForCurrency} />
               </Select>
             </Field>
             <Field label="Notes">

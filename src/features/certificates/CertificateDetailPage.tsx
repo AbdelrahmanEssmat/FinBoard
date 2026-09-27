@@ -10,6 +10,7 @@ import { daysUntil, interestEarnedSoFar, nextPayoutDate, PAYOUT_LABELS, payoutAm
 import { formatDate, todayIso } from '@/domain/format'
 import { CertificateForm } from '@/features/certificates/components/CertificateForm'
 import type { CertificatePayout } from '@/api/database.types'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 export default function CertificateDetailPage() {
   const { id } = useParams()
@@ -30,7 +31,7 @@ export default function CertificateDetailPage() {
   const updatePayout = useUpdateRows('certificate_payouts', { silent: true })
   const today = todayIso()
 
-  if (!cert) return <div className="py-12 text-center text-muted">Not found</div>
+  if (!cert) return <div className="text-muted py-12 text-center">Not found</div>
   const earned = interestEarnedSoFar(cert, today)
   const next = nextPayoutDate(cert, today)
   const matureIn = daysUntil(cert.maturity_date, today)
@@ -57,35 +58,45 @@ export default function CertificateDetailPage() {
               <Pencil className="h-5 w-5" />
             </Button>
             <Button size="icon" variant="ghost" aria-label="Delete" onClick={() => setConfirm(true)}>
-              <Trash2 className="h-5 w-5 text-negative" />
+              <Trash2 className="text-negative h-5 w-5" />
             </Button>
           </div>
         }
       />
 
       <Card padded className="mb-6">
-        <div className="text-xs text-muted">Principal</div>
+        <div className="text-muted text-xs">Principal</div>
         <Amount value={cert.principal} currency={cert.currency} size="xl" />
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <Stat label="Rate" value={`${cert.interest_rate}% / year`} />
           <Stat label="Payout" value={PAYOUT_LABELS[cert.payout_frequency]} />
           <Stat label="Each payout" value={<Amount value={per} currency={cert.currency} />} />
           <Stat label="Total expected" value={<Amount value={expected} currency={cert.currency} />} />
-          <Stat label="Earned so far" value={<Amount value={earned.total} currency={cert.currency} className="text-positive" />} hint={earned.accrued.gt(0) ? `incl. ${earned.accrued.toFixed(2)} accrued` : undefined} />
+          <Stat
+            label="Earned so far"
+            value={<Amount value={earned.total} currency={cert.currency} className="text-positive" />}
+            hint={earned.accrued.gt(0) ? `incl. ${earned.accrued.toFixed(2)} accrued` : undefined}
+          />
           <Stat label="Next payout" value={next ? formatDate(next) : '—'} hint={next ? `in ${daysUntil(next, today)} days` : undefined} />
           <Stat label="Started" value={formatDate(cert.start_date)} />
           <Stat label="Matures" value={formatDate(cert.maturity_date)} hint={matureIn >= 0 ? `in ${matureIn} days` : 'matured'} />
         </div>
-        {cert.notes ? <p className="mt-3 text-sm text-muted">{cert.notes}</p> : null}
+        {cert.notes ? <p className="text-muted mt-3 text-sm">{cert.notes}</p> : null}
         {cert.is_closed ? <Pill className="mt-3">Closed</Pill> : null}
       </Card>
 
       {pendingDue.length ? (
-        <Card className="mb-6 flex items-center justify-between gap-4 bg-warning-soft p-5">
-          <span className="text-sm text-warning">
+        <Card className="bg-warning-soft mb-6 flex items-center justify-between gap-4 p-5">
+          <span className="text-warning text-sm">
             {pendingDue.length} payout{pendingDue.length > 1 ? 's' : ''} due to be logged as income
           </span>
-          <Button size="sm" onClick={() => { setLogging(pendingDue[0]!); setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '') }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setLogging(pendingDue[0]!)
+              setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '')
+            }}
+          >
             Log
           </Button>
         </Card>
@@ -98,39 +109,56 @@ export default function CertificateDetailPage() {
             {i > 0 ? <Divider /> : null}
             <ListRow
               title={formatDate(p.due_date)}
-              subtitle={p.status === 'logged' ? 'Logged as income' : p.status === 'skipped' ? 'Skipped' : p.due_date <= today ? 'Due — not logged yet' : 'Upcoming'}
+              subtitle={
+                p.status === 'logged' ? 'Logged as income' : p.status === 'skipped' ? 'Skipped' : p.due_date <= today ? 'Due — not logged yet' : 'Upcoming'
+              }
               trailing={
                 <span className="flex items-center gap-2">
                   <Amount value={p.amount} currency={cert.currency} className="font-medium" />
-                  {p.status === 'logged' ? <CheckCircle2 className="h-4 w-4 text-positive" /> : p.status === 'pending' && p.due_date <= today ? <Pill tone="warning">due</Pill> : p.status === 'skipped' ? <Pill>skipped</Pill> : null}
+                  {p.status === 'logged' ? (
+                    <CheckCircle2 className="text-positive h-4 w-4" />
+                  ) : p.status === 'pending' && p.due_date <= today ? (
+                    <Pill tone="warning">due</Pill>
+                  ) : p.status === 'skipped' ? (
+                    <Pill>skipped</Pill>
+                  ) : null}
                 </span>
               }
-              onClick={p.status !== 'logged' ? () => { setLogging(p); setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '') } : undefined}
+              onClick={
+                p.status !== 'logged'
+                  ? () => {
+                      setLogging(p)
+                      setLogSub(cert.payout_sub_account_id ?? payoutSubs[0]?.id ?? '')
+                    }
+                  : undefined
+              }
             />
           </div>
         ))}
-        {!mine.length ? <p className="p-5 text-sm text-muted">No payouts scheduled.</p> : null}
+        {!mine.length ? <p className="text-muted p-5 text-sm">No payouts scheduled.</p> : null}
       </Card>
 
       <Sheet open={Boolean(logging)} onClose={() => setLogging(null)} title="Log payout as income">
         {logging ? (
           <div className="space-y-5 pb-2">
-            <p className="text-sm text-muted">
-              <Amount value={logging.amount} currency={cert.currency} className="font-semibold text-text" /> due {formatDate(logging.due_date)}
+            <p className="text-muted text-sm">
+              <Amount value={logging.amount} currency={cert.currency} className="text-text font-semibold" /> due {formatDate(logging.due_date)}
             </p>
             <Select value={logSub} onChange={(e) => setLogSub(e.target.value)}>
               <option value="">Choose account…</option>
-              {payoutSubs.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {accMap.get(s.account_id)?.name} · {s.currency}
-                  {s.name ? ' · ' + s.name : ''}
-                </option>
-              ))}
+              <BalanceOptions subs={payoutSubs} />
             </Select>
             <Button full size="lg" onClick={doLog} loading={logPayout.isPending} disabled={!logSub}>
               Add income
             </Button>
-            <Button full variant="ghost" onClick={async () => { await updatePayout.mutateAsync([{ id: logging.id, status: 'skipped' }]); setLogging(null) }}>
+            <Button
+              full
+              variant="ghost"
+              onClick={async () => {
+                await updatePayout.mutateAsync([{ id: logging.id, status: 'skipped' }])
+                setLogging(null)
+              }}
+            >
               Skip this payout
             </Button>
           </div>
@@ -154,9 +182,9 @@ export default function CertificateDetailPage() {
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div>
-      <div className="text-xs text-muted">{label}</div>
+      <div className="text-muted text-xs">{label}</div>
       <div className="font-medium">{value}</div>
-      {hint ? <div className="text-[11px] text-faint">{hint}</div> : null}
+      {hint ? <div className="text-faint text-[11px]">{hint}</div> : null}
     </div>
   )
 }

@@ -1,23 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
-import { useAccounts, useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
+import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
 import { useUpsert, useSaveTransaction } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { newId } from '@/utils/ids'
-import { byId } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
 import type { Debt, DebtDirection, Recurrence } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 export function DebtForm({ open, onClose, direction, initial }: { open: boolean; onClose: () => void; direction: DebtDirection; initial?: Debt | null }) {
   const { data: contacts } = useContacts()
   const { data: subs } = useSubAccounts()
   const { data: payments } = useDebtPayments()
-  const { data: accounts } = useAccounts()
-  const accMap = useMemo(() => byId(accounts), [accounts])
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
   const upsertContact = useUpsert('contacts', { silent: true })
@@ -66,7 +64,9 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   // keep the chosen balance in the debt's currency whenever the currency or the balances change
   useEffect(() => {
     if (!open) return
-    setSubId((cur) => (subsForCurrency.some((s) => s.id === cur) ? cur : subsForCurrency.find((s) => s.id === prefs.lastSubAccountId)?.id ?? subsForCurrency[0]?.id ?? ''))
+    setSubId((cur) =>
+      subsForCurrency.some((s) => s.id === cur) ? cur : (subsForCurrency.find((s) => s.id === prefs.lastSubAccountId)?.id ?? subsForCurrency[0]?.id ?? ''),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currency, subs])
   const effectiveSubId = subsForCurrency.some((s) => s.id === subId) ? subId : ''
@@ -119,7 +119,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         plan_amount: plan && planAmount ? toDb(planAmount) : null,
         plan_frequency: plan ? planFreq : null,
         plan_start_date: plan ? planStart || date : null,
-        sub_account_id: moveMoney ? effectiveSubId || null : initial?.sub_account_id ?? null,
+        sub_account_id: moveMoney ? effectiveSubId || null : (initial?.sub_account_id ?? null),
         transaction_id: txId,
         // status (open/settled) is worked out by the database from the payments
       },
@@ -165,9 +165,15 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
             <Input value={newContact} onChange={(e) => setNewContact(e.target.value)} placeholder="Who?" />
           </Field>
         ) : null}
-        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} onCurrencyChange={currencyLocked ? undefined : setCurrency} />
+        <AmountInput
+          value={amount}
+          onChange={setAmount}
+          currency={currency}
+          currencies={currencies}
+          onCurrencyChange={currencyLocked ? undefined : setCurrency}
+        />
         {belowPaid ? (
-          <p className="-mt-2 text-xs text-negative">
+          <p className="text-negative -mt-2 text-xs">
             {paidSoFar.toFixed(2)} {currency} has already been paid, so the amount can't be lower than that.
           </p>
         ) : null}
@@ -188,7 +194,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
 
         <Toggle checked={plan} onChange={setPlan} label="Installment plan" description="e.g. 5 × 2,000 monthly" />
         {plan ? (
-          <div className="grid grid-cols-1 gap-4 rounded-2xl bg-surface-2 p-4 min-[360px]:grid-cols-2">
+          <div className="bg-surface-2 grid grid-cols-1 gap-4 rounded-2xl p-4 min-[360px]:grid-cols-2">
             <Field label="Installments">
               <Input inputMode="numeric" value={planCount} onChange={(e) => setPlanCount(e.target.value)} placeholder="5" />
             </Field>
@@ -212,17 +218,17 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
 
         {!initial ? (
           <>
-            <Toggle checked={moveMoney} onChange={setMoveMoney} label={dir === 'i_owe' ? 'Money came into an account' : 'Money left an account'} description="Records the matching transaction" />
+            <Toggle
+              checked={moveMoney}
+              onChange={setMoveMoney}
+              label={dir === 'i_owe' ? 'Money came into an account' : 'Money left an account'}
+              description="Records the matching transaction"
+            />
             {moveMoney ? (
               <Field label="Account">
                 <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                   <option value="">Choose…</option>
-                  {subsForCurrency.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {accMap.get(s.account_id)?.name} · {s.currency}
-                      {s.name ? ' · ' + s.name : ''}
-                    </option>
-                  ))}
+                  <BalanceOptions subs={subsForCurrency} />
                 </Select>
               </Field>
             ) : null}

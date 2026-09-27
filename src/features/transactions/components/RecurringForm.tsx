@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Toggle } from '@/components/ui'
-import { useAccounts, useSubAccounts } from '@/api/queries'
+import { useSubAccounts } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
-import { byId } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
 import { CategoryPicker } from '@/features/categories/components/CategoryPicker'
 import type { Recurrence, RecurringTransaction, TransactionType } from '@/api/database.types'
 import { DEFAULT_CURRENCY, defaultFirst } from '@/domain/currency'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 export function RecurringForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: RecurringTransaction | null }) {
   const { data: subs } = useSubAccounts()
-  const { data: accounts } = useAccounts()
-  const accMap = useMemo(() => byId(accounts), [accounts])
   const activeSubs = useMemo(() => (subs ?? []).filter((s) => !s.is_archived), [subs])
   const currencies = useActiveCurrencies()
   const upsert = useUpsert('recurring_transactions')
@@ -60,7 +58,6 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
   const currency = sub?.currency ?? DEFAULT_CURRENCY
   const cross = type === 'transfer' && toSub && toSub.currency !== currency
   const valid = name.trim() && d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId))
-  const label = (s: (typeof activeSubs)[number]) => `${accMap.get(s.account_id)?.name ?? ''} · ${s.currency}${s.name ? ' · ' + s.name : ''}`
 
   const save = async () => {
     if (!valid) return
@@ -75,7 +72,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
         category_id: type === 'transfer' ? null : categoryId,
         to_sub_account_id: type === 'transfer' ? toSubId : null,
         to_amount: type === 'transfer' ? toDb(cross ? toAmount || amount : amount) : null,
-        to_currency: type === 'transfer' ? toSub?.currency ?? currency : null,
+        to_currency: type === 'transfer' ? (toSub?.currency ?? currency) : null,
         frequency,
         interval_count: Math.max(1, parseInt(interval) || 1),
         next_date: nextDate,
@@ -96,7 +93,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
         <div className="flex gap-3">
           {initial ? (
             <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
-              <Trash2 className="h-4 w-4 text-negative" />
+              <Trash2 className="text-negative h-4 w-4" />
             </Button>
           ) : null}
           <Button full size="lg" onClick={save} loading={upsert.isPending} disabled={!valid}>
@@ -106,18 +103,22 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
       }
     >
       <div className="space-y-5">
-        <Segmented value={type} onChange={setType} options={[{ value: 'expense', label: 'Expense' }, { value: 'income', label: 'Income' }, { value: 'transfer', label: 'Transfer' }]} />
+        <Segmented
+          value={type}
+          onChange={setType}
+          options={[
+            { value: 'expense', label: 'Expense' },
+            { value: 'income', label: 'Income' },
+            { value: 'transfer', label: 'Transfer' },
+          ]}
+        />
         <Field label="Name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Salary, Rent, Netflix" />
         </Field>
         <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} />
         <Field label={type === 'transfer' ? 'From' : 'Account'}>
           <Select value={subId} onChange={(e) => setSubId(e.target.value)}>
-            {activeSubs.map((s) => (
-              <option key={s.id} value={s.id}>
-                {label(s)}
-              </option>
-            ))}
+            <BalanceOptions subs={activeSubs} />
           </Select>
         </Field>
         {type === 'transfer' ? (
@@ -125,11 +126,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
             <Field label="To">
               <Select value={toSubId} onChange={(e) => setToSubId(e.target.value)}>
                 <option value="">Choose…</option>
-                {activeSubs.filter((s) => s.id !== subId).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {label(s)}
-                  </option>
-                ))}
+                <BalanceOptions subs={activeSubs.filter((s) => s.id !== subId)} />
               </Select>
             </Field>
             {cross ? (

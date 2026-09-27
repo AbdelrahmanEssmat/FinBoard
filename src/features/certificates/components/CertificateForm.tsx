@@ -1,21 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addYears, format, parseISO } from 'date-fns'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { useAccounts, useSubAccounts } from '@/api/queries'
 import { useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
-import { byId } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { PAYOUT_LABELS, payoutAmount, payoutSchedule } from '@/domain/certificates'
 import { todayIso } from '@/domain/format'
 import type { Certificate, PayoutFrequency } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 export function CertificateForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: Certificate | null }) {
   const { data: accounts } = useAccounts()
   const { data: subs } = useSubAccounts()
-  const accMap = useMemo(() => byId(accounts), [accounts])
   const banks = (accounts ?? []).filter((a) => !a.is_archived && a.type !== 'cash')
   const currencies = useActiveCurrencies()
   const upsert = useUpsert('certificates', { invalidate: ['certificate_payouts'] })
@@ -54,7 +53,12 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   // the payout account must hold the certificate's currency; a stale choice from another currency is never sent
   const effectivePayoutSubId = payoutSubs.some((s) => s.id === payoutSubId) ? payoutSubId : ''
   const valid = accountId && name.trim() && d(principal).gt(0) && d(rate).gte(0) && start && maturity && maturity > start && (!autoLog || effectivePayoutSubId)
-  const preview = valid ? { amount: payoutAmount({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }), count: payoutSchedule({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }).length } : null
+  const preview = valid
+    ? {
+        amount: payoutAmount({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }),
+        count: payoutSchedule({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }).length,
+      }
+    : null
 
   const setYears = (y: number) => setMaturity(format(addYears(parseISO(start), y), 'yyyy-MM-dd'))
 
@@ -130,27 +134,35 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
         </div>
         <div className="flex gap-2">
           {[1, 3, 5].map((y) => (
-            <button key={y} type="button" onClick={() => setYears(y)} className="rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-muted hover:text-text">
+            <button
+              key={y}
+              type="button"
+              onClick={() => setYears(y)}
+              className="bg-surface-2 text-muted hover:text-text rounded-full px-3 py-1 text-xs font-medium"
+            >
               {y} year{y > 1 ? 's' : ''}
             </button>
           ))}
         </div>
         {preview ? (
-          <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent">
-            {preview.count} payout{preview.count === 1 ? '' : 's'} of <span className="tnum font-semibold">{preview.amount.toFixed(2)} {currency}</span>
+          <p className="bg-accent-soft text-accent rounded-xl px-3 py-2 text-sm">
+            {preview.count} payout{preview.count === 1 ? '' : 's'} of{' '}
+            <span className="tnum font-semibold">
+              {preview.amount.toFixed(2)} {currency}
+            </span>
           </p>
         ) : null}
-        <Toggle checked={autoLog} onChange={setAutoLog} label="Auto-log payouts as income" description="Adds an Interest income transaction on each payout date" />
+        <Toggle
+          checked={autoLog}
+          onChange={setAutoLog}
+          label="Auto-log payouts as income"
+          description="Adds an Interest income transaction on each payout date"
+        />
         {autoLog ? (
           <Field label="Payout account">
             <Select value={effectivePayoutSubId} onChange={(e) => setPayoutSubId(e.target.value)}>
               <option value="">Choose…</option>
-              {payoutSubs.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {accMap.get(s.account_id)?.name} · {s.currency}
-                  {s.name ? ' · ' + s.name : ''}
-                </option>
-              ))}
+              <BalanceOptions subs={payoutSubs} />
             </Select>
           </Field>
         ) : null}

@@ -17,6 +17,9 @@ import { formatDate } from '@/domain/format'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { CreditCardPanel } from '@/features/accounts/components/CreditCardPanel'
 import { InstallmentPlansSection } from '@/features/accounts/components/InstallmentPlansSection'
+import { CreditCardRow } from '@/features/accounts/components/CreditCardRow'
+import { cardName } from '@/features/accounts/accountLabels'
+import { byId } from '@/utils'
 
 export default function AccountDetailPage() {
   const { id } = useParams()
@@ -41,19 +44,24 @@ export default function AccountDetailPage() {
 
   const { cards } = useCreditCards()
   const card = cards.find((c) => c.account.id === id)
+  // a bank's page lists the credit cards it issued
+  const issuedCards = cards.filter((c) => c.account.bank_account_id === id)
+  const accMap = useMemo(() => byId(accounts), [accounts])
+  const issuer = account?.bank_account_id ? accMap.get(account.bank_account_id) : undefined
   const { data: txs } = useTransactions()
   const recent = useMemo(() => {
     const ids = new Set(mySubs.map((s) => s.id))
     return (txs ?? []).filter((t) => ids.has(t.sub_account_id) || (t.to_sub_account_id && ids.has(t.to_sub_account_id))).slice(0, 30)
   }, [txs, mySubs])
 
-  if (!account) return <div className="py-12 text-center text-muted">Account not found</div>
+  if (!account) return <div className="text-muted py-12 text-center">Account not found</div>
 
   return (
     <div className="anim-fade-up">
       <PageHeader
         back
-        title={account.name}
+        title={card ? cardName(account, accMap) : account.name}
+        subtitle={card ? (issuer ? `Credit card · issued by ${issuer.name}` : 'Credit card') : undefined}
         action={
           <Button size="icon" variant="ghost" onClick={() => setMenu(true)} aria-label="More">
             <MoreHorizontal className="h-5 w-5" />
@@ -73,21 +81,21 @@ export default function AccountDetailPage() {
             {createElement(iconFor(account.icon), { className: 'h-6 w-6' })}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-xs text-muted">Balance</div>
+            <div className="text-muted text-xs">Balance</div>
             <Amount value={total} currency={display} size="lg" />
             {myCerts.length ? (
-              <div className="text-xs text-muted">
+              <div className="text-muted text-xs">
                 + <Amount value={certTotal} currency={display} size="sm" /> in certificates
               </div>
             ) : null}
           </div>
         </div>
-        {account.notes ? <p className="mt-3 text-sm text-muted">{account.notes}</p> : null}
+        {account.notes ? <p className="text-muted mt-3 text-sm">{account.notes}</p> : null}
       </Card>
 
       <SectionTitle
         action={
-          <button onClick={() => setSubForm({ open: true, sub: null })} className="flex items-center gap-1 text-xs font-medium text-accent">
+          <button onClick={() => setSubForm({ open: true, sub: null })} className="text-accent flex items-center gap-1 text-xs font-medium">
             <Plus className="h-3.5 w-3.5" /> Currency
           </button>
         }
@@ -103,7 +111,7 @@ export default function AccountDetailPage() {
                 <span>
                   {s.currency}
                   {s.name ? <span className="text-muted"> · {s.name}</span> : null}
-                  {s.is_archived ? <span className="ml-2 text-xs text-faint">archived</span> : null}
+                  {s.is_archived ? <span className="text-faint ml-2 text-xs">archived</span> : null}
                 </span>
               }
               subtitle={s.currency !== display ? <Amount value={toDisplayOrZero(s.balance, s.currency)} currency={display} size="sm" /> : undefined}
@@ -112,8 +120,22 @@ export default function AccountDetailPage() {
             />
           </div>
         ))}
-        {!mySubs.length ? <p className="p-5 text-sm text-muted">No balances yet. Add a currency.</p> : null}
+        {!mySubs.length ? <p className="text-muted p-5 text-sm">No balances yet. Add a currency.</p> : null}
       </Card>
+
+      {issuedCards.length ? (
+        <>
+          <SectionTitle>Credit cards from this bank</SectionTitle>
+          <Card className="mb-8 overflow-hidden">
+            {issuedCards.map((c, i) => (
+              <div key={c.account.id}>
+                {i > 0 ? <Divider /> : null}
+                <CreditCardRow card={c} onClick={() => navigate(`/accounts/${c.account.id}`)} />
+              </div>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       {myCerts.length ? (
         <>
@@ -122,7 +144,13 @@ export default function AccountDetailPage() {
             {myCerts.map((c, i) => (
               <div key={c.id}>
                 {i > 0 ? <Divider /> : null}
-                <ListRow title={c.name} subtitle={`${c.interest_rate}% · matures ${formatDate(c.maturity_date)}`} trailing={<Amount value={c.principal} currency={c.currency} className="font-semibold" />} chevron onClick={() => navigate(`/certificates/${c.id}`)} />
+                <ListRow
+                  title={c.name}
+                  subtitle={`${c.interest_rate}% · matures ${formatDate(c.maturity_date)}`}
+                  trailing={<Amount value={c.principal} currency={c.currency} className="font-semibold" />}
+                  chevron
+                  onClick={() => navigate(`/certificates/${c.id}`)}
+                />
               </div>
             ))}
           </Card>
@@ -134,10 +162,22 @@ export default function AccountDetailPage() {
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={account.name}>
         <div className="space-y-1 pb-3">
-          <button onClick={() => { setMenu(false); setEditing(true) }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-surface-2">
-            <Pencil className="h-4 w-4 text-muted" /> Edit account
+          <button
+            onClick={() => {
+              setMenu(false)
+              setEditing(true)
+            }}
+            className="hover:bg-surface-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left"
+          >
+            <Pencil className="text-muted h-4 w-4" /> Edit account
           </button>
-          <button onClick={() => { setMenu(false); setConfirm(true) }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-negative hover:bg-surface-2">
+          <button
+            onClick={() => {
+              setMenu(false)
+              setConfirm(true)
+            }}
+            className="text-negative hover:bg-surface-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left"
+          >
             <Trash2 className="h-4 w-4" /> Delete account
           </button>
         </div>

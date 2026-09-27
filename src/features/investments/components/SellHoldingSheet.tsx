@@ -1,24 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
 import { Amount } from '@/components/shared'
-import { useAccounts, useSubAccounts } from '@/api/queries'
+import { useSubAccounts } from '@/api/queries'
 import { useRpc } from '@/api/mutations'
 import { newId } from '@/utils/ids'
-import { byId, cn } from '@/utils'
+import { cn } from '@/utils'
 import { d } from '@/domain/money'
 import { formatPercent, todayIso } from '@/domain/format'
 import { previewSale } from '@/domain/investments'
 import { daysBetween } from '@/utils/dates'
 import { toast } from '@/store/toasts'
 import type { Holding } from '@/api/database.types'
+import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
 type PriceMode = 'unit' | 'total'
 
 /** Sell some or all units of a holding; books the realized profit or loss. */
 export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boolean; onClose: () => void; holding: Holding | null; onSold?: () => void }) {
   const { data: subs } = useSubAccounts()
-  const { data: accounts } = useAccounts()
-  const accMap = useMemo(() => byId(accounts), [accounts])
   const sell = useRpc('sell_holding', ['holdings', 'holding_sales', 'transactions', 'sub_accounts'])
 
   const [units, setUnits] = useState('')
@@ -90,22 +89,28 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
       }
     >
       <div className="space-y-5">
-        <p className="text-sm text-muted">
-          You hold <span className="tnum font-medium text-text">{held.toString()}</span> units bought at{' '}
-          <span className="tnum font-medium text-text">
+        <p className="text-muted text-sm">
+          You hold <span className="tnum text-text font-medium">{held.toString()}</span> units bought at{' '}
+          <span className="tnum text-text font-medium">
             {d(holding.avg_cost).toFixed(2)} {holding.currency}
           </span>
           .
         </p>
         <Field label="Units to sell">
           <div className="flex gap-2">
-            <Input inputMode="decimal" className={cn('tnum flex-1', tooMany && 'border-negative')} value={units} onChange={(e) => setUnits(e.target.value)} placeholder="0" />
+            <Input
+              inputMode="decimal"
+              className={cn('tnum flex-1', tooMany && 'border-negative')}
+              value={units}
+              onChange={(e) => setUnits(e.target.value)}
+              placeholder="0"
+            />
             <Button variant="soft" size="lg" className="shrink-0" onClick={() => setUnits(held.toString())}>
               All
             </Button>
           </div>
         </Field>
-        {tooMany ? <p className="-mt-3 text-xs text-negative">You only hold {held.toString()} units.</p> : null}
+        {tooMany ? <p className="text-negative -mt-3 text-xs">You only hold {held.toString()} units.</p> : null}
         <Segmented<PriceMode>
           value={mode}
           onChange={(m) => {
@@ -139,20 +144,15 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
         <Field label="Money received into" hint="Leave empty if you are only recording the sale">
           <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
             <option value="">No account</option>
-            {subsForCurrency.map((s) => (
-              <option key={s.id} value={s.id}>
-                {accMap.get(s.account_id)?.name} · {s.currency}
-                {s.name ? ' · ' + s.name : ''}
-              </option>
-            ))}
+            <BalanceOptions subs={subsForCurrency} />
           </Select>
         </Field>
 
         {u.gt(0) && !tooMany ? (
-          <div className="space-y-2 rounded-2xl bg-surface-2 p-4 text-sm">
+          <div className="bg-surface-2 space-y-2 rounded-2xl p-4 text-sm">
             <PreviewRow label="You receive" value={<Amount value={p.proceeds} currency={holding.currency} />} />
             <PreviewRow label="You paid" value={<Amount value={p.costBasis} currency={holding.currency} />} />
-            <div className="flex items-center justify-between border-t border-border pt-2">
+            <div className="border-border flex items-center justify-between border-t pt-2">
               <span className="font-medium">{p.realized.gte(0) ? 'Profit' : 'Loss'}</span>
               <span className={cn('tnum font-semibold', p.realized.gte(0) ? 'text-positive' : 'text-negative')}>
                 <Amount value={p.realized} currency={holding.currency} showSign /> {p.realizedPct ? `(${formatPercent(p.realizedPct)})` : ''}
