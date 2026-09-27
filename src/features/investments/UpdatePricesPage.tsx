@@ -103,8 +103,9 @@ export default function UpdatePricesPage() {
       ) : (
         <div className="space-y-5">
           <Card padded>
-            <div className="flex items-end justify-between gap-4">
-              <div className="min-w-0">
+            {/* the change (or hint) moves under the total when both don't fit on one line */}
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              <div>
                 <div className="text-xs font-medium text-muted">Stocks &amp; funds</div>
                 <Amount value={after} currency={display} size="lg" className="mt-1 block" />
               </div>

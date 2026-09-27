@@ -112,7 +112,8 @@ export function Sheet({
   if (!open) return null
   const viewportStyle = vv.height ? { top: vv.offsetTop, height: vv.height } : undefined
   return createPortal(
-    <div className="fixed inset-x-0 z-50 flex items-end justify-center sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true">
+    // top padding = the iPhone status bar / notch, so a tall sheet never slides under the clock and battery
+    <div className="fixed inset-x-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true">
       <div className="anim-fade absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         ref={panelRef}

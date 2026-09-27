@@ -161,6 +161,42 @@ select,
 input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.5;
 }
+
+/*
+ * No control may push its neighbours out of a row.
+ * - Form fields shrink to the space they are given (inputs otherwise keep a ~20-character minimum).
+ * - Grid columns and flex children may shrink below their content's natural width (the browser
+ *   default "min-width: auto" is what lets a wide child spill out of a two-column row).
+ * :where() keeps these at zero specificity so any explicit class still wins.
+ */
+:where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+:where(.grid) > *,
+:where(.flex) > :where(input, select, textarea, label) {
+  min-width: 0;
+}
+
+/*
+ * iPhone Safari draws date/time fields natively with a fixed minimum width (wider than half a
+ * phone screen) and collapses them to a sliver when empty. Plain appearance lets them size like
+ * every other field, and the value sits left-aligned like typed text.
+ */
+input:is([type='date'], [type='time'], [type='month'], [type='datetime-local']) {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  text-align: left;
+}
+input:is([type='date'], [type='time'], [type='month'], [type='datetime-local'])::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+  min-height: 1.5em;
+}
 input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;

@@ -78,8 +78,9 @@ export default function SettingsPage() {
             </Select>
           </Field>
           <Divider />
-          <ListRow icon={Coins} color="#eab308" title="Currencies" subtitle="Add or enable EUR, SAR, AED…" chevron onClick={() => navigate('/settings/currencies')} className="-mx-4" />
-          <ListRow icon={RefreshCw} color="#2563eb" title="Exchange rates" subtitle="Live rates and manual overrides" chevron onClick={() => navigate('/settings/rates')} className="-mx-4 -mt-4" />
+          {/* rows run edge to edge of the card; their own padding lines the icons up with the field above */}
+          <ListRow icon={Coins} color="#eab308" title="Currencies" subtitle="Add or enable EUR, SAR, AED…" chevron onClick={() => navigate('/settings/currencies')} className="-mx-5 w-[calc(100%+2.5rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-6" />
+          <ListRow icon={RefreshCw} color="#2563eb" title="Exchange rates" subtitle="Live rates and manual overrides" chevron onClick={() => navigate('/settings/rates')} className="-mx-5 w-[calc(100%+2.5rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-6 -mt-4" />
         </Card>
       </section>
 

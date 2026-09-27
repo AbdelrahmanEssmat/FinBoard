@@ -63,7 +63,7 @@ export default function BudgetsPage() {
         <div className="space-y-5">
           <Card padded>
             <div className="flex items-end justify-between">
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs text-muted">Spent this month</div>
                 <Amount value={totalSpent} currency={display} size="lg" />
               </div>

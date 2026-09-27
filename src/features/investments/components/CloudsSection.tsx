@@ -68,8 +68,15 @@ export function CloudsSection() {
                   <Button size="sm" variant="secondary" onClick={() => setMove({ open: true, cloud: c, direction: 'out' })}>
                     <ArrowUpFromLine className="h-3.5 w-3.5" /> Withdraw
                   </Button>
-                  <span className="ml-auto text-[11px] text-muted">
-                    ~<Amount value={c.projectedMonthly} currency={c.currency} size="sm" className="text-[11px]" />/mo · earned <Amount value={c.earnedTotal} currency={c.currency} size="sm" className="text-[11px]" />
+                </div>
+                {/* its own line: beside the buttons it had no room on small phones */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-1 text-[11px] text-muted">
+                  <span>
+                    ~<Amount value={c.projectedMonthly} currency={c.currency} size="sm" className="text-[11px]" /> a month
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>
+                    earned <Amount value={c.earnedTotal} currency={c.currency} size="sm" className="text-[11px]" /> so far
                   </span>
                 </div>
               </div>

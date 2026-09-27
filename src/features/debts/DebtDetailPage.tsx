@@ -45,7 +45,7 @@ export default function DebtDetailPage() {
 
       <Card padded className="mb-8">
         <div className="flex items-end justify-between">
-          <div>
+          <div className="min-w-0">
             <div className="text-xs text-muted">Remaining</div>
             <Amount value={debt.remaining} currency={debt.currency} size="xl" className={positive ? 'text-positive' : 'text-negative'} />
           </div>

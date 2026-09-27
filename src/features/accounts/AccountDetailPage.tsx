@@ -58,10 +58,10 @@ export default function AccountDetailPage() {
 
       <Card padded className="mb-8">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl text-white" style={{ background: account.color }}>
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white" style={{ background: account.color }}>
             {createElement(iconFor(account.icon), { className: 'h-6 w-6' })}
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-muted">Balance</div>
             <Amount value={total} currency={display} size="lg" />
             {myCerts.length ? (
