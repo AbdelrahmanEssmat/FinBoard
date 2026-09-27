@@ -51,6 +51,34 @@ describe('net worth', () => {
     expect(r.byClass.clouds.toString()).toBe('105299.13')
     expect(r.total.toString()).toBe('105299.13')
   })
+  it('credit card debt is its own class, subtracted from the total and kept out of accounts (same as the SQL test)', () => {
+    const card = { is_archived: false, type: 'credit_card' }
+    const r = computeNetWorth({
+      base: 'EGP', rates,
+      subAccounts: [
+        { id: 'cash', currency: 'EGP', balance: '50000', is_archived: false, account: { is_archived: false, type: 'cash' } },
+        { id: 'visa', currency: 'EGP', balance: '-8000', is_archived: false, account: card },
+        { id: 'visa-usd', currency: 'USD', balance: '-10', is_archived: false, account: card }, // 500
+      ],
+      certificates: [], holdings: [], gold: [], goldPrices: { perGram: {}, source: 'none' }, debts: [], paymentsByDebt: {},
+    })
+    expect(r.byClass.cards.toString()).toBe('8500')
+    expect(r.byClass.accounts.toString()).toBe('50000')
+    expect(r.total.toString()).toBe('41500')
+    expect(r.byCurrency.EGP!.toString()).toBe('50000')
+    expect(r.byCurrency.USD).toBeUndefined()
+    // paying 5,000 from cash to the card leaves net worth unchanged
+    const after = computeNetWorth({
+      base: 'EGP', rates,
+      subAccounts: [
+        { id: 'cash', currency: 'EGP', balance: '45000', is_archived: false, account: { is_archived: false, type: 'cash' } },
+        { id: 'visa', currency: 'EGP', balance: '-3000', is_archived: false, account: card },
+        { id: 'visa-usd', currency: 'USD', balance: '-10', is_archived: false, account: card },
+      ],
+      certificates: [], holdings: [], gold: [], goldPrices: { perGram: {}, source: 'none' }, debts: [], paymentsByDebt: {},
+    })
+    expect(after.total.toString()).toBe('41500')
+  })
   it('switching base currency scales everything', () => {
     const r = computeNetWorth({
       base: 'USD', rates,

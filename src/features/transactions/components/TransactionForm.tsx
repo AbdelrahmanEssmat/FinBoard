@@ -3,6 +3,9 @@ import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
 import { useAccounts, useCategories, usePayeeHistory, useSubAccounts } from '@/api/queries'
 import { lastCategoryByParty } from '@/domain/categoryStats'
+import { useCreditCards } from '@/hooks/useCreditCards'
+import { formatDate } from '@/domain/format'
+import { Amount } from '@/components/shared'
 import { useSaveTransaction, useUndoableDeleteTransaction } from '@/api/mutations'
 import { useConvert, useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
@@ -23,6 +26,7 @@ export function TransactionForm({
   presetSubAccountId,
   presetToSubAccountId,
   presetCategoryId,
+  presetAmount,
 }: {
   open: boolean
   onClose: () => void
@@ -34,6 +38,8 @@ export function TransactionForm({
   presetToSubAccountId?: string
   /** Pre-select the category (e.g. adding from a category's page) */
   presetCategoryId?: string
+  /** Pre-fill the amount (e.g. paying a card's statement) */
+  presetAmount?: string
 }) {
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
@@ -99,11 +105,19 @@ export function TransactionForm({
       setTags(initial.tags.join(', '))
     } else {
       setType(defaultType)
-      setAmount('')
+      setAmount(presetAmount ?? '')
       // default to an EGP balance: the last one used if it is EGP, else the first EGP balance
       const ordered = defaultFirst(activeSubs)
+      // paying a credit card: pay from a bank balance in the card's currency (never from a card)
+      const payingCard = presetToSubAccountId ? activeSubs.find((s) => s.id === presetToSubAccountId && accMap.get(s.account_id)?.type === 'credit_card') : undefined
+      const bankForCard = payingCard
+        ? (activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null) ??
+          activeSubs.find((s) => s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null) ??
+          activeSubs.find((s) => s.currency === payingCard.currency && accMap.get(s.account_id)?.type !== 'credit_card' && s.yield_rate === null))
+        : undefined
       const preferred =
         activeSubs.find((s) => s.id === presetSubAccountId) ??
+        bankForCard ??
         activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.currency === DEFAULT_CURRENCY && s.id !== presetToSubAccountId) ??
         ordered.find((s) => s.id !== presetToSubAccountId)
       setSubId(preferred?.id ?? '')
@@ -136,6 +150,12 @@ export function TransactionForm({
     if (cat && cat.kind !== type) setCategoryId(type === 'income' ? prefs.lastIncomeCategoryId : prefs.lastExpenseCategoryId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type])
+
+  // credit cards: available credit when spending on one, the statement when paying one
+  const { cards } = useCreditCards()
+  const spendCard = type !== 'transfer' && sub ? cards.find((c) => c.subs.some((s) => s.id === sub.id)) : undefined
+  const payCard = type === 'transfer' && toSub ? cards.find((c) => c.subs.some((s) => s.id === toSub.id)) : undefined
+  const overLimit = Boolean(type === 'expense' && spendCard?.usage.available && sub?.currency === spendCard.currency && d(amount || 0).minus(initial?.type === 'expense' && initial.sub_account_id === sub.id ? d(initial.amount) : 0).gt(spendCard.usage.available))
 
   const valid = d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId && (!crossCurrency || d(toAmount).gt(0))))
 
@@ -174,7 +194,7 @@ export function TransactionForm({
     <Sheet
       open={open}
       onClose={onClose}
-      title={initial ? 'Edit transaction' : type === 'income' ? 'Add income' : type === 'transfer' ? 'Transfer' : 'Add expense'}
+      title={initial ? 'Edit transaction' : type === 'income' ? 'Add income' : type === 'transfer' ? (payCard ? 'Pay card' : 'Transfer') : 'Add expense'}
       footer={
         <div className="flex gap-3">
           {initial ? (
@@ -216,9 +236,17 @@ export function TransactionForm({
           </Select>
         </Field>
 
+        {spendCard && spendCard.usage.available ? (
+          <p className={`-mt-2 text-xs ${overLimit ? 'font-medium text-negative' : 'text-muted'}`}>
+            {overLimit ? 'Over the credit limit: ' : 'Available credit: '}
+            <Amount value={spendCard.usage.available} currency={spendCard.currency} decimals={0} />
+            {spendCard.usage.limit ? <> of <Amount value={spendCard.usage.limit} currency={spendCard.currency} decimals={0} /></> : null}
+          </p>
+        ) : null}
+
         {type === 'transfer' ? (
           <>
-            <Field label="To">
+            <Field label={payCard ? 'Card' : 'To'}>
               <Select value={toSubId} onChange={(e) => setToSubId(e.target.value)}>
                 {activeSubs.filter((s) => s.id !== subId).map((s) => (
                   <option key={s.id} value={s.id}>
@@ -227,6 +255,22 @@ export function TransactionForm({
                 ))}
               </Select>
             </Field>
+            {payCard?.statement && payCard.statement.status !== 'nothing' ? (
+              <p className="-mt-2 text-xs text-muted">
+                {payCard.statement.status === 'paid' ? (
+                  <>Statement of {formatDate(payCard.statement.statementDate, 'd MMM')} is paid. Owed now: <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} /></>
+                ) : (
+                  <>
+                    Left on the statement: <Amount value={payCard.statement.remaining} currency={payCard.currency} decimals={0} /> · due {formatDate(payCard.statement.dueDate, 'd MMM')}
+                    {payCard.statement.minimumLeft.gt(0) ? <> · minimum <Amount value={payCard.statement.minimumLeft} currency={payCard.currency} decimals={0} /></> : null}
+                  </>
+                )}
+              </p>
+            ) : payCard ? (
+              <p className="-mt-2 text-xs text-muted">
+                Owed now: <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} />
+              </p>
+            ) : null}
             {crossCurrency ? (
               <Field label={`Amount received (${toCurrency})`} hint={d(amount).gt(0) && d(toAmount).gt(0) ? `Rate used: 1 ${currency} = ${d(toAmount).div(d(amount)).toFixed(4)} ${toCurrency}` : 'Suggested from today’s rate; edit to match what the bank gave you'}>
                 <AmountInput value={toAmount} onChange={setToAmount} currency={toCurrency} currencies={currencies} />

@@ -7,12 +7,18 @@ import { iconFor } from '@/utils/icons'
 import { groupBy } from '@/utils'
 import { ACCOUNT_TYPE_LABELS, useAccountsWithBalances, type AccountWithBalances } from '@/features/accounts/useAccountsWithBalances'
 import { AccountForm } from '@/features/accounts/components/AccountForm'
+import { CreditCardRow } from '@/features/accounts/components/CreditCardRow'
+import { useCreditCards } from '@/hooks/useCreditCards'
+import { d } from '@/domain/money'
 import type { AccountType } from '@/api/database.types'
 
 const ORDER: AccountType[] = ['bank', 'cash', 'wallet', 'investment', 'other']
 
 export default function AccountsPage() {
-  const { list, grandTotal, display, isLoading, isEmpty } = useAccountsWithBalances()
+  const { list, display, isLoading, isEmpty } = useAccountsWithBalances()
+  const { cards, totals: cardTotals } = useCreditCards()
+  // what you have in accounts; card debt is shown on its own, not netted into this
+  const total = list.filter((a) => a.type !== 'credit_card').reduce((acc, a) => acc.plus(a.total), d(0))
   const [adding, setAdding] = useState(false)
   const navigate = useNavigate()
   const groups = groupBy(list, (a) => a.type)
@@ -23,7 +29,13 @@ export default function AccountsPage() {
         title="Accounts"
         subtitle={
           <span>
-            Total <Amount value={grandTotal} currency={display} className="font-medium text-text" />
+            Total <Amount value={total} currency={display} className="font-medium text-text" />
+            {cardTotals.owed.gt(0) ? (
+              <>
+                {' · cards owe '}
+                <Amount value={cardTotals.owed} currency={display} className="font-medium text-negative" />
+              </>
+            ) : null}
           </span>
         }
         action={
@@ -39,7 +51,7 @@ export default function AccountsPage() {
           <Skeleton className="h-20" />
         </div>
       ) : isEmpty ? (
-        <EmptyState icon={Landmark} title="Add your first account" description="Banks, cash on hand, wallets and investment platforms. Each account can hold balances in several currencies." action={<Button onClick={() => setAdding(true)}>Add account</Button>} />
+        <EmptyState icon={Landmark} title="Add your first account" description="Banks, cash on hand, wallets, credit cards and investment platforms. Each account can hold balances in several currencies." action={<Button onClick={() => setAdding(true)}>Add account</Button>} />
       ) : (
         <div className="space-y-8">
           {ORDER.filter((t) => groups[t]?.length).map((t) => (
@@ -55,6 +67,19 @@ export default function AccountsPage() {
               </Card>
             </section>
           ))}
+          {cards.length ? (
+            <section>
+              <SectionTitle>Credit cards</SectionTitle>
+              <Card className="overflow-hidden">
+                {cards.map((c, i) => (
+                  <div key={c.account.id}>
+                    {i > 0 ? <Divider /> : null}
+                    <CreditCardRow card={c} onClick={() => navigate(`/accounts/${c.account.id}`)} />
+                  </div>
+                ))}
+              </Card>
+            </section>
+          ) : null}
         </div>
       )}
       <AccountForm open={adding} onClose={() => setAdding(false)} />

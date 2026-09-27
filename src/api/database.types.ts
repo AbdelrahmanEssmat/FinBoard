@@ -2,7 +2,7 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'other'
+export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'credit_card' | 'other'
 export type TransactionType = 'income' | 'expense' | 'transfer'
 export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment'
 export type CategoryKind = 'income' | 'expense'
@@ -57,6 +57,14 @@ export type Account = {
   notes: string | null
   is_archived: boolean
   sort_order: number
+  /** credit cards: limit in the card's main currency */
+  credit_limit: number | null
+  /** credit cards: day of the month the statement is issued (1–31) */
+  statement_day: number | null
+  /** credit cards: day of the month the payment is due (1–31) */
+  due_day: number | null
+  /** credit cards: minimum payment as % of the statement balance */
+  min_payment_pct: number | null
   created_at: string
   updated_at: string
 }

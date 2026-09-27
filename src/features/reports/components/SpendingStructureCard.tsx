@@ -46,18 +46,19 @@ export function SpendingStructureCard({ fixed, projection, week, display, rangeT
             <div className="h-3 overflow-hidden rounded-full bg-surface-2">
               <div className="h-full rounded-full bg-negative/80" style={{ width: `${(projection.daysElapsed / projection.daysInPeriod) * 100}%` }} />
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
+            {/* three figures side by side from 360px; two per row on the smallest phones */}
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 text-sm min-[360px]:grid-cols-3">
               <div>
                 <div className="text-xs text-muted">Spent</div>
-                <Amount value={projection.spentSoFar} currency={display} className="font-medium" compact />
+                <Amount value={projection.spentSoFar} currency={display} className="font-medium" compact decimals={0} />
               </div>
               <div>
                 <div className="text-xs text-muted">Per day</div>
-                <Amount value={projection.avgDaily} currency={display} className="font-medium" compact />
+                <Amount value={projection.avgDaily} currency={display} className="font-medium" compact decimals={0} />
               </div>
               <div>
                 <div className="text-xs text-muted">Projected by {formatDate(rangeTo, 'd MMM')}</div>
-                <Amount value={projection.projected} currency={display} className="font-medium" compact />
+                <Amount value={projection.projected} currency={display} className="font-medium" compact decimals={0} />
               </div>
             </div>
           </div>

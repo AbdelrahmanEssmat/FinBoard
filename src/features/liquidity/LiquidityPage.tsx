@@ -4,6 +4,7 @@ import { Droplets } from 'lucide-react'
 import { Card, Divider, Skeleton } from '@/components/ui'
 import { Amount, EmptyState, PageHeader, Section } from '@/components/shared'
 import { useLiquidity } from '@/hooks/useLiquidity'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import { LIQUID_ACCOUNT_TYPES, LIQUID_TYPE_LABELS } from '@/domain/liquidity'
 import { iconFor } from '@/utils/icons'
 
@@ -11,9 +12,11 @@ import { iconFor } from '@/utils/icons'
 export default function LiquidityPage() {
   const navigate = useNavigate()
   const l = useLiquidity()
+  const { cards, totals: cardTotals } = useCreditCards()
 
   if (l.isLoading) return <Skeleton className="h-48" />
   const excludedTotal = l.excluded.clouds.plus(l.excluded.platforms).plus(l.excluded.other)
+  const showCards = cards.length > 0
 
   return (
     <div className="anim-fade-up">
@@ -106,6 +109,16 @@ export default function LiquidityPage() {
               ))}
             </Card>
           </Section>
+
+          {showCards ? (
+            <Section title="Credit cards">
+              <Card padded className="space-y-2 text-sm">
+                {cardTotals.available ? <ExcludedRow label="Available credit (borrowed money)" value={cardTotals.available} display={l.display} /> : null}
+                <ExcludedRow label="Owed on cards" value={cardTotals.owed} display={l.display} />
+                <p className="pt-1 text-xs leading-relaxed text-muted">Credit is money you'd owe back, so it's never counted as liquid. Card payments due are in Upcoming on the home page.</p>
+              </Card>
+            </Section>
+          ) : null}
 
           {excludedTotal.gt(0) ? (
             <Section title="Not counted as liquid">

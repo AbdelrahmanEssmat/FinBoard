@@ -129,6 +129,25 @@ export function usePayeeHistory() {
   })
 }
 
+/** Everything that touched the given credit card balances on or after the "from" date (spending, payments, refunds). */
+export function useCardActivity(subIds: string[], from: string) {
+  const ids = [...subIds].sort()
+  return useQuery({
+    queryKey: ['transactions', 'cards', from, ids.join(',')] as const,
+    enabled: ids.length > 0,
+    queryFn: () =>
+      fetchPaged<Transaction>(() =>
+        supabase
+          .from('transactions')
+          .select('*')
+          .or(`sub_account_id.in.(${ids.join(',')}),to_sub_account_id.in.(${ids.join(',')})`)
+          .gte('date', from)
+          .order('date', { ascending: false })
+          .order('id', { ascending: true }),
+      ),
+  })
+}
+
 /** Interest postings of Clouds only (small, and independent of the date range being viewed). */
 export function useYieldTransactions() {
   return useQuery({

@@ -38,5 +38,6 @@ export const ACCOUNT_TYPE_LABELS: Record<Account['type'], string> = {
   cash: 'Cash',
   investment: 'Investment platform',
   wallet: 'Wallet / prepaid card',
+  credit_card: 'Credit card',
   other: 'Other',
 }

@@ -40,6 +40,9 @@ export function cacheUpsert(qc: QueryClient, table: TableName, rows: AnyRow[]) {
   for (const [, data] of caches) if (Array.isArray(data)) for (const r of data as AnyRow[]) known.set(rowKey(table, r), r)
   for (const [key, old] of caches) {
     if (old !== undefined && !Array.isArray(old)) continue
+    // named transaction lists other than Cloud interest (payee suggestions, card activity…) have their
+    // own shape or filter: leave them to the refetch instead of merging rows in as if by date
+    if (table === 'transactions' && typeof key[1] === 'string' && key[1] !== 'yield' && !/^\d{4}-\d{2}-\d{2}$/.test(key[1])) continue
     const list = [...((old as AnyRow[] | undefined) ?? [])]
     for (const row of rows) {
       const i = list.findIndex((r) => rowKey(table, r) === rowKey(table, row))

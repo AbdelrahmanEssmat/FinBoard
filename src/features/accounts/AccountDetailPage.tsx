@@ -14,6 +14,8 @@ import { TransactionList } from '@/features/transactions/components/TransactionL
 import { TransactionForm } from '@/features/transactions/components/TransactionForm'
 import type { SubAccount, Transaction } from '@/api/database.types'
 import { formatDate } from '@/domain/format'
+import { useCreditCards } from '@/hooks/useCreditCards'
+import { CreditCardPanel } from '@/features/accounts/components/CreditCardPanel'
 
 export default function AccountDetailPage() {
   const { id } = useParams()
@@ -36,6 +38,8 @@ export default function AccountDetailPage() {
   const deleteAccount = useUndoableDelete('accounts', { invalidate: ['sub_accounts', 'transactions'], label: 'Account' })
   const deleteSub = useUndoableDelete('sub_accounts', { invalidate: ['transactions'], label: 'Balance' })
 
+  const { cards } = useCreditCards()
+  const card = cards.find((c) => c.account.id === id)
   const { data: txs } = useTransactions()
   const recent = useMemo(() => {
     const ids = new Set(mySubs.map((s) => s.id))
@@ -56,7 +60,8 @@ export default function AccountDetailPage() {
         }
       />
 
-      <Card padded className="mb-8">
+      {card ? <CreditCardPanel card={card} onEdit={() => setEditing(true)} /> : null}
+      <Card padded className={card ? 'hidden' : 'mb-8'}>
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white" style={{ background: account.color }}>
             {createElement(iconFor(account.icon), { className: 'h-6 w-6' })}

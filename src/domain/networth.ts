@@ -46,9 +46,10 @@ export interface NetWorthResult {
   total: Decimal
   /**
    * accounts = cash and bank balances (including uninvested cash on a platform such as Thndr),
-   * clouds = yield-bearing balances, investments = holdings only.
+   * clouds = yield-bearing balances, investments = holdings only,
+   * cards = what you owe on credit cards (positive; subtracted from the total).
    */
-  byClass: { accounts: Decimal; certificates: Decimal; clouds: Decimal; investments: Decimal; gold: Decimal; receivables: Decimal; liabilities: Decimal }
+  byClass: { accounts: Decimal; certificates: Decimal; clouds: Decimal; investments: Decimal; gold: Decimal; receivables: Decimal; liabilities: Decimal; cards: Decimal }
   /** value held in each original currency, expressed in base */
   byCurrency: Record<string, Decimal>
   assets: Decimal
@@ -66,9 +67,15 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   let accounts = new Decimal(0)
   let clouds = new Decimal(0)
   let investments = new Decimal(0)
+  let cardBalances = new Decimal(0)
   for (const s of input.subAccounts) {
     if (s.is_archived || s.account?.is_archived) continue
     const v = conv(s.balance, s.currency)
+    // a credit card balance is minus what you owe: debt, not a (negative) asset in that currency
+    if (s.account?.type === 'credit_card') {
+      cardBalances = cardBalances.plus(v)
+      continue
+    }
     if (s.yield_rate !== null && s.yield_rate !== undefined) clouds = clouds.plus(v)
     else accounts = accounts.plus(v)
     add(s.currency, v)
@@ -108,10 +115,11 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   }
 
   const assets = accounts.plus(certificates).plus(clouds).plus(investments).plus(gold).plus(receivables)
+  const cards = cardBalances.neg()
   return {
-    total: assets.minus(liabilities),
+    total: assets.minus(liabilities).minus(cards),
     assets,
-    byClass: { accounts, certificates, clouds, investments, gold, receivables, liabilities },
+    byClass: { accounts, certificates, clouds, investments, gold, receivables, liabilities, cards },
     byCurrency,
   }
 }

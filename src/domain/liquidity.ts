@@ -3,6 +3,7 @@
  *
  * Counted: every active balance in a Bank, Cash or Wallet / prepaid card account.
  * Not counted: Clouds (yield balances, even inside a bank account), cash on investment platforms,
+ * credit cards (borrowed money; available credit is shown separately),
  * "Other" accounts, and of course certificates, holdings, gold and money owed to you (those aren't
  * account balances at all). Each currency is kept separately and also converted to one total.
  */
@@ -78,6 +79,8 @@ export function computeLiquidity(accounts: LiquidAccountLike[], subs: LiquidSubL
       continue
     }
     if (!isLiquidType(acc.type)) {
+      // a credit card is borrowed money: never liquid, and not a balance "left out" either
+      if (acc.type === 'credit_card') continue
       if (acc.type === 'investment') excluded.platforms = excluded.platforms.plus(v)
       else excluded.other = excluded.other.plus(v)
       continue

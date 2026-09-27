@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Calendar, CloudSun, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
+import { Calendar, CloudSun, CreditCard, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
 import { useCertificates, usePayouts, useRecurring, useSubAccounts } from '@/api/queries'
 import { useDebtViews } from '@/features/debts/useDebtViews'
 import { d, type Decimal } from '@/domain/money'
@@ -8,6 +8,7 @@ import { upcomingOccurrences } from '@/domain/recurring'
 import { nextYieldDate, yieldPerPeriod } from '@/domain/yield'
 import { todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
+import { useCreditCards } from '@/hooks/useCreditCards'
 
 export interface UpcomingItem {
   key: string
@@ -22,13 +23,14 @@ export interface UpcomingItem {
   to: string
 }
 
-/** Certificate payouts and maturities, Cloud payouts, debt installments and recurring bills in the next `days` days. */
+/** Certificate payouts and maturities, Cloud payouts, card payments, debt installments and recurring bills in the next `days` days. */
 export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
   const { data: payouts } = usePayouts()
   const { data: certs } = useCertificates()
   const { data: recurring } = useRecurring()
   const { data: subs } = useSubAccounts()
   const { open: openDebts } = useDebtViews()
+  const { cards } = useCreditCards()
   const today = todayIso()
 
   return useMemo(() => {
@@ -57,11 +59,17 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       if (!nxt || nxt.dueDate > until) continue
       items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}` })
     }
+    // credit card statements with money left to pay (overdue ones stay until paid)
+    for (const c of cards) {
+      const s = c.statement
+      if (!s || !(s.status === 'due' || s.status === 'overdue') || s.dueDate > until) continue
+      items.push({ key: 'cc' + c.account.id, date: s.dueDate, title: `Pay ${c.account.name}`, subtitle: s.minimumLeft.gt(0) ? 'Card statement · minimum not paid yet' : 'Card statement', amount: s.remaining, currency: c.currency, icon: CreditCard, color: '#dc2626', overdue: s.status === 'overdue', to: `/accounts/${c.account.id}` })
+    }
     for (const r of recurring ?? []) {
       for (const dt of upcomingOccurrences(r, today, days).slice(0, 2)) {
         items.push({ key: 'r' + r.id + dt, date: dt, title: r.name, subtitle: r.auto_post ? 'Recurring · auto' : 'Recurring · reminder', amount: d(r.amount), currency: r.currency, icon: Repeat, color: r.type === 'income' ? '#16a34a' : '#f97316', to: '/recurring' })
       }
     }
     return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit)
-  }, [payouts, certs, subs, openDebts, recurring, today, days, limit])
+  }, [payouts, certs, subs, openDebts, cards, recurring, today, days, limit])
 }

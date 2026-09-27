@@ -87,8 +87,19 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
               </li>
             )
           })}
-          {nw.byClass.liabilities.gt(0) ? (
+          {nw.byClass.cards.gt(0) ? (
+            // what's owed on credit cards (subtracted from net worth), opens Accounts where the cards are
             <li className="border-t border-border pt-1">
+              <button onClick={() => navigate('/accounts')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-negative" />
+                <span className="min-w-0 flex-1 truncate text-left text-muted">Credit cards</span>
+                <Amount value={nw.byClass.cards.neg()} currency={display} className="text-sm font-medium text-negative" compact />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" />
+              </button>
+            </li>
+          ) : null}
+          {nw.byClass.liabilities.gt(0) ? (
+            <li className={nw.byClass.cards.gt(0) ? '' : 'border-t border-border pt-1'}>
               <button onClick={() => navigate('/debts?tab=i_owe')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-negative" />
                 <span className="min-w-0 flex-1 truncate text-left text-muted">I owe</span>
