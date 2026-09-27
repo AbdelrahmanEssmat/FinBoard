@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
-import { useAccounts, useCategories, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCategories, usePayeeHistory, useSubAccounts } from '@/api/queries'
+import { lastCategoryByParty } from '@/domain/categoryStats'
 import { useSaveTransaction, useUndoableDeleteTransaction } from '@/api/mutations'
 import { useConvert, useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
@@ -21,6 +22,7 @@ export function TransactionForm({
   onSaved,
   presetSubAccountId,
   presetToSubAccountId,
+  presetCategoryId,
 }: {
   open: boolean
   onClose: () => void
@@ -30,6 +32,8 @@ export function TransactionForm({
   /** Pre-select the source / destination balance (e.g. deposit into a Cloud) */
   presetSubAccountId?: string
   presetToSubAccountId?: string
+  /** Pre-select the category (e.g. adding from a category's page) */
+  presetCategoryId?: string
 }) {
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
@@ -53,6 +57,23 @@ export function TransactionForm({
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState('')
   const [confirm, setConfirm] = useState(false)
+  // once the user picks a category themselves, a remembered payer's category no longer replaces it
+  const [categoryTouched, setCategoryTouched] = useState(false)
+  const { data: payeeHistory } = usePayeeHistory()
+  const payeeCategory = useMemo(() => lastCategoryByParty(payeeHistory ?? []), [payeeHistory])
+  // names used before for this type, most recent first (suggested as you type)
+  const payeeSuggestions = useMemo(() => {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const t of payeeHistory ?? []) {
+      const name = (t.payee ?? '').trim()
+      if (!name || t.type !== type || seen.has(name.toLowerCase())) continue
+      seen.add(name.toLowerCase())
+      out.push(name)
+      if (out.length >= 60) break
+    }
+    return out
+  }, [payeeHistory, type])
 
   const sub = activeSubs.find((s) => s.id === subId) ?? subs?.find((s) => s.id === subId)
   const toSub = activeSubs.find((s) => s.id === toSubId)
@@ -88,7 +109,8 @@ export function TransactionForm({
       setSubId(preferred?.id ?? '')
       setToSubId(presetToSubAccountId ?? ordered.find((s) => s.id !== preferred?.id)?.id ?? '')
       setToAmount('')
-      setCategoryId(defaultType === 'income' ? prefs.lastIncomeCategoryId : prefs.lastExpenseCategoryId)
+      setCategoryId(presetCategoryId ?? (defaultType === 'income' ? prefs.lastIncomeCategoryId : prefs.lastExpenseCategoryId))
+      setCategoryTouched(Boolean(presetCategoryId))
       setDate(todayIso())
       setPayee('')
       setNotes('')
@@ -213,7 +235,14 @@ export function TransactionForm({
           </>
         ) : (
           <Field label="Category">
-            <CategoryPicker kind={type} value={categoryId} onChange={setCategoryId} />
+            <CategoryPicker
+              kind={type}
+              value={categoryId}
+              onChange={(id) => {
+                setCategoryId(id)
+                setCategoryTouched(true)
+              }}
+            />
           </Field>
         )}
 
@@ -228,7 +257,24 @@ export function TransactionForm({
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
             </Field>
             <Field label={type === 'income' ? 'From' : 'Paid to'}>
-              <Input value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Optional" />
+              <Input
+                value={payee}
+                list={`payees-${type}`}
+                autoComplete="off"
+                onChange={(e) => {
+                  const v = e.target.value
+                  setPayee(v)
+                  // a name used before brings its usual category, unless one was picked already
+                  const remembered = payeeCategory.get(`${type}:${v.trim().toLowerCase()}`)
+                  if (remembered && !categoryTouched && !initial && categories?.some((c) => c.id === remembered && !c.is_archived)) setCategoryId(remembered)
+                }}
+                placeholder={type === 'income' ? 'e.g. venue or client' : 'Optional'}
+              />
+              <datalist id={`payees-${type}`}>
+                {payeeSuggestions.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
             </Field>
           </div>
         )}

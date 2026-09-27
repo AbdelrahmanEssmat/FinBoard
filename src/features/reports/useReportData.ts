@@ -8,6 +8,7 @@ import {
   categoryBreakdown, categoryChanges, fixedVsVariable, generateInsights, largestTransactions, monthlySeries, periodTotals, previousRange,
   spendingProjection, topPayees, weekPattern, type DateRange,
 } from '@/domain/insights'
+import { partyTotals } from '@/domain/categoryStats'
 import { addDaysIso, byId, daysBetween, endOfMonthIso, startOfMonthIso } from '@/utils'
 
 const minIso = (a: string, b: string) => (a < b ? a : b)
@@ -74,6 +75,10 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     const prevExpenseCats = categoryBreakdown(filtered, prev, 'expense', catMap, toBase)
     const incomeCats = categoryBreakdown(filtered, range, 'income', catMap, toBase)
     const changes = categoryChanges(expenseCats.rows, prevExpenseCats.rows)
+    const incomeChanges = categoryChanges(incomeCats.rows, categoryBreakdown(filtered, prev, 'income', catMap, toBase).rows)
+    // who pays you (the income "From" field)
+    // interest from certificates and Clouds is shown on its own line, not as an unnamed source
+    const incomeSources = partyTotals(filtered.filter((t) => t.source !== 'certificate' && t.source !== 'yield'), range, 'income', toBase, { limit: 8 })
     const payees = topPayees(filtered, range, toBase, 6)
     const largest = largestTransactions(filtered, range, toBase, 5)
     const fixed = fixedVsVariable(filtered, range, toBase, fixedCategoryIds, catMap)
@@ -111,6 +116,6 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     const allTags = Array.from(new Set((txs ?? []).flatMap((t) => t.tags))).sort()
     const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency, t.date)), d(0))
 
-    return { range, prev, prevCompareTo, totals, prevTotals, expenseCats, incomeCats, changes, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
+    return { range, prev, prevCompareTo, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
   }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
 }

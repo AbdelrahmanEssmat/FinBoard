@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Tags } from 'lucide-react'
 import { Button, Card, Divider, Segmented } from '@/components/ui'
 import { EmptyState, ListRow, PageHeader } from '@/components/shared'
@@ -8,6 +9,7 @@ import { CategoryForm } from '@/features/categories/components/CategoryForm'
 import type { Category, CategoryKind } from '@/api/database.types'
 
 export default function CategoriesPage() {
+  const navigate = useNavigate()
   const { data } = useCategories()
   const [kind, setKind] = useState<CategoryKind>('expense')
   const [form, setForm] = useState<{ open: boolean; item?: Category | null; parentId?: string | null }>({ open: false })
@@ -35,9 +37,9 @@ export default function CategoriesPage() {
             return (
               <div key={p.id}>
                 {i > 0 ? <Divider /> : null}
-                <ListRow icon={iconFor(p.icon)} color={p.color} title={<span className={p.is_archived ? 'text-faint line-through' : ''}>{p.name}</span>} subtitle={children.length ? `${children.length} sub-categor${children.length === 1 ? 'y' : 'ies'}` : undefined} onClick={() => setForm({ open: true, item: p })} chevron />
+                <ListRow icon={iconFor(p.icon)} color={p.color} title={<span className={p.is_archived ? 'text-faint line-through' : ''}>{p.name}</span>} subtitle={children.length ? `${children.length} sub-categor${children.length === 1 ? 'y' : 'ies'}` : 'Tap for totals and trends'} onClick={() => navigate(`/categories/${p.id}`)} chevron />
                 {children.map((c) => (
-                  <ListRow key={c.id} className="pl-14" title={<span className={c.is_archived ? 'text-faint line-through' : 'text-muted'}>{c.name}</span>} onClick={() => setForm({ open: true, item: c })} chevron />
+                  <ListRow key={c.id} className="pl-14" title={<span className={c.is_archived ? 'text-faint line-through' : 'text-muted'}>{c.name}</span>} onClick={() => navigate(`/categories/${c.id}`)} chevron />
                 ))}
                 <button onClick={() => setForm({ open: true, item: null, parentId: p.id })} className="flex w-full items-center gap-2 py-2 pl-14 text-xs font-medium text-accent hover:bg-surface-2">
                   <Plus className="h-3 w-3" /> Sub-category

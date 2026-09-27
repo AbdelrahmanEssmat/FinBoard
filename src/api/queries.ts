@@ -107,6 +107,28 @@ export function useTransactions(range?: { from?: string; to?: string }) {
   })
 }
 
+/**
+ * Who you've received from / paid (the "From" / "Paid to" field) with the category used, newest
+ * first: feeds the suggestions in the transaction form. Only the few columns needed.
+ */
+export function usePayeeHistory() {
+  return useQuery({
+    queryKey: ['transactions', 'payees'] as const,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('type,payee,category_id,date')
+        .neq('type', 'transfer')
+        .not('payee', 'is', null)
+        .order('date', { ascending: false })
+        .limit(1500)
+      if (error) throw error
+      return (data ?? []) as Pick<Transaction, 'type' | 'payee' | 'category_id' | 'date'>[]
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 /** Interest postings of Clouds only (small, and independent of the date range being viewed). */
 export function useYieldTransactions() {
   return useQuery({

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, Repeat, SlidersHorizontal, X } from 'lucide-react'
 import { Amount, PageHeader } from '@/components/shared'
 import { Button, Card, Input, Select, Sheet, Skeleton } from '@/components/ui'
@@ -23,7 +23,13 @@ const EMPTY: Filters = { accountId: '', categoryId: '', type: '', tag: '', text:
 
 export default function TransactionsPage() {
   const navigate = useNavigate()
-  const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  // links from other pages can open Activity already filtered: ?category=<id>&type=income&month=2026-09
+  const [params] = useSearchParams()
+  const [month, setMonth] = useState(() => {
+    const m = params.get('month')
+    if (m && /^\d{4}-\d{2}$/.test(m)) return new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1)
+    return new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  })
   const from = startOfMonthIso(month)
   const to = endOfMonthIso(month)
   const { data, isLoading } = useTransactions({ from, to })
@@ -31,7 +37,10 @@ export default function TransactionsPage() {
   const { data: subs } = useSubAccounts()
   const { data: categories } = useCategories()
   const { toDisplayAt, display } = useHistoricalConvert()
-  const [filters, setFilters] = useState<Filters>(EMPTY)
+  const [filters, setFilters] = useState<Filters>(() => {
+    const type = params.get('type')
+    return { ...EMPTY, categoryId: params.get('category') ?? '', type: type === 'income' || type === 'expense' || type === 'transfer' ? type : '' }
+  })
   const [showFilters, setShowFilters] = useState(false)
   const [edit, setEdit] = useState<Transaction | null>(null)
   const [adding, setAdding] = useState(false)
@@ -157,12 +166,18 @@ export default function TransactionsPage() {
           </Select>
           <Select value={filters.categoryId} onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}>
             <option value="">All categories</option>
-            {categories?.filter((c) => !c.parent_id).map((c) => (
+            {categories?.filter((c) => !c.parent_id).flatMap((c) => [
               <option key={c.id} value={c.id}>
                 {c.kind === 'income' ? '↓ ' : '↑ '}
                 {c.name}
-              </option>
-            ))}
+              </option>,
+              // sub-categories right under their parent
+              ...categories.filter((s) => s.parent_id === c.id).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {'\u00a0\u00a0\u00a0\u00a0'}{s.name}
+                </option>
+              )),
+            ])}
           </Select>
           <Select value={filters.tag} onChange={(e) => setFilters({ ...filters, tag: e.target.value })}>
             <option value="">All tags</option>

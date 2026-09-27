@@ -49,6 +49,7 @@ export const router = createBrowserRouter([
       { path: 'budgets', element: load(() => import('@/features/budgets/BudgetsPage')) },
       { path: 'reports', element: load(() => import('@/features/reports/ReportsPage')) },
       { path: 'categories', element: load(() => import('@/features/categories/CategoriesPage')) },
+      { path: 'categories/:id', element: load(() => import('@/features/categories/CategoryDetailPage')) },
       { path: 'settings', element: load(() => import('@/features/settings/SettingsPage')) },
       { path: 'settings/currencies', element: load(() => import('@/features/settings/CurrenciesPage')) },
       { path: 'settings/rates', element: load(() => import('@/features/settings/RatesPage')) },
