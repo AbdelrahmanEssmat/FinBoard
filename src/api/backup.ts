@@ -98,7 +98,9 @@ export async function importAll(file: File): Promise<number> {
       return copy
     })
     // exchange_rates/gold_prices global rows can't be written by a user; keep only own rows
-    const writable = table === 'exchange_rates' || table === 'gold_prices' ? cleaned.filter((r) => r.user_id === uid) : cleaned
+    let writable = table === 'exchange_rates' || table === 'gold_prices' ? cleaned.filter((r) => r.user_id === uid) : cleaned
+    // a credit card points at its issuing bank, so banks (and every other account) go in before cards
+    if (table === 'accounts') writable = [...writable.filter((r) => r.type !== 'credit_card'), ...writable.filter((r) => r.type === 'credit_card')]
     for (let i = 0; i < writable.length; i += 500) {
       const chunk = writable.slice(i, i + 500)
        
