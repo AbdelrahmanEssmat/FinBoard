@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { d } from '@/domain/money'
-import { cardStatement, cardUsage, dueDateAfter, effectOn, lastStatementDate, nextStatementDate, statementLabel, type CardTx } from '@/domain/creditCard'
+import { cardStatement, cardUsage, dueDateAfter, effectOn, firstBillingDate, installmentSchedule, installmentsOnStatement, lastStatementDate, nextStatementDate, planProgress, statementLabel, unbilledInstallments, type CardTx } from '@/domain/creditCard'
 
 describe('statement dates', () => {
   it('last statement on or before today', () => {
@@ -87,6 +87,63 @@ describe('the current statement', () => {
     expect(s.statementBalance.toNumber()).toBe(0)
     expect(s.status).toBe('nothing')
     expect(s.newSpending.toNumber()).toBe(1200)
+  })
+})
+
+describe('installment plans', () => {
+  // an iPhone for 24,000 over 12 months with 1,200 of fees, bought 10 Sep; statement on the 25th
+  const plan = { principal: '24000', fees: '1200', months: 12, purchase_date: '2026-09-10', first_billing_date: '2026-09-25' }
+
+  it('first billed on the statement on or after the purchase', () => {
+    expect(firstBillingDate('2026-09-10', 25)).toBe('2026-09-25')
+    expect(firstBillingDate('2026-09-25', 25)).toBe('2026-09-25')
+    expect(firstBillingDate('2026-09-26', 25)).toBe('2026-10-25')
+    expect(firstBillingDate('2026-02-10', 31)).toBe('2026-02-28')
+  })
+
+  it('equal installments, one per statement, the last takes the rounding', () => {
+    const s = installmentSchedule(plan, 25)
+    expect(s).toHaveLength(12)
+    expect(s[0]!.amount.toNumber()).toBe(2100)
+    expect(s.map((i) => i.date).slice(0, 3)).toEqual(['2026-09-25', '2026-10-25', '2026-11-25'])
+    expect(s[11]!.date).toBe('2027-08-25')
+    const odd = installmentSchedule({ ...plan, principal: '1000', fees: '0', months: 3 }, 25)
+    expect(odd.map((i) => i.amount.toNumber())).toEqual([333.33, 333.33, 333.34])
+    expect(odd.reduce((a, i) => a.plus(i.amount), d(0)).toNumber()).toBe(1000)
+  })
+
+  it('progress over time', () => {
+    const before = planProgress(plan, 25, '2026-09-24') // bought, nothing billed yet
+    expect(before.billedCount).toBe(0)
+    expect(before.unbilled.toNumber()).toBe(25200)
+    expect(before.next!.date).toBe('2026-09-25')
+    const after3 = planProgress(plan, 25, '2026-11-30')
+    expect(after3.billedCount).toBe(3)
+    expect(after3.billed.toNumber()).toBe(6300)
+    expect(after3.unbilled.toNumber()).toBe(18900)
+    expect(after3.next!.n).toBe(4)
+    expect(planProgress(plan, 25, '2027-09-01').status).toBe('done')
+    expect(planProgress(plan, 25, '2026-09-01').unbilled.toNumber()).toBe(0) // before the purchase
+  })
+
+  it('settling early bills the rest at once', () => {
+    const settled = planProgress({ ...plan, closed_at: '2026-10-05' }, 25, '2026-10-05')
+    expect(settled.status).toBe('settled')
+    expect(settled.unbilled.toNumber()).toBe(0)
+    expect(unbilledInstallments([{ ...plan, closed_at: '2026-10-05' }], 25, '2026-10-04').toNumber()).toBe(23100)
+  })
+
+  it('the statement bills only this month’s installment, not the whole purchase', () => {
+    // the card: 25,200 for the phone (+fees) and 3,000 of normal spending, all before the 25 Sep statement
+    const activity: CardTx[] = [tx({ date: '2026-09-10', amount: '24000' }), tx({ date: '2026-09-10', amount: '1200' }), tx({ date: '2026-09-12', amount: '3000' })]
+    const unbilled = unbilledInstallments([plan], 25, '2026-09-25') // 25,200 − 2,100 billed = 23,100
+    const s = cardStatement({ balance: '-28200', subId: CARD, statementDay: 25, dueDay: 15, minPct: 5, activity, today: '2026-09-27', unbilledAtStatement: unbilled })
+    expect(unbilled.toNumber()).toBe(23100)
+    expect(s.statementBalance.toNumber()).toBe(5100) // 3,000 + the first 2,100 installment
+    expect(s.minimum.toNumber()).toBe(255)
+    expect(installmentsOnStatement([plan], 25, '2026-09-25').toNumber()).toBe(2100)
+    // usage still counts the full amount owed against the limit
+    expect(cardUsage([d(-28200)], 50000).available!.toNumber()).toBe(21800)
   })
 })
 

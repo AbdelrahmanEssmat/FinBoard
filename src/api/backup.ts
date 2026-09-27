@@ -10,7 +10,7 @@ import type { TableName } from '@/api/database.types'
 const IMPORT_ORDER: TableName[] = [
   'currencies', 'settings', 'accounts', 'sub_accounts', 'categories', 'tags', 'contacts', 'investment_categories',
   'exchange_rates', 'gold_prices', 'certificates', 'holdings', 'gold_items', 'recurring_transactions', 'budgets',
-  'transactions', 'debts', 'debt_payments', 'holding_sales', 'certificate_payouts', 'net_worth_snapshots',
+  'transactions', 'debts', 'debt_payments', 'holding_sales', 'card_installment_plans', 'certificate_payouts', 'net_worth_snapshots',
 ]
 
 /** Rows that can already exist under another id are matched on their natural key instead. */

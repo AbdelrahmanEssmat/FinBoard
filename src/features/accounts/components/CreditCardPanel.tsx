@@ -11,7 +11,7 @@ import type { CreditCardView } from '@/hooks/useCreditCards'
 
 /** Top of a credit card's page: owed, available credit, the current statement and ways to pay it. */
 export function CreditCardPanel({ card, onEdit }: { card: CreditCardView; onEdit: () => void }) {
-  const { usage, statement: s, currency, primary } = card
+  const { usage, statement: s, currency, primary, unbilled, installmentsThisStatement } = card
   const [pay, setPay] = useState<{ open: boolean; amount?: string }>({ open: false })
   const openPay = (amount?: string) => setPay({ open: true, amount })
 
@@ -20,6 +20,11 @@ export function CreditCardPanel({ card, onEdit }: { card: CreditCardView; onEdit
       <Card padded>
         <div className="text-xs text-muted">{usage.owed.gt(0) ? 'You owe' : usage.credit.gt(0) ? 'In credit' : 'You owe'}</div>
         <Amount value={usage.owed.gt(0) ? usage.owed : usage.credit} currency={currency} size="lg" className={usage.owed.gt(0) ? 'text-negative' : ''} />
+        {unbilled.gt(0) ? (
+          <div className="mt-1 text-xs text-muted">
+            of which <Amount value={unbilled} currency={currency} decimals={0} className="font-medium text-text" /> is future installments, billed month by month
+          </div>
+        ) : null}
         {usage.limit ? (
           <>
             <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-surface-2">
@@ -66,6 +71,7 @@ export function CreditCardPanel({ card, onEdit }: { card: CreditCardView; onEdit
           </div>
           <dl className="mt-4 space-y-2.5 text-sm">
             <Row label="Statement balance" value={<Amount value={s.statementBalance} currency={currency} />} />
+            {installmentsThisStatement.gt(0) ? <Row label="Installments on it" value={<Amount value={installmentsThisStatement} currency={currency} />} hint="included" /> : null}
             <Row label="Paid since" value={<Amount value={s.paid} currency={currency} className={s.paid.gt(0) ? 'text-positive' : ''} />} />
             <Row label="Left to pay" value={<Amount value={s.remaining} currency={currency} className="font-semibold" />} strong />
             {s.minimum.gt(0) ? <Row label="Minimum payment" value={<Amount value={s.minimumLeft.gt(0) ? s.minimumLeft : s.minimum} currency={currency} />} hint={s.minimumLeft.gt(0) ? 'still to pay' : 'covered'} /> : null}

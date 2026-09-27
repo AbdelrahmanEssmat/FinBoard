@@ -16,6 +16,7 @@ import type { SubAccount, Transaction } from '@/api/database.types'
 import { formatDate } from '@/domain/format'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { CreditCardPanel } from '@/features/accounts/components/CreditCardPanel'
+import { InstallmentPlansSection } from '@/features/accounts/components/InstallmentPlansSection'
 
 export default function AccountDetailPage() {
   const { id } = useParams()
@@ -61,6 +62,11 @@ export default function AccountDetailPage() {
       />
 
       {card ? <CreditCardPanel card={card} onEdit={() => setEditing(true)} /> : null}
+      {card ? (
+        <div className="mb-8">
+          <InstallmentPlansSection card={card} />
+        </div>
+      ) : null}
       <Card padded className={card ? 'hidden' : 'mb-8'}>
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white" style={{ background: account.color }}>

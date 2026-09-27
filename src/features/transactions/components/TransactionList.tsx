@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { ArrowLeftRight, Inbox } from 'lucide-react'
 import { Amount, EmptyState, ListRow } from '@/components/shared'
 import { Card, Divider } from '@/components/ui'
-import { useAccounts, useCategories, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCategories, useInstallmentPlans, useSubAccounts } from '@/api/queries'
 import { useHistoricalConvert } from '@/hooks/useMoney'
 import { isExpense, isIncome } from '@/domain/insights'
 import { d } from '@/domain/money'
@@ -20,6 +20,9 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
   const subMap = useMemo(() => byId(subs), [subs])
   const accMap = useMemo(() => byId(accounts), [accounts])
   const { toDisplayAt, display } = useHistoricalConvert()
+  const { data: plans } = useInstallmentPlans()
+  // purchases paid in installments: "12× installments" in the row
+  const planByTx = useMemo(() => new Map((plans ?? []).filter((p) => p.transaction_id).map((p) => [p.transaction_id!, p])), [plans])
 
   if (!transactions.length) return <EmptyState icon={Inbox} title="Nothing here yet" description={emptyText ?? 'Add an expense, income or transfer with the + button.'} />
 
@@ -67,7 +70,7 @@ export function TransactionList({ transactions, onSelect, emptyText, grouped = t
               const title = t.payee || t.notes || catName || (isTransfer ? 'Transfer' : t.type === 'income' ? 'Income' : 'Expense')
               const subtitle = isTransfer
                 ? `${accountName(t.sub_account_id)} → ${t.to_sub_account_id ? accountName(t.to_sub_account_id) : '?'}`
-                : [catName, accountName(t.sub_account_id)].filter(Boolean).join(' · ')
+                : [catName, accountName(t.sub_account_id), planByTx.get(t.id) ? `${planByTx.get(t.id)!.months}× installments` : null].filter(Boolean).join(' · ')
               return (
                 <div key={t.id}>
                   {i > 0 ? <Divider /> : null}

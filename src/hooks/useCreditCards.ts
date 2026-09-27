@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
-import { useAccounts, useCardActivity, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCardActivity, useInstallmentPlans, useSubAccounts } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d, Decimal } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
-import { cardStatement, cardUsage, lastStatementDate, type CardStatement, type CardUsage } from '@/domain/creditCard'
-import type { Account, SubAccount } from '@/api/database.types'
+import { cardStatement, cardUsage, installmentsOnStatement, lastStatementDate, planProgress, unbilledInstallments, type CardStatement, type CardUsage, type PlanProgress } from '@/domain/creditCard'
+import type { Account, CardInstallmentPlan, SubAccount } from '@/api/database.types'
 
 export interface CreditCardView {
   account: Account
@@ -16,6 +16,12 @@ export interface CreditCardView {
   usage: CardUsage
   /** null until a statement day and due day are set on the card */
   statement: CardStatement | null
+  /** installment plans on this card, with where each stands today */
+  plans: { plan: CardInstallmentPlan; progress: PlanProgress | null }[]
+  /** owed on the card but billed on future statements (installments), in the card's currency */
+  unbilled: Decimal
+  /** installments billed on the current statement */
+  installmentsThisStatement: Decimal
 }
 
 /** Every active credit card with what's owed, available credit and the current statement. */
@@ -33,6 +39,7 @@ export function useCreditCards() {
     return starts.length ? starts.sort()[0]! : addDaysIso(today, -45)
   }, [cards, today])
   const { data: activity, isLoading: activityLoading } = useCardActivity(cardSubs.map((s) => s.id), from)
+  const { data: allPlans } = useInstallmentPlans()
 
   const list = useMemo<CreditCardView[]>(() => {
     return cards.map((account) => {
@@ -41,13 +48,37 @@ export function useCreditCards() {
       const currency = primary?.currency ?? 'EGP'
       const converted = mine.map((s) => between(s.balance, s.currency, currency) ?? d(0))
       const usage = cardUsage(converted, account.credit_limit)
+      // plans on the card's main balance (the one the statement is worked out for)
+      const cardPlans = (allPlans ?? []).filter((p) => p.account_id === account.id)
+      const onPrimary = cardPlans.filter((p) => p.sub_account_id === primary?.id)
+      const sd = account.statement_day
+      const statementDate = sd ? lastStatementDate(today, sd) : null
       const statement =
-        primary && account.statement_day && account.due_day
-          ? cardStatement({ balance: primary.balance, subId: primary.id, statementDay: account.statement_day, dueDay: account.due_day, minPct: account.min_payment_pct, activity: activity ?? [], today })
+        primary && sd && account.due_day
+          ? cardStatement({
+              balance: primary.balance,
+              subId: primary.id,
+              statementDay: sd,
+              dueDay: account.due_day,
+              minPct: account.min_payment_pct,
+              activity: activity ?? [],
+              today,
+              unbilledAtStatement: unbilledInstallments(onPrimary, sd, statementDate!),
+            })
           : null
-      return { account, primary, subs: mine, currency, usage, statement }
+      return {
+        account,
+        primary,
+        subs: mine,
+        currency,
+        usage,
+        statement,
+        plans: cardPlans.map((plan) => ({ plan, progress: sd ? planProgress(plan, sd, today) : null })),
+        unbilled: sd ? unbilledInstallments(onPrimary, sd, today) : d(0),
+        installmentsThisStatement: sd && statementDate ? installmentsOnStatement(onPrimary, sd, statementDate) : d(0),
+      }
     })
-  }, [cards, cardSubs, activity, between, today])
+  }, [cards, cardSubs, activity, allPlans, between, today])
 
   const totals = useMemo(() => {
     let owed = d(0)

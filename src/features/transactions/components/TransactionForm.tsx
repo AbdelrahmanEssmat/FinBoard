@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
-import { useAccounts, useCategories, usePayeeHistory, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCategories, useInstallmentPlans, usePayeeHistory, useSubAccounts } from '@/api/queries'
+import { InstallmentPurchaseSheet, type InstallmentPreset } from '@/features/accounts/components/InstallmentPurchaseSheet'
 import { lastCategoryByParty } from '@/domain/categoryStats'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { formatDate } from '@/domain/format'
@@ -88,7 +89,13 @@ export function TransactionForm({
   const crossCurrency = type === 'transfer' && toCurrency !== currency
   // transactions created by a debt payment, certificate payout or Cloud interest are tied to that record:
   // amount, account and date are changed there, not here (notes, tags and category stay editable)
-  const linked = Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield' || initial.source === 'investment'))
+  // a purchase paid in installments: its amount, card and date belong to the plan
+  const { data: plans } = useInstallmentPlans()
+  const planOfTx = initial ? (plans ?? []).find((p) => p.transaction_id === initial.id || p.fees_transaction_id === initial.id) : undefined
+  const [installments, setInstallments] = useState<InstallmentPreset | null>(null)
+  const linked =
+    Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield' || initial.source === 'investment')) ||
+    Boolean(planOfTx)
 
   useEffect(() => {
     if (!open) return
@@ -109,9 +116,13 @@ export function TransactionForm({
       // default to an EGP balance: the last one used if it is EGP, else the first EGP balance
       const ordered = defaultFirst(activeSubs)
       // paying a credit card: pay from a bank balance in the card's currency (never from a card)
-      const payingCard = presetToSubAccountId ? activeSubs.find((s) => s.id === presetToSubAccountId && accMap.get(s.account_id)?.type === 'credit_card') : undefined
+      const payingCard = presetToSubAccountId
+        ? activeSubs.find((s) => s.id === presetToSubAccountId && accMap.get(s.account_id)?.type === 'credit_card')
+        : undefined
       const bankForCard = payingCard
-        ? (activeSubs.find((s) => s.id === prefs.lastSubAccountId && s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null) ??
+        ? (activeSubs.find(
+            (s) => s.id === prefs.lastSubAccountId && s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null,
+          ) ??
           activeSubs.find((s) => s.currency === payingCard.currency && accMap.get(s.account_id)?.type === 'bank' && s.yield_rate === null) ??
           activeSubs.find((s) => s.currency === payingCard.currency && accMap.get(s.account_id)?.type !== 'credit_card' && s.yield_rate === null))
         : undefined
@@ -155,14 +166,24 @@ export function TransactionForm({
   const { cards } = useCreditCards()
   const spendCard = type !== 'transfer' && sub ? cards.find((c) => c.subs.some((s) => s.id === sub.id)) : undefined
   const payCard = type === 'transfer' && toSub ? cards.find((c) => c.subs.some((s) => s.id === toSub.id)) : undefined
-  const overLimit = Boolean(type === 'expense' && spendCard?.usage.available && sub?.currency === spendCard.currency && d(amount || 0).minus(initial?.type === 'expense' && initial.sub_account_id === sub.id ? d(initial.amount) : 0).gt(spendCard.usage.available))
+  const overLimit = Boolean(
+    type === 'expense' &&
+    spendCard?.usage.available &&
+    sub?.currency === spendCard.currency &&
+    d(amount || 0)
+      .minus(initial?.type === 'expense' && initial.sub_account_id === sub.id ? d(initial.amount) : 0)
+      .gt(spendCard.usage.available),
+  )
 
   const valid = d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId && (!crossCurrency || d(toAmount).gt(0))))
 
   const submit = async () => {
     if (!valid) return
     const id = initial?.id ?? newId()
-    const tagList = tags.split(',').map((t) => t.trim()).filter(Boolean)
+    const tagList = tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
     const rateUsed = crossCurrency && d(amount).gt(0) ? d(toAmount).div(d(amount)).toFixed(8) : null
     const row = {
       id,
@@ -182,7 +203,11 @@ export function TransactionForm({
       source: initial?.source ?? 'manual',
       source_id: initial?.source_id ?? null,
     }
-    prefs.remember({ lastSubAccountId: subId, lastCurrency: currency, ...(type === 'expense' ? { lastExpenseCategoryId: categoryId } : type === 'income' ? { lastIncomeCategoryId: categoryId } : {}) })
+    prefs.remember({
+      lastSubAccountId: subId,
+      lastCurrency: currency,
+      ...(type === 'expense' ? { lastExpenseCategoryId: categoryId } : type === 'income' ? { lastIncomeCategoryId: categoryId } : {}),
+    })
     await save.mutateAsync({ row, previous: initial ?? null })
     onSaved?.()
     onClose()
@@ -191,154 +216,211 @@ export function TransactionForm({
   const subLabel = (s: (typeof activeSubs)[number]) => `${accMap.get(s.account_id)?.name ?? 'Account'} · ${s.currency}${s.name ? ' · ' + s.name : ''}`
 
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title={initial ? 'Edit transaction' : type === 'income' ? 'Add income' : type === 'transfer' ? (payCard ? 'Pay card' : 'Transfer') : 'Add expense'}
-      footer={
-        <div className="flex gap-3">
-          {initial ? (
-            <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
-              <Trash2 className="h-4 w-4 text-negative" />
+    <>
+      <Sheet
+        open={open}
+        onClose={onClose}
+        title={initial ? 'Edit transaction' : type === 'income' ? 'Add income' : type === 'transfer' ? (payCard ? 'Pay card' : 'Transfer') : 'Add expense'}
+        footer={
+          <div className="flex gap-3">
+            {initial ? (
+              <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
+                <Trash2 className="text-negative h-4 w-4" />
+              </Button>
+            ) : null}
+            <Button full size="lg" onClick={submit} loading={save.isPending} disabled={!valid}>
+              {initial ? 'Save changes' : 'Save'}
             </Button>
-          ) : null}
-          <Button full size="lg" onClick={submit} loading={save.isPending} disabled={!valid}>
-            {initial ? 'Save changes' : 'Save'}
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        {!initial?.source || initial.source === 'manual' ? (
-          <Segmented
-            value={type}
-            onChange={setType}
-            options={[
-              { value: 'expense', label: 'Expense' },
-              { value: 'income', label: 'Income' },
-              { value: 'transfer', label: 'Transfer' },
-            ]}
-          />
-        ) : (
-          <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted">Created automatically from a {initial.source === 'debt' ? 'debt payment' : initial.source === 'certificate' ? 'certificate payout' : initial.source === 'yield' ? 'Cloud interest posting' : initial.source === 'investment' ? 'investment sale' : 'recurring rule'}.</p>
-        )}
-
-        <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} disabled={linked} />
-
-        <Field label={type === 'transfer' ? 'From' : 'Account'}>
-          <Select value={subId} onChange={(e) => setSubId(e.target.value)} disabled={linked}>
-            {!activeSubs.length ? <option value="">No accounts yet</option> : null}
-            {activeSubs.map((s) => (
-              <option key={s.id} value={s.id}>
-                {subLabel(s)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {spendCard && spendCard.usage.available ? (
-          <p className={`-mt-2 text-xs ${overLimit ? 'font-medium text-negative' : 'text-muted'}`}>
-            {overLimit ? 'Over the credit limit: ' : 'Available credit: '}
-            <Amount value={spendCard.usage.available} currency={spendCard.currency} decimals={0} />
-            {spendCard.usage.limit ? <> of <Amount value={spendCard.usage.limit} currency={spendCard.currency} decimals={0} /></> : null}
-          </p>
-        ) : null}
-
-        {type === 'transfer' ? (
-          <>
-            <Field label={payCard ? 'Card' : 'To'}>
-              <Select value={toSubId} onChange={(e) => setToSubId(e.target.value)}>
-                {activeSubs.filter((s) => s.id !== subId).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {subLabel(s)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {payCard?.statement && payCard.statement.status !== 'nothing' ? (
-              <p className="-mt-2 text-xs text-muted">
-                {payCard.statement.status === 'paid' ? (
-                  <>Statement of {formatDate(payCard.statement.statementDate, 'd MMM')} is paid. Owed now: <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} /></>
-                ) : (
-                  <>
-                    Left on the statement: <Amount value={payCard.statement.remaining} currency={payCard.currency} decimals={0} /> · due {formatDate(payCard.statement.dueDate, 'd MMM')}
-                    {payCard.statement.minimumLeft.gt(0) ? <> · minimum <Amount value={payCard.statement.minimumLeft} currency={payCard.currency} decimals={0} /></> : null}
-                  </>
-                )}
-              </p>
-            ) : payCard ? (
-              <p className="-mt-2 text-xs text-muted">
-                Owed now: <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} />
-              </p>
-            ) : null}
-            {crossCurrency ? (
-              <Field label={`Amount received (${toCurrency})`} hint={d(amount).gt(0) && d(toAmount).gt(0) ? `Rate used: 1 ${currency} = ${d(toAmount).div(d(amount)).toFixed(4)} ${toCurrency}` : 'Suggested from today’s rate; edit to match what the bank gave you'}>
-                <AmountInput value={toAmount} onChange={setToAmount} currency={toCurrency} currencies={currencies} />
-              </Field>
-            ) : null}
-          </>
-        ) : (
-          <Field label="Category">
-            <CategoryPicker
-              kind={type}
-              value={categoryId}
-              onChange={(id) => {
-                setCategoryId(id)
-                setCategoryTouched(true)
-              }}
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          {!initial?.source || initial.source === 'manual' ? (
+            <Segmented
+              value={type}
+              onChange={setType}
+              options={[
+                { value: 'expense', label: 'Expense' },
+                { value: 'income', label: 'Income' },
+                { value: 'transfer', label: 'Transfer' },
+              ]}
             />
-          </Field>
-        )}
+          ) : (
+            <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
+              Created automatically from a{' '}
+              {initial.source === 'debt'
+                ? 'debt payment'
+                : initial.source === 'certificate'
+                  ? 'certificate payout'
+                  : initial.source === 'yield'
+                    ? 'Cloud interest posting'
+                    : initial.source === 'investment'
+                      ? 'investment sale'
+                      : 'recurring rule'}
+              .
+            </p>
+          )}
 
-        {type === 'transfer' ? (
-          // a transfer between my own accounts has no payee
-          <Field label="Date">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
+          {planOfTx ? (
+            <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
+              Part of the installment plan "{planOfTx.description}" ({planOfTx.months} months). Its amount, card and date are managed by the plan on the card's
+              page.
+            </p>
+          ) : null}
+          <AmountInput value={amount} onChange={setAmount} currency={currency} currencies={currencies} disabled={linked} />
+
+          <Field label={type === 'transfer' ? 'From' : 'Account'}>
+            <Select value={subId} onChange={(e) => setSubId(e.target.value)} disabled={linked}>
+              {!activeSubs.length ? <option value="">No accounts yet</option> : null}
+              {activeSubs.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {subLabel(s)}
+                </option>
+              ))}
+            </Select>
           </Field>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
+
+          {spendCard && spendCard.usage.available ? (
+            <p className={`-mt-2 text-xs ${overLimit ? 'text-negative font-medium' : 'text-muted'}`}>
+              {!initial && type === 'expense' ? (
+                <button
+                  type="button"
+                  className="text-accent float-right font-medium"
+                  onClick={() => {
+                    setInstallments({ cardAccountId: spendCard.account.id, amount, description: payee, categoryId, date })
+                    onClose()
+                  }}
+                >
+                  Pay in installments
+                </button>
+              ) : null}
+              {overLimit ? 'Over the credit limit: ' : 'Available credit: '}
+              <Amount value={spendCard.usage.available} currency={spendCard.currency} decimals={0} />
+              {spendCard.usage.limit ? (
+                <>
+                  {' '}
+                  of <Amount value={spendCard.usage.limit} currency={spendCard.currency} decimals={0} />
+                </>
+              ) : null}
+            </p>
+          ) : null}
+
+          {type === 'transfer' ? (
+            <>
+              <Field label={payCard ? 'Card' : 'To'}>
+                <Select value={toSubId} onChange={(e) => setToSubId(e.target.value)}>
+                  {activeSubs
+                    .filter((s) => s.id !== subId)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {subLabel(s)}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              {payCard?.statement && payCard.statement.status !== 'nothing' ? (
+                <p className="text-muted -mt-2 text-xs">
+                  {payCard.statement.status === 'paid' ? (
+                    <>
+                      Statement of {formatDate(payCard.statement.statementDate, 'd MMM')} is paid. Owed now:{' '}
+                      <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} />
+                    </>
+                  ) : (
+                    <>
+                      Left on the statement: <Amount value={payCard.statement.remaining} currency={payCard.currency} decimals={0} /> · due{' '}
+                      {formatDate(payCard.statement.dueDate, 'd MMM')}
+                      {payCard.statement.minimumLeft.gt(0) ? (
+                        <>
+                          {' '}
+                          · minimum <Amount value={payCard.statement.minimumLeft} currency={payCard.currency} decimals={0} />
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </p>
+              ) : payCard ? (
+                <p className="text-muted -mt-2 text-xs">
+                  Owed now: <Amount value={payCard.usage.owed} currency={payCard.currency} decimals={0} />
+                </p>
+              ) : null}
+              {crossCurrency ? (
+                <Field
+                  label={`Amount received (${toCurrency})`}
+                  hint={
+                    d(amount).gt(0) && d(toAmount).gt(0)
+                      ? `Rate used: 1 ${currency} = ${d(toAmount).div(d(amount)).toFixed(4)} ${toCurrency}`
+                      : 'Suggested from today’s rate; edit to match what the bank gave you'
+                  }
+                >
+                  <AmountInput value={toAmount} onChange={setToAmount} currency={toCurrency} currencies={currencies} />
+                </Field>
+              ) : null}
+            </>
+          ) : (
+            <Field label="Category">
+              <CategoryPicker
+                kind={type}
+                value={categoryId}
+                onChange={(id) => {
+                  setCategoryId(id)
+                  setCategoryTouched(true)
+                }}
+              />
+            </Field>
+          )}
+
+          {type === 'transfer' ? (
+            // a transfer between my own accounts has no payee
             <Field label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
             </Field>
-            <Field label={type === 'income' ? 'From' : 'Paid to'}>
-              <Input
-                value={payee}
-                list={`payees-${type}`}
-                autoComplete="off"
-                onChange={(e) => {
-                  const v = e.target.value
-                  setPayee(v)
-                  // a name used before brings its usual category, unless one was picked already
-                  const remembered = payeeCategory.get(`${type}:${v.trim().toLowerCase()}`)
-                  if (remembered && !categoryTouched && !initial && categories?.some((c) => c.id === remembered && !c.is_archived)) setCategoryId(remembered)
-                }}
-                placeholder={type === 'income' ? 'e.g. venue or client' : 'Optional'}
-              />
-              <datalist id={`payees-${type}`}>
-                {payeeSuggestions.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-            </Field>
-          </div>
-        )}
-        <Field label="Notes">
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
-        </Field>
-        <Field label="Tags" hint="Comma separated">
-          <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. travel, work" />
-        </Field>
-      </div>
-      <ConfirmDialog
-        open={confirm}
-        onClose={() => setConfirm(false)}
-        title="Delete this transaction?"
-        message="The account balance will be adjusted. You can undo for a few seconds."
-        onConfirm={() => {
-          if (initial) remove(initial)
-          onClose()
-        }}
-      />
-    </Sheet>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
+              <Field label="Date">
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={linked} />
+              </Field>
+              <Field label={type === 'income' ? 'From' : 'Paid to'}>
+                <Input
+                  value={payee}
+                  list={`payees-${type}`}
+                  autoComplete="off"
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setPayee(v)
+                    // a name used before brings its usual category, unless one was picked already
+                    const remembered = payeeCategory.get(`${type}:${v.trim().toLowerCase()}`)
+                    if (remembered && !categoryTouched && !initial && categories?.some((c) => c.id === remembered && !c.is_archived)) setCategoryId(remembered)
+                  }}
+                  placeholder={type === 'income' ? 'e.g. venue or client' : 'Optional'}
+                />
+                <datalist id={`payees-${type}`}>
+                  {payeeSuggestions.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </Field>
+            </div>
+          )}
+          <Field label="Notes">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          </Field>
+          <Field label="Tags" hint="Comma separated">
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. travel, work" />
+          </Field>
+        </div>
+        <ConfirmDialog
+          open={confirm}
+          onClose={() => setConfirm(false)}
+          title="Delete this transaction?"
+          message="The account balance will be adjusted. You can undo for a few seconds."
+          onConfirm={() => {
+            if (initial) remove(initial)
+            onClose()
+          }}
+        />
+      </Sheet>
+      {/* outside the form's sheet, so it stays open after the form closes */}
+      <InstallmentPurchaseSheet open={installments !== null} onClose={() => setInstallments(null)} preset={installments ?? undefined} />
+    </>
   )
 }

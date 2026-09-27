@@ -86,7 +86,17 @@ export interface CardStatement {
 }
 
 /** The current statement of one card balance (normally the card's main currency). */
-export function cardStatement(input: { balance: NumericInput; subId: string; statementDay: number; dueDay: number; minPct?: NumericInput | null; activity: CardTx[]; today: string }): CardStatement {
+export function cardStatement(input: {
+  balance: NumericInput
+  subId: string
+  statementDay: number
+  dueDay: number
+  minPct?: NumericInput | null
+  activity: CardTx[]
+  today: string
+  /** installment-plan amounts not billed yet at the statement date (owed, but not due on this statement) */
+  unbilledAtStatement?: NumericInput
+}): CardStatement {
   const statementDate = lastStatementDate(input.today, input.statementDay)
   const dueDate = dueDateAfter(statementDate, input.dueDay)
   let paid = d(0)
@@ -101,7 +111,8 @@ export function cardStatement(input: { balance: NumericInput; subId: string; sta
     else newSpending = newSpending.plus(e.neg())
   }
   const balanceAtStatement = d(input.balance).minus(delta)
-  const statementBalance = Decimal.max(0, balanceAtStatement.neg())
+  // owed at the statement, minus future installments of installment plans (not billed yet)
+  const statementBalance = Decimal.max(0, balanceAtStatement.neg().minus(d(input.unbilledAtStatement ?? 0)))
   const remaining = Decimal.max(0, statementBalance.minus(paid))
   const minimum = statementBalance.times(d(input.minPct ?? 0)).div(100).toDecimalPlaces(2)
   const minimumLeft = Decimal.max(0, Decimal.min(remaining, minimum.minus(paid)))
@@ -138,4 +149,82 @@ export function statementLabel(s: CardStatement): string {
   if (s.status === 'overdue') return `Overdue by ${-s.daysLeft} day${s.daysLeft === -1 ? '' : 's'}`
   if (s.daysLeft === 0) return 'Due today'
   return `Due in ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'}`
+}
+
+// ---------------------------------------------------------------------------------------------
+// Installment plans: a purchase paid over several statements
+// ---------------------------------------------------------------------------------------------
+
+export interface InstallmentPlanLike {
+  principal: NumericInput
+  fees: NumericInput
+  months: number
+  purchase_date: string
+  first_billing_date: string
+  closed_at?: string | null
+}
+
+/** The statement a purchase is first billed on: the statement day on or after the purchase. */
+export function firstBillingDate(purchaseDate: string, statementDay: number): string {
+  const last = lastStatementDate(purchaseDate, statementDay)
+  return last === purchaseDate ? purchaseDate : nextStatementDate(last, statementDay)
+}
+
+export interface Installment {
+  n: number
+  date: string
+  amount: Decimal
+}
+
+/** Equal installments (to the piastre; the last one takes the rounding), one per statement. */
+export function installmentSchedule(plan: InstallmentPlanLike, statementDay: number): Installment[] {
+  const total = d(plan.principal).plus(d(plan.fees))
+  const each = total.div(plan.months).toDecimalPlaces(2, Decimal.ROUND_DOWN)
+  const out: Installment[] = []
+  let date = plan.first_billing_date
+  for (let n = 1; n <= plan.months; n++) {
+    out.push({ n, date, amount: n < plan.months ? each : total.minus(each.times(plan.months - 1)) })
+    date = nextStatementDate(date, statementDay)
+  }
+  return out
+}
+
+export interface PlanProgress {
+  total: Decimal
+  monthly: Decimal
+  billedCount: number
+  billed: Decimal
+  /** owed but not billed yet */
+  unbilled: Decimal
+  next: Installment | null
+  endDate: string
+  status: 'active' | 'done' | 'settled'
+}
+
+/** Where a plan stands on a given date. */
+export function planProgress(plan: InstallmentPlanLike, statementDay: number, onDate: string): PlanProgress {
+  const schedule = installmentSchedule(plan, statementDay)
+  const total = d(plan.principal).plus(d(plan.fees))
+  const endDate = schedule[schedule.length - 1]!.date
+  const monthly = schedule[0]!.amount
+  if (onDate < plan.purchase_date) return { total, monthly, billedCount: 0, billed: d(0), unbilled: d(0), next: schedule[0]!, endDate, status: 'active' }
+  if (plan.closed_at && onDate >= plan.closed_at) return { total, monthly, billedCount: plan.months, billed: total, unbilled: d(0), next: null, endDate: plan.closed_at, status: 'settled' }
+  const billedItems = schedule.filter((i) => i.date <= onDate)
+  const billed = billedItems.reduce((a, i) => a.plus(i.amount), d(0))
+  const next = schedule.find((i) => i.date > onDate) ?? null
+  return { total, monthly, billedCount: billedItems.length, billed, unbilled: total.minus(billed), next, endDate, status: next ? 'active' : 'done' }
+}
+
+/** Sum of what the plans still have to bill after `onDate` (owed on the card, not yet due). */
+export function unbilledInstallments(plans: InstallmentPlanLike[], statementDay: number, onDate: string): Decimal {
+  return plans.reduce((a, p) => a.plus(planProgress(p, statementDay, onDate).unbilled), d(0))
+}
+
+/** Installments billed exactly on a statement (what the plans added to it). */
+export function installmentsOnStatement(plans: InstallmentPlanLike[], statementDay: number, statementDate: string): Decimal {
+  return plans.reduce((a, p) => {
+    if (p.closed_at && p.closed_at <= statementDate) return a
+    const item = installmentSchedule(p, statementDay).find((i) => i.date === statementDate)
+    return item ? a.plus(item.amount) : a
+  }, d(0))
 }

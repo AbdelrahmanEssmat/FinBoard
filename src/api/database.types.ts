@@ -229,6 +229,31 @@ export type Holding = {
   updated_at: string
 }
 
+/** A credit card purchase paid over several statements (see migration 0009). */
+export type CardInstallmentPlan = {
+  id: string
+  user_id: string
+  account_id: string
+  sub_account_id: string
+  /** the purchase expense (full price) */
+  transaction_id: string | null
+  /** interest / admin fees expense, if any */
+  fees_transaction_id: string | null
+  description: string
+  currency: string
+  principal: number
+  fees: number
+  months: number
+  purchase_date: string
+  /** statement date of the first installment */
+  first_billing_date: string
+  /** settled early: whatever is left is billed on the next statement */
+  closed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type HoldingSale = {
   id: string
   user_id: string
@@ -358,6 +383,7 @@ export type Database = {
       investment_categories: TableDef<InvestmentCategory>
       holdings: TableDef<Holding>
       holding_sales: TableDef<HoldingSale>
+      card_installment_plans: TableDef<CardInstallmentPlan>
       gold_items: TableDef<GoldItem>
       gold_prices: TableDef<GoldPrice>
       contacts: TableDef<Contact>
