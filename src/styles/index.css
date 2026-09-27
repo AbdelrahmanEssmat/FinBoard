@@ -189,13 +189,27 @@ input:is([type='date'], [type='time'], [type='month'], [type='datetime-local']) 
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 3rem;
   text-align: left;
+  /*
+   * Safari doesn't centre the date vertically once the native look is off: it sits at the top of
+   * the box. A fixed line box with equal padding above and below centres it on every browser and
+   * keeps the field exactly as tall as the others (11px + 24px + 11px + 2px border = 48px).
+   */
+  height: auto;
+  min-height: 3rem;
+  padding-top: calc(0.75rem - 1px);
+  padding-bottom: calc(0.75rem - 1px);
+  line-height: 1.5rem;
 }
 input:is([type='date'], [type='time'], [type='month'], [type='datetime-local'])::-webkit-date-and-time-value {
   text-align: left;
   margin: 0;
-  min-height: 1.5em;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+}
+input:is([type='date'], [type='time'], [type='month'], [type='datetime-local'])::-webkit-datetime-edit {
+  padding: 0;
+  line-height: 1.5rem;
 }
 input[type='number'] {
   -moz-appearance: textfield;
