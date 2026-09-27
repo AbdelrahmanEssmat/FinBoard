@@ -20,7 +20,8 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
     setValues({ 24: '', 22: '', 21: '', 18: '' })
   }, [open])
 
-  const manualRows = KARATS.map((k) => prices.rows[k]).filter((r) => r && r.user_id)
+  // only prices typed in here (automatic prices are also saved under the user's account)
+  const manualRows = KARATS.map((k) => prices.rows[k]).filter((r) => r && r.source === 'manual')
 
   const save = async () => {
     const now = new Date().toISOString()

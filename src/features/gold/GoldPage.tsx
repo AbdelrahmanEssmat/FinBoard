@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Gem, Pencil, Plus } from 'lucide-react'
+import { Gem, Pencil, Plus, RefreshCw } from 'lucide-react'
 import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
 import { Button, Card, Divider, Pill } from '@/components/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { useGoldItems } from '@/api/queries'
+import { refreshGoldPrices } from '@/api/goldProvider'
+import { useUserId } from '@/app/providers/AuthProvider'
+import { toast } from '@/store/toasts'
+import { cn } from '@/utils'
 import { useConvert } from '@/hooks/useMoney'
 import { useGoldPriceTable } from '@/hooks/useGoldPrices'
 import { goldItemCost, goldItemValue, goldSummary, KARATS } from '@/domain/gold'
@@ -21,6 +26,26 @@ export default function GoldPage() {
   const { toDisplayOrZero, display } = useConvert()
   const [form, setForm] = useState<{ open: boolean; item?: GoldItem | null }>({ open: false })
   const [override, setOverride] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const userId = useUserId()
+  const qc = useQueryClient()
+
+  const refresh = async () => {
+    setRefreshing(true)
+    try {
+      const r = await refreshGoldPrices(userId, { force: true })
+      if (r.status === 'saved') {
+        await qc.invalidateQueries({ queryKey: ['gold_prices'] })
+        toast.success(`Gold prices updated from ${r.sourceName}`)
+      } else if (r.status === 'manual') {
+        toast.info('Your manual price is in use for 24 hours. Remove it (pencil button) to use live prices.')
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not fetch gold prices')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const summary = useMemo(() => goldSummary(items ?? [], prices), [items, prices])
   const valueDisplay = toDisplayOrZero(summary.value, 'EGP')
@@ -42,8 +67,8 @@ export default function GoldPage() {
       />
 
       <Card padded className="mb-6">
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="text-xs text-muted">Price per gram (EGP)</div>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {KARATS.map((k) => (
@@ -54,11 +79,16 @@ export default function GoldPage() {
               ))}
             </div>
           </div>
-          <button onClick={() => setOverride(true)} aria-label="Override price" className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-surface-2">
-            <Pencil className="h-4 w-4" />
-          </button>
+          <div className="-mr-2 -mt-1 flex shrink-0">
+            <button onClick={refresh} disabled={refreshing} aria-label="Refresh gold prices" className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2 disabled:opacity-60">
+              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+            </button>
+            <button onClick={() => setOverride(true)} aria-label="Override price" className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
           <Pill tone={prices.source === 'local' ? 'positive' : prices.source === 'global' ? 'warning' : 'neutral'}>{sourceLabel}</Pill>
           {prices.priceAt ? <span>updated {relativeTime(prices.priceAt)}</span> : null}
         </div>

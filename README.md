@@ -49,10 +49,16 @@ Without a Supabase project you can still run everything against a local Postgres
 
 ## 4. Scheduled jobs: exchange rates, gold prices, daily snapshots
 
-The app already fetches today's exchange rate itself when it opens (from open.er-api.com) and takes
-a net-worth snapshot on open, so it works without this section. The scheduled jobs make it
-complete: rates arrive even on days you don't open the app, gold prices refresh every 30 minutes,
-and recurring transactions / certificate payouts are posted on time.
+You don't need this section for rates and gold prices. The app keeps them current itself while it is
+used: on open, every 30 minutes, and when it returns to the foreground. Exchange rates come straight
+from open.er-api.com (re-checked every 6 hours; the provider publishes once a day). Gold prices come
+from the app's own Vercel function **`/api/gold`** ([`api/gold.ts`](api/gold.ts)), which reads the
+Egyptian price sites server-side (browsers can't read them directly) and is cached for 10 minutes.
+It deploys with the site, so nothing needs installing. A manual gold price or rate always wins for
+its day (gold: 24 hours), and automatic fetching pauses while it's active.
+
+The optional scheduled jobs below only add: rates and gold arriving on days you don't open the app,
+and recurring transactions / certificate payouts posted overnight instead of on the next open.
 
 1. Install the Supabase CLI (`npm i -g supabase` or `winget install Supabase.CLI`) and log in: `supabase login`.
 2. Link the project: `supabase link --project-ref YOUR-REF` (the ref is the first part of your project URL).

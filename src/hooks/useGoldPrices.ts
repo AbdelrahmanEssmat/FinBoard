@@ -11,11 +11,12 @@ export const MANUAL_GOLD_PRICE_HOURS = 24
  * 24 hours wins; otherwise the newest price wins (a manual one wins an exact tie).
  */
 export function latestGoldPrices(rows: GoldPrice[], now = Date.now()): GoldPriceTable & { rows: Partial<Record<Karat, GoldPrice>> } {
-  const manualActive = (r: GoldPrice) => r.user_id !== null && now - new Date(r.price_at).getTime() < MANUAL_GOLD_PRICE_HOURS * 3_600_000
+  // a price typed in by the user (automatic prices fetched by the app are also stored under the user's account)
+  const manualActive = (r: GoldPrice) => r.source === 'manual' && now - new Date(r.price_at).getTime() < MANUAL_GOLD_PRICE_HOURS * 3_600_000
   const beats = (a: GoldPrice, b: GoldPrice) => {
     if (manualActive(a) !== manualActive(b)) return manualActive(a)
     if (a.price_at !== b.price_at) return new Date(a.price_at).getTime() > new Date(b.price_at).getTime()
-    return a.user_id !== null && b.user_id === null
+    return a.source === 'manual' && b.source !== 'manual'
   }
   const byKarat: Partial<Record<Karat, GoldPrice>> = {}
   for (const row of rows) {

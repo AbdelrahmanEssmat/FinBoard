@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { useConnectivity } from '@/hooks/useConnectivity'
 import { useDailyJobs } from '@/hooks/useDailyJobs'
+import { useMarketData } from '@/hooks/useMarketData'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { Sidebar } from '@/layout/Sidebar'
@@ -13,7 +14,7 @@ import { QuickAddSheet } from '@/layout/QuickAddSheet'
 
 /**
  * Responsive frame: sidebar on desktop, top bar + bottom tabs + floating "+" on phones.
- * Also mounts the app-wide background hooks (realtime, connectivity, daily jobs).
+ * Also mounts the app-wide background hooks (realtime, connectivity, daily jobs, rates and gold prices).
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [quickAdd, setQuickAdd] = useState(false)
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { keyboardOpen } = useVisualViewport()
   useRealtimeSync()
   useDailyJobs()
+  useMarketData()
 
   return (
     <div className="min-h-dvh md:flex">

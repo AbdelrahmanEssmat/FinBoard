@@ -1,10 +1,37 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 import pkg from './package.json' with { type: 'json' }
+
+/**
+ * In development, answer /api/<name> with the same Vercel function file (api/<name>.ts) that runs in
+ * production, so features that need a server (e.g. gold prices) work with `npm run dev` too.
+ */
+function vercelFunctionsInDev(): Plugin {
+  return {
+    name: 'vercel-functions-in-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const match = req.url?.match(/^\/api\/([a-z0-9-]+)(?:\?|$)/)
+        if (!match || req.method !== 'GET') return next()
+        try {
+          const mod = await server.ssrLoadModule(`/api/${match[1]}.ts`)
+          if (typeof mod.GET !== 'function') return next()
+          const response: Response = await mod.GET(new Request(`http://localhost${req.url}`))
+          res.statusCode = response.status
+          response.headers.forEach((value, key) => res.setHeader(key, value))
+          res.end(await response.text())
+        } catch (e) {
+          res.statusCode = 500
+          res.end(JSON.stringify({ ok: false, errors: [String(e)] }))
+        }
+      })
+    },
+  }
+}
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
@@ -13,6 +40,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    vercelFunctionsInDev(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
@@ -37,7 +65,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/~/],
+        navigateFallbackDenylist: [/^\/~/, /^\/api\//],
         runtimeCaching: [
           {
             // Supabase REST reads: serve from network, fall back to cache when offline.

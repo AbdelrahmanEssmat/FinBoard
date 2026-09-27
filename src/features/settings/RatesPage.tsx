@@ -53,7 +53,8 @@ export default function RatesPage() {
       }
       usdRate = x.times(baseUsd) // 1 USD = baseUsd base = baseUsd·X quote
     }
-    const existing = manualToday(editing)
+    // today's row for this currency (automatic or an earlier manual one): there is one per day, so update it
+    const existing = rows?.find((r) => r.quote === quote && r.user_id === userId && r.rate_date === today)
     await upsert.mutateAsync([{ id: existing?.id ?? newId(), user_id: userId, quote, rate: usdRate.toFixed(8), rate_date: today, source: 'manual', provider: 'manual', fetched_at: new Date().toISOString() }])
     setEditing(null)
   }
@@ -61,8 +62,8 @@ export default function RatesPage() {
   const refresh = async () => {
     setRefreshing(true)
     try {
-      const n = await refreshRatesFromClient(currencies.map((c) => c.code), userId)
-      toast.success(n ? `Fetched ${n} rates` : 'Rates already up to date')
+      const n = await refreshRatesFromClient(currencies.map((c) => c.code), userId, { force: true })
+      toast.success(n ? `Updated ${n} rate${n === 1 ? '' : 's'}` : 'Rates already up to date')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not fetch rates')
     } finally {
@@ -109,7 +110,7 @@ export default function RatesPage() {
         })}
         {!others.length ? <p className="p-5 text-sm text-muted">Enable another currency first.</p> : null}
       </Card>
-      <p className="mt-3 px-1 text-xs text-faint">Automatic rates come from exchangerate-api.com once a day. A manual rate for today wins over the automatic one until tomorrow’s update. Historical net worth always uses the rate that applied on each day.</p>
+      <p className="mt-3 px-1 text-xs text-faint">Automatic rates come from open.er-api.com (ExchangeRate-API), which publishes new rates once a day; the app checks for them when you open it and every few hours. A manual rate for today wins over the automatic one until tomorrow’s update. Historical net worth always uses the rate that applied on each day.</p>
 
       <Sheet open={Boolean(editing)} onClose={() => setEditing(null)} title={`Override ${editing}`} footer={<Button full size="lg" onClick={saveOverride} loading={upsert.isPending} disabled={!d(value).gt(0)}>Save for {formatDate(today)}</Button>}>
         <Field label={`1 ${base} equals`} hint={`Enter how many ${editing} you get for one ${base}`}>

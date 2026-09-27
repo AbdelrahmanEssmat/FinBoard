@@ -18,6 +18,11 @@ describe('gold price precedence (matches the database)', () => {
     const t = latestGoldPrices([row({ price_per_gram: 4000, price_at: hoursAgo(0.2) }), row({ user_id: 'me', source: 'manual', price_per_gram: 5000, price_at: hoursAgo(25) })], now)
     expect(t.perGram[21]).toBe(4000)
   })
+  it("a price the app fetched and saved under the user's account is automatic, not an override", () => {
+    const t = latestGoldPrices([row({ user_id: 'me', source: 'local', price_per_gram: 4000, price_at: hoursAgo(2) }), row({ user_id: 'me', source: 'local', price_per_gram: 4200, price_at: hoursAgo(0.5) })], now)
+    expect(t.perGram[21]).toBe(4200)
+    expect(t.source).toBe('local')
+  })
   it('newest automatic price wins among automatic prices', () => {
     const t = latestGoldPrices([row({ price_per_gram: 3900, price_at: hoursAgo(2) }), row({ price_per_gram: 4100, price_at: hoursAgo(1) })], now)
     expect(t.perGram[21]).toBe(4100)
