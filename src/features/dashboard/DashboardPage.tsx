@@ -8,6 +8,7 @@ import { SetupCard } from '@/features/dashboard/components/SetupCard'
 import { MonthSummary } from '@/features/dashboard/components/MonthSummary'
 import { UpcomingList } from '@/features/dashboard/components/UpcomingList'
 import { PricesReminder } from '@/features/dashboard/components/PricesReminder'
+import { LiquidityCard } from '@/features/dashboard/components/LiquidityCard'
 
 export default function DashboardPage() {
   const nw = useNetWorth()
@@ -32,6 +33,7 @@ export default function DashboardPage() {
         <NetWorthCard total={nw.total} history={history} display={nw.display} ratesUpdatedAt={updatedAt} />
         <PricesReminder />
       </div>
+      {empty ? null : <LiquidityCard />}
       {empty ? <SetupCard /> : <BreakdownCard nw={nw} display={nw.display} />}
       <MonthSummary />
       <UpcomingList />

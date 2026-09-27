@@ -7,6 +7,7 @@ import { toDb } from '@/domain/money'
 import type { Account, AccountType } from '@/api/database.types'
 import { ACCOUNT_TYPE_LABELS } from '@/features/accounts/useAccountsWithBalances'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
+import { isLiquidType } from '@/domain/liquidity'
 
 const DEFAULT_ICON: Record<AccountType, string> = { bank: 'landmark', cash: 'wallet', investment: 'trending-up', wallet: 'smartphone', other: 'coins' }
 
@@ -61,7 +62,7 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
         <Field label="Name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. CIB, Cash, Thndr" />
         </Field>
-        <Field label="Type">
+        <Field label="Type" hint={isLiquidType(type) ? 'Counts as liquid money (spendable any time)' : 'Not counted as liquid money'}>
           <Select
             value={type}
             onChange={(e) => {

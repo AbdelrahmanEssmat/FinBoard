@@ -4,6 +4,7 @@ import { usePrefs } from '@/store/prefs'
 import { cn } from '@/utils'
 import { CurrencyToggle } from '@/layout/CurrencyToggle'
 import { Brand } from '@/components/shared'
+import { LiquidityChip } from '@/features/liquidity/LiquidityChip'
 import { SIDEBAR_EXTRA, TABS } from '@/layout/nav'
 
 export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
@@ -15,7 +16,8 @@ export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
       <NavLink to="/" className="block px-5 pb-6 pt-7" aria-label="FinBoard home">
         <Brand />
       </NavLink>
-      <div className="px-4">
+      <div className="space-y-3 px-4">
+        <LiquidityChip variant="sidebar" />
         <button onClick={onQuickAdd} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent text-[15px] font-medium text-white shadow-sm hover:brightness-110">
           <Plus className="h-4 w-4" /> Add
         </button>
