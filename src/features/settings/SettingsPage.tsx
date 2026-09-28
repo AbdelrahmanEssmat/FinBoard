@@ -11,6 +11,7 @@ import { useAuth, useUserId } from '@/app/providers/AuthProvider'
 import { supabase } from '@/api/supabase'
 import { exportAll, exportTransactionsCsv, importAll } from '@/api/backup'
 import { toast } from '@/store/toasts'
+import { pendingCount } from '@/offline/outbox'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -24,6 +25,14 @@ export default function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [importConfirm, setImportConfirm] = useState<File | null>(null)
+  const [signOutPending, setSignOutPending] = useState(0)
+
+  // changes made offline that haven't reached the server yet: say so before signing out
+  const signOut = async () => {
+    const pending = await pendingCount()
+    if (pending > 0) setSignOutPending(pending)
+    else void supabase.auth.signOut()
+  }
 
   const setBase = async (code: string) => {
     if (!userId) return
@@ -126,7 +135,7 @@ export default function SettingsPage() {
       <Card className="overflow-hidden">
         <ListRow icon={Eye} color="#64748b" title="Privacy" subtitle="Your data is stored only in your own Supabase project, protected by row-level security." />
         <Divider />
-        <ListRow icon={LogOut} color="#dc2626" title="Sign out" onClick={() => void supabase.auth.signOut()} />
+        <ListRow icon={LogOut} color="#dc2626" title="Sign out" onClick={() => void signOut()} />
       </Card>
       <p className="text-center text-xs text-faint">FinBoard · v{__APP_VERSION__}</p>
 
@@ -138,6 +147,14 @@ export default function SettingsPage() {
         confirmLabel="Restore"
         danger={false}
         onConfirm={() => importConfirm && void doImport(importConfirm)}
+      />
+      <ConfirmDialog
+        open={signOutPending > 0}
+        onClose={() => setSignOutPending(0)}
+        title="Sign out now?"
+        message={`You have ${signOutPending} change${signOutPending === 1 ? '' : 's'} that haven't synced yet. They stay saved on this device and sync the next time you sign in here.`}
+        confirmLabel="Sign out"
+        onConfirm={() => void supabase.auth.signOut()}
       />
       <Button variant="ghost" className="hidden" />
     </div>

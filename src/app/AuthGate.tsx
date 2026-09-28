@@ -5,7 +5,7 @@ import { isConfigured } from '@/api/supabase'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, recovery } = useAuth()
   if (!isConfigured) return <Navigate to="/login" replace />
   if (loading)
     return (
@@ -14,5 +14,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </div>
     )
   if (!session) return <Navigate to="/login" replace />
+  // signed in from a password-reset email: set the new password before anything else
+  if (recovery) return <Navigate to="/reset-password" replace />
   return <>{children}</>
 }

@@ -1,5 +1,5 @@
 import { supabase, isNetworkError } from '@/api/supabase'
-import { enqueue, notify, offlineDb, type OutboxOp } from '@/offline/outbox'
+import { enqueue, myEntries, notify, offlineDb, type OutboxOp } from '@/offline/outbox'
 import { toast } from '@/store/toasts'
 
 /** Execute one operation against Supabase. Throws on failure. */
@@ -43,7 +43,7 @@ export async function submit(op: OutboxOp): Promise<{ queued: boolean; data?: un
     await enqueue(op)
     return { queued: true }
   }
-  if ((await offlineDb.outbox.count()) > 0) {
+  if ((await myEntries()).length > 0) {
     const id = await enqueue(op)
     await flushOutbox()
     const mine = await offlineDb.outbox.get(id)
@@ -80,7 +80,8 @@ export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
   flushing = (async () => {
     let sent = 0
     try {
-      const entries = await offlineDb.outbox.toArray() // primary-key (insertion) order
+      // only the signed-in person's changes, in the order they were made
+      const entries = await myEntries()
       for (const entry of entries) {
         try {
           await execute(entry.op)
@@ -105,7 +106,7 @@ export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
     } finally {
       notify()
     }
-    return { sent, remaining: await offlineDb.outbox.count() }
+    return { sent, remaining: (await myEntries()).length }
   })().finally(() => {
     flushing = null
   })
