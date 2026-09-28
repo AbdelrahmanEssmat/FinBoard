@@ -15,3 +15,5 @@ coverage
 dev-local/bin
 dev-local/data
 dev-local/*.log
+dev-local/auth-users.json
+scripts/auth-config.preview.json

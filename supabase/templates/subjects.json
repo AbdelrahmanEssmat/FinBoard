@@ -1,0 +1,10 @@
+{
+  "confirmation": "Confirm your email for FinBoard",
+  "recovery": "Reset your FinBoard password",
+  "magic_link": "Your FinBoard sign-in link",
+  "email_change": "Confirm your new email for FinBoard",
+  "invite": "You're invited to FinBoard",
+  "reauthentication": "Your FinBoard verification code: {{ .Token }}",
+  "password_changed_notification": "Your FinBoard password was changed",
+  "email_changed_notification": "Your FinBoard email was changed"
+}

@@ -24,6 +24,7 @@ const load = (factory: () => Promise<{ default: React.ComponentType }>) => {
 export const router = createBrowserRouter([
   { path: '/login', element: load(() => import('@/features/auth/LoginPage')) },
   { path: '/reset-password', element: load(() => import('@/features/auth/ResetPasswordPage')) },
+  { path: '/auth/confirm', element: load(() => import('@/features/auth/ConfirmPage')) },
   {
     path: '/',
     element: (
