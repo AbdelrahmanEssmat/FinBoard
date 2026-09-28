@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { availableRanges, monotonePath, sliceRange, trendStats, yDomain } from '@/domain/trend'
+import { monotonePath, sliceRange, trendStats, yDomain } from '@/domain/trend'
 
 const pts = (entries: [string, number][]) => entries.map(([date, value]) => ({ date, value }))
 
 describe('trend ranges', () => {
-  it('offers only ranges that add history', () => {
-    expect(availableRanges(pts([['2026-09-27', 1]]), '2026-09-27')).toEqual([])
-    expect(availableRanges(pts([['2026-09-26', 1], ['2026-09-27', 2]]), '2026-09-27')).toEqual(['1W'])
-    expect(availableRanges(pts([['2026-09-10', 1], ['2026-09-27', 2]]), '2026-09-27')).toEqual(['1W', '1M'])
-    expect(availableRanges(pts([['2025-01-01', 1], ['2026-09-27', 2]]), '2026-09-27')).toEqual(['1W', '1M', '3M', '1Y', 'ALL'])
-  })
   it('slices from the start of the range', () => {
     const p = pts([['2026-09-01', 1], ['2026-09-20', 2], ['2026-09-27', 3]])
     expect(sliceRange(p, '1W', '2026-09-27').map((x) => x.value)).toEqual([2, 3])

@@ -2,7 +2,7 @@
  * Pure helpers for the net-worth trend chart: time ranges, summary stats, a y-axis that shows
  * movement without exaggerating it, and a smooth (monotone) SVG path that never overshoots the data.
  */
-import { addDaysIso, daysBetween } from '@/utils/dates'
+import { addDaysIso } from '@/utils/dates'
 
 export interface TrendPoint {
   date: string
@@ -17,23 +17,6 @@ export const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
   { key: '1Y', label: '1Y', days: 365 },
   { key: 'ALL', label: 'All', days: null },
 ]
-
-/** Ranges worth offering: each one must show more history than the range before it. */
-export function availableRanges(points: TrendPoint[], today: string): RangeKey[] {
-  if (points.length < 2) return []
-  const span = daysBetween(points[0]!.date, today)
-  const out: RangeKey[] = []
-  let prevDays = 0
-  for (const r of RANGES) {
-    if (r.days === null) {
-      if (span > 365) out.push(r.key)
-      break
-    }
-    if (span > prevDays) out.push(r.key)
-    prevDays = r.days
-  }
-  return out
-}
 
 /** Points on or after the start of the range (the same rule the 30-day change has always used). */
 export function sliceRange(points: TrendPoint[], range: RangeKey, today: string): TrendPoint[] {

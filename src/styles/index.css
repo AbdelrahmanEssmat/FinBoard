@@ -284,50 +284,11 @@ input[type='number']::-webkit-outer-spin-button {
   padding-right: 0.04em; /* keeps the last letter from being clipped */
 }
 
-/* Net-worth trend chart: the line draws itself in, the fill fades up behind it, today's point pulses */
-@keyframes trend-draw {
-  from {
-    stroke-dashoffset: 1;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes trend-ping {
-  0% {
-    transform: scale(0.45);
-    opacity: 0.45;
-  }
-  80%,
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-.trend-draw {
-  stroke-dasharray: 1;
-  animation: trend-draw 900ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
-}
-.trend-fill {
-  animation: fade-in 700ms ease-out 250ms backwards;
-}
-.trend-ping {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: trend-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .anim-fade-up,
   .anim-sheet,
   .anim-scale,
-  .anim-fade,
-  .trend-draw,
-  .trend-fill,
-  .trend-ping {
+  .anim-fade {
     animation: none;
-  }
-  .trend-ping {
-    opacity: 0;
   }
 }
