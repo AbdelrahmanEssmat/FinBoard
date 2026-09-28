@@ -165,7 +165,7 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
             <Select value={cardId} onChange={(e) => setCardId(e.target.value)}>
               {usable.map((c) => (
                 <option key={c.account.id} value={c.account.id}>
-                  💳 {cardName(c.account, accMap)} · {c.currency}
+                  {cardName(c.account, accMap)} · {c.currency}
                 </option>
               ))}
             </Select>

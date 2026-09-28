@@ -17,11 +17,11 @@ export function accountDisplayName(account: Account | undefined, accounts: Map<s
   return account.type === 'credit_card' ? cardName(account, accounts) : account.name
 }
 
-/** One balance in a picker: "NBE · EGP · Savings", or "💳 NBE credit card · EGP" for a card. */
+/** One balance in a picker: "NBE · EGP · Savings", or "NBE credit card · EGP" for a card (listed under Credit cards). */
 export function balanceLabel(sub: SubAccount, accounts: Map<string, Account>): string {
   const account = accounts.get(sub.account_id)
   const extra = sub.name ? ` · ${sub.name}` : ''
-  if (account?.type === 'credit_card') return `💳 ${cardName(account, accounts)} · ${sub.currency}${extra}`
+  if (account?.type === 'credit_card') return `${cardName(account, accounts)} · ${sub.currency}${extra}`
   return `${account?.name ?? 'Account'} · ${sub.currency}${extra}`
 }
 
