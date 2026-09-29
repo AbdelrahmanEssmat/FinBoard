@@ -31,6 +31,8 @@ export function authMessage(err: unknown): string {
   if (/email not confirmed/i.test(m)) return BY_CODE.email_not_confirmed!
   if (/already registered|already exists/i.test(m)) return BY_CODE.user_already_exists!
   if (/rate limit|too many/i.test(m)) return BY_CODE.over_request_rate_limit!
+  // Supabase couldn't hand the email to the mail server (its SMTP settings or the provider)
+  if (/error sending .*email/i.test(m)) return 'We couldn’t send the email just now. Please try again in a few minutes.'
   if (/password should (be|contain)|weak/i.test(m)) return BY_CODE.weak_password!
   if (/different from the old password/i.test(m)) return BY_CODE.same_password!
   if (/otp_expired|expired|invalid.*(link|token)|token.*(invalid|expired)/i.test(m)) return BY_CODE.otp_expired!

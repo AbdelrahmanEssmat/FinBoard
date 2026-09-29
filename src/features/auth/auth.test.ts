@@ -31,6 +31,7 @@ describe('auth error messages', () => {
   it('falls back to the message', () => {
     expect(authMessage(new Error('Email not confirmed'))).toMatch(/confirm your email/)
     expect(authMessage(new Error('Failed to fetch'))).toMatch(/internet/)
+    expect(authMessage({ code: 'unexpected_failure', message: 'Error sending recovery email' })).toMatch(/couldn’t send the email/)
     expect(authMessage(new Error('Something odd'))).toBe('Something odd')
   })
 })
