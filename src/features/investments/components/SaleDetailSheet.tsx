@@ -29,8 +29,8 @@ export function SaleDetailSheet({ sale, name, onClose }: { sale: HoldingSale | n
   const rows: [string, React.ReactNode][] = [
     ['Date sold', formatDate(sale.date)],
     ['Units', d(sale.units).toString()],
-    ['Buy price', `${d(sale.avg_cost).toFixed(2)} ${sale.currency}`],
-    ['Sell price', `${d(sale.sell_price).toFixed(2)} ${sale.currency}`],
+    ['Buy price', <Amount key="b" value={sale.avg_cost} currency={sale.currency} />],
+    ['Sell price', <Amount key="s" value={sale.sell_price} currency={sale.currency} />],
     ['You paid', <Amount key="c" value={sale.cost_basis} currency={sale.currency} />],
     ...(d(sale.fees).gt(0) ? ([['Fees', <Amount key="f" value={sale.fees} currency={sale.currency} />]] as [string, React.ReactNode][]) : []),
     ['You received', <Amount key="p" value={sale.proceeds} currency={sale.currency} />],

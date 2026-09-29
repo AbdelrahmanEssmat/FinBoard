@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Tags } from 'lucide-react'
 import { Button, Card, Divider, Segmented } from '@/components/ui'
-import { EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { EmptyState, ListRow, PageHeader, PageSkeleton } from '@/components/shared'
 import { useCategories } from '@/api/queries'
 import { iconFor } from '@/utils/icons'
 import { CategoryForm } from '@/features/categories/components/CategoryForm'
@@ -10,7 +10,7 @@ import type { Category, CategoryKind } from '@/api/database.types'
 
 export default function CategoriesPage() {
   const navigate = useNavigate()
-  const { data } = useCategories()
+  const { data, isLoading } = useCategories()
   const [kind, setKind] = useState<CategoryKind>('expense')
   const [form, setForm] = useState<{ open: boolean; item?: Category | null; parentId?: string | null }>({ open: false })
   const list = useMemo(() => (data ?? []).filter((c) => c.kind === kind), [data, kind])
@@ -28,7 +28,9 @@ export default function CategoriesPage() {
         }
       />
       <Segmented className="mb-6" value={kind} onChange={setKind} options={[{ value: 'expense', label: 'Expenses' }, { value: 'income', label: 'Income' }]} />
-      {!parents.length ? (
+      {isLoading && !data ? (
+        <PageSkeleton />
+      ) : !parents.length ? (
         <EmptyState icon={Tags} title="No categories" description="Create categories to organise your spending and income." action={<Button onClick={() => setForm({ open: true, item: null })}>Add category</Button>} />
       ) : (
         <Card className="overflow-hidden">

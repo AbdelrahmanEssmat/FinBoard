@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { CalendarRange, Hash, Pencil, Plus, Trophy, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button, Card, Divider, ProgressBar, Segmented, Skeleton } from '@/components/ui'
-import { Amount, PageHeader, Section, StatCard } from '@/components/shared'
+import { Amount, NotFound, PageHeader, PageSkeleton, Section, StatCard } from '@/components/shared'
 import { useBudgets, useCategories, useTransactions } from '@/api/queries'
 import { useConvert, useHistoricalConvert } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
@@ -66,7 +66,7 @@ export default function CategoryDetailPage() {
     return { family, months, range, series, summary, split, parties, list }
   }, [cat, categories, txs, win, kind, today, toDisplayAt])
 
-  if (!cat) return categories ? <div className="py-12 text-center text-muted">Category not found</div> : <Skeleton className="h-40" />
+  if (!cat) return categories ? <NotFound title="Category not found" /> : <PageSkeleton back />
 
   const word = kind === 'income' ? 'Earned' : 'Spent'
   const budget = kind === 'expense' ? budgets?.find((b) => b.category_id === cat.id) : undefined
@@ -187,7 +187,13 @@ export default function CategoryDetailPage() {
                     <Amount value={thisMonth?.value ?? 0} currency={display} className="font-semibold" /> <span className="text-muted">of</span> <Amount value={budgetLimit} currency={display} />
                   </span>
                   <span className={cn('text-xs font-medium', (thisMonth?.value ?? d(0)).gt(budgetLimit) ? 'text-negative' : 'text-muted')}>
-                    {(thisMonth?.value ?? d(0)).gt(budgetLimit) ? 'over budget' : `${budgetLimit.minus(thisMonth?.value ?? 0).toFixed(0)} left`}
+                    {(thisMonth?.value ?? d(0)).gt(budgetLimit) ? (
+                      'over budget'
+                    ) : (
+                      <>
+                        <Amount value={budgetLimit.minus(thisMonth?.value ?? 0)} currency={display} decimals={0} size="sm" /> left
+                      </>
+                    )}
                   </span>
                 </div>
                 <ProgressBar className="mt-3" value={(thisMonth?.value ?? d(0)).div(budgetLimit).times(100).toNumber()} color={(thisMonth?.value ?? d(0)).gt(budgetLimit) ? 'var(--color-negative)' : color} />

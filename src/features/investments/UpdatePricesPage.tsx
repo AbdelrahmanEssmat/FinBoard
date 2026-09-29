@@ -10,6 +10,7 @@ import { d, type Decimal } from '@/domain/money'
 import { formatPercent } from '@/domain/format'
 import { isPriceFresh } from '@/domain/investments'
 import { toast } from '@/store/toasts'
+import { usePrefs } from '@/store/prefs'
 import { byId, cn, relativeTime } from '@/utils'
 import type { Holding } from '@/api/database.types'
 
@@ -26,6 +27,7 @@ export default function UpdatePricesPage() {
   const { data: categories } = useInvestmentCategories()
   const catMap = useMemo(() => byId(categories), [categories])
   const { toDisplayOrZero, display } = useConvert()
+  const privacy = usePrefs((s) => s.privacy)
   // sold-out holdings have no price to track
   const holdings = useMemo(() => (all ?? []).filter((h) => d(h.units).gt(0)), [all])
   // partial update: only the price columns change (an upsert would need every required column)
@@ -149,7 +151,7 @@ export default function UpdatePricesPage() {
                         {h.ticker ? <span className="ml-1.5 text-xs font-normal text-muted">{h.ticker}</span> : null}
                       </span>
                       <span className="mt-1 block truncate text-xs text-muted">
-                        {mode === 'unit' ? `${was.toFixed(2)} ${h.currency}` : `${d(h.units).toString()} units`}
+                        {mode === 'unit' ? <Amount value={was} currency={h.currency} size="sm" /> : privacy ? '••• units' : `${d(h.units).toString()} units`}
                         {cat ? ` · ${cat}` : ''}
                       </span>
                       <span className={cn('mt-1 flex items-center gap-1 text-[11px]', fresh ? 'text-positive' : 'text-warning')}>
@@ -166,7 +168,7 @@ export default function UpdatePricesPage() {
                         enterKeyHint={i === holdings.length - 1 ? 'done' : 'next'}
                         aria-label={`${mode === 'unit' ? 'New price' : 'Total value'} for ${h.name}`}
                         className={cn('tnum h-11 text-right', moved && 'border-accent')}
-                        placeholder={mode === 'unit' ? was.toFixed(2) : was.times(d(h.units)).toFixed(2)}
+                        placeholder={privacy ? '' : mode === 'unit' ? was.toFixed(2) : was.times(d(h.units)).toFixed(2)}
                         value={typed[h.id] ?? ''}
                         onChange={(e) => setTyped({ ...typed, [h.id]: e.target.value })}
                         onKeyDown={(e) => {

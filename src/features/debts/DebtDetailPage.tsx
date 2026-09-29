@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Pill, ProgressBar } from '@/components/ui'
 import { useUndoableDelete } from '@/api/mutations'
 import { formatDate } from '@/domain/format'
@@ -13,7 +13,7 @@ import type { DebtPayment } from '@/api/database.types'
 export default function DebtDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { list } = useDebtViews()
+  const { list, isLoading } = useDebtViews()
   const debt = list.find((x) => x.id === id)
   const [edit, setEdit] = useState(false)
   const [pay, setPay] = useState(false)
@@ -22,7 +22,7 @@ export default function DebtDetailPage() {
   const deleteDebt = useUndoableDelete('debts', { invalidate: ['debt_payments', 'transactions', 'sub_accounts'], label: 'Debt' })
   const deletePayment = useUndoableDelete('debt_payments', { invalidate: ['debts', 'transactions', 'sub_accounts'], label: 'Payment' })
 
-  if (!debt) return <div className="py-12 text-center text-muted">Not found</div>
+  if (!debt) return isLoading && !list.length ? <PageSkeleton back /> : <NotFound title="Debt not found" />
   const positive = debt.direction === 'owed_to_me'
 
   return (

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDownLeft, ArrowUpRight, HandCoins, Plus, Users } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader, StatCard } from '@/components/shared'
+import { Amount, EmptyState, ListRow, PageHeader, PageSkeleton, StatCard } from '@/components/shared'
 import { Button, Card, Divider, Pill, ProgressBar, Segmented } from '@/components/ui'
 import { formatDate } from '@/domain/format'
 import { DebtForm } from '@/features/debts/components/DebtForm'
@@ -15,7 +15,7 @@ export default function DebtsPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const tab = (params.get('tab') as Tab) || 'owed_to_me'
-  const { open, totals, byPerson, display, list } = useDebtViews()
+  const { open, totals, byPerson, display, list, isLoading } = useDebtViews()
   const [form, setForm] = useState<{ open: boolean; direction: 'i_owe' | 'owed_to_me' }>({ open: false, direction: 'owed_to_me' })
   const [contactForm, setContactForm] = useState<{ open: boolean; item?: Contact | null }>({ open: false })
 
@@ -51,7 +51,9 @@ export default function DebtsPage() {
 
       <Segmented className="mb-6" value={tab} onChange={(t) => setParams({ tab: t })} options={[{ value: 'owed_to_me', label: 'Owed to me' }, { value: 'i_owe', label: 'I owe' }, { value: 'people', label: 'People' }]} />
 
-      {tab === 'people' ? (
+      {isLoading && !list.length ? (
+        <PageSkeleton />
+      ) : tab === 'people' ? (
         !byPerson.length ? (
           <EmptyState icon={Users} title="No people yet" description="People are saved when you add a debt, or add them here." action={<Button onClick={() => setContactForm({ open: true, item: null })}>Add person</Button>} />
         ) : (
@@ -63,7 +65,21 @@ export default function DebtsPage() {
                   icon={Users}
                   color={p.net.gt(0) ? '#16a34a' : p.net.lt(0) ? '#dc2626' : '#64748b'}
                   title={p.contact.name}
-                  subtitle={p.openCount ? `${p.openCount} open · ${Object.entries(p.byCurrency).map(([c, v]) => `${v.gt(0) ? 'owes you' : 'you owe'} ${v.abs().toFixed(0)} ${c}`).join(', ')}` : 'All settled'}
+                  subtitle={
+                    p.openCount ? (
+                      <span>
+                        {p.openCount} open
+                        {Object.entries(p.byCurrency).map(([c, v]) => (
+                          <span key={c}>
+                            {' · '}
+                            {v.gt(0) ? 'owes you' : 'you owe'} <Amount value={v.abs()} currency={c} decimals={0} size="sm" />
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      'All settled'
+                    )
+                  }
                   trailing={<Amount value={p.net} currency={display} colored showSign className="font-semibold" />}
                   onClick={() => setContactForm({ open: true, item: p.contact })}
                   chevron

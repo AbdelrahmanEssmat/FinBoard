@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HandCoins, Trash2 } from 'lucide-react'
 import { Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
+import { Amount } from '@/components/shared'
 import { useAccounts, useHoldingSales, useInvestmentCategories } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
@@ -209,21 +210,16 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
           <div className="space-y-1.5 rounded-2xl bg-surface-2 p-4 text-sm">
             <div className="flex justify-between gap-3">
               <span className="text-muted">{mode === 'unit' ? 'Paid in total' : 'Buy price per unit'}</span>
-              <span className="tnum">
-                {(mode === 'unit' ? pos.cost : unitCost).toFixed(2)} {currency}
-              </span>
+              <Amount value={mode === 'unit' ? pos.cost : unitCost} currency={currency} />
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-muted">{mode === 'unit' ? 'Worth now' : 'Price per unit now'}</span>
-              <span className="tnum">
-                {(mode === 'unit' ? pos.value : unitPrice).toFixed(2)} {currency}
-              </span>
+              <Amount value={mode === 'unit' ? pos.value : unitPrice} currency={currency} />
             </div>
             <div className="flex justify-between gap-3 border-t border-border pt-1.5">
               <span className="font-medium">{pos.pl.gte(0) ? 'Profit so far' : 'Loss so far'}</span>
-              <span className={cn('tnum font-semibold', pos.pl.gte(0) ? 'text-positive' : 'text-negative')}>
-                {pos.pl.gte(0) ? '+' : ''}
-                {pos.pl.toFixed(2)} {pos.plPct ? `(${formatPercent(pos.plPct)})` : ''}
+              <span className={cn('font-semibold', pos.pl.gte(0) ? 'text-positive' : 'text-negative')}>
+                <Amount value={pos.pl} currency={currency} showSign /> {pos.plPct ? `(${formatPercent(pos.plPct)})` : ''}
               </span>
             </div>
           </div>

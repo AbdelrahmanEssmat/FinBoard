@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, Repeat } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader } from '@/components/shared'
+import { Amount, EmptyState, ListRow, PageHeader, PageSkeleton } from '@/components/shared'
 import { Button, Card, Divider, Pill } from '@/components/ui'
 import { useAccounts, useCategories, useRecurring, useSubAccounts } from '@/api/queries'
 import { byId } from '@/utils'
@@ -11,7 +11,7 @@ import { RecurringForm } from '@/features/transactions/components/RecurringForm'
 import type { RecurringTransaction } from '@/api/database.types'
 
 export default function RecurringPage() {
-  const { data } = useRecurring()
+  const { data, isLoading } = useRecurring()
   const { data: categories } = useCategories()
   const { data: subs } = useSubAccounts()
   const { data: accounts } = useAccounts()
@@ -58,7 +58,9 @@ export default function RecurringPage() {
           </Button>
         }
       />
-      {!data?.length ? (
+      {isLoading && !data ? (
+        <PageSkeleton />
+      ) : !data?.length ? (
         <EmptyState icon={Repeat} title="No recurring items" description="Add your salary, rent or subscriptions and they will be posted automatically on their due date." action={<Button onClick={() => setForm({ open: true, item: null })}>Add recurring</Button>} />
       ) : (
         <div className="space-y-8">

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, RefreshCw, Settings2 } from 'lucide-react'
-import { Button, Card, Divider } from '@/components/ui'
-import { Amount, ListRow, PageHeader, Section } from '@/components/shared'
+import { Button, Card, Divider, Skeleton } from '@/components/ui'
+import { Amount, ListRow, PageHeader, Private, Section } from '@/components/shared'
 import { useHoldingSales, useHoldings, useInvestmentCategories } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
 import { d } from '@/domain/money'
@@ -18,7 +18,7 @@ import type { Holding } from '@/api/database.types'
 
 export default function InvestmentsPage() {
   const navigate = useNavigate()
-  const { data: holdings } = useHoldings()
+  const { data: holdings, isLoading } = useHoldings()
   const { data: categories } = useInvestmentCategories()
   const { data: sales } = useHoldingSales()
   const { toDisplayOrZero, display } = useConvert()
@@ -102,7 +102,9 @@ export default function InvestmentsPage() {
 
         <PerformanceSection holdings={holdings ?? []} sales={sales ?? []} categories={categories ?? []} />
 
-        {!rows.length ? (
+        {isLoading && !holdings ? (
+          <Skeleton className="h-24" />
+        ) : !rows.length ? (
           <Section title="Holdings">
             <Card padded className="text-sm leading-relaxed text-muted">
               {closed.length ? 'Everything has been sold. Add a new stock or fund to keep tracking.' : 'No stocks or funds yet. Add a fund or stock with its units, buy price and the latest price to track profit and loss, then sell it here to see what you made.'}
@@ -127,7 +129,7 @@ export default function InvestmentsPage() {
                           {r.h.ticker ? <span className="ml-1.5 text-xs text-muted">{r.h.ticker}</span> : null}
                         </span>
                       }
-                      subtitle={`${d(r.h.units).toString()} × ${d(r.h.current_price).toFixed(2)} ${r.h.currency}`}
+                      subtitle={<Private>{`${d(r.h.units).toString()} × ${d(r.h.current_price).toFixed(2)} ${r.h.currency}`}</Private>}
                       trailing={
                         <span className="flex flex-col items-end">
                           <Amount value={r.value} currency={r.h.currency} className="font-semibold" />

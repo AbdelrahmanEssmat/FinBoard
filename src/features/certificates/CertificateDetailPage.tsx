@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Pencil, Trash2 } from 'lucide-react'
-import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Pill, Select, Sheet } from '@/components/ui'
 import { useAccounts, useCertificates, usePayouts, useSubAccounts } from '@/api/queries'
 import { useRpc, useUndoableDelete, useUpdateRows } from '@/api/mutations'
@@ -31,7 +31,7 @@ export default function CertificateDetailPage() {
   const updatePayout = useUpdateRows('certificate_payouts', { silent: true })
   const today = todayIso()
 
-  if (!cert) return <div className="text-muted py-12 text-center">Not found</div>
+  if (!cert) return certs ? <NotFound title="Certificate not found" /> : <PageSkeleton back />
   const earned = interestEarnedSoFar(cert, today)
   const next = nextPayoutDate(cert, today)
   const matureIn = daysUntil(cert.maturity_date, today)
@@ -75,7 +75,13 @@ export default function CertificateDetailPage() {
           <Stat
             label="Earned so far"
             value={<Amount value={earned.total} currency={cert.currency} className="text-positive" />}
-            hint={earned.accrued.gt(0) ? `incl. ${earned.accrued.toFixed(2)} accrued` : undefined}
+            hint={
+              earned.accrued.gt(0) ? (
+                <>
+                  incl. <Amount value={earned.accrued} currency={cert.currency} size="sm" /> accrued
+                </>
+              ) : undefined
+            }
           />
           <Stat label="Next payout" value={next ? formatDate(next) : '—'} hint={next ? `in ${daysUntil(next, today)} days` : undefined} />
           <Stat label="Started" value={formatDate(cert.start_date)} />
@@ -179,7 +185,7 @@ export default function CertificateDetailPage() {
   )
 }
 
-function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div>
       <div className="text-muted text-xs">{label}</div>

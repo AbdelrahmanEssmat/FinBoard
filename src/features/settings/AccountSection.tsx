@@ -1,33 +1,20 @@
 import { useState, type FormEvent } from 'react'
 import { KeyRound, LogOut, MonitorSmartphone, UserRound } from 'lucide-react'
-import { Button, Card, ConfirmDialog, Divider, Field, FormStack, Sheet } from '@/components/ui'
+import { Button, Card, Divider, Field, FormStack, Sheet } from '@/components/ui'
 import { ListRow, SectionTitle } from '@/components/shared'
 import { supabase } from '@/api/supabase'
 import { useAuth } from '@/app/providers/AuthProvider'
-import { pendingCount } from '@/offline/outbox'
 import { toast } from '@/store/toasts'
 import { authMessage } from '@/features/auth/authErrors'
 import { newPasswordProblem } from '@/features/auth/password'
 import { PasswordChecklist, PasswordInput } from '@/features/auth/PasswordFields'
-
-type Scope = 'local' | 'global'
+import { useSignOut } from '@/features/auth/useSignOut'
 
 /** Settings → Account: who's signed in, change password, sign out here or everywhere. */
 export function AccountSection() {
   const { session } = useAuth()
   const [changing, setChanging] = useState(false)
-  const [confirmOut, setConfirmOut] = useState<{ scope: Scope; pending: number } | null>(null)
-
-  const signOut = (scope: Scope) => supabase.auth.signOut({ scope }).catch((e) => toast.error(authMessage(e)))
-
-  const askSignOut = async (scope: Scope) => {
-    const pending = await pendingCount()
-    // signing out everywhere is always confirmed; this device only when changes haven't synced yet
-    if (pending > 0 || scope === 'global') setConfirmOut({ scope, pending })
-    else void signOut(scope)
-  }
-
-  const pendingNote = (n: number) => (n > 0 ? ` You have ${n} change${n === 1 ? '' : 's'} that haven't synced yet. They stay saved on this device and sync the next time you sign in here.` : '')
+  const { askSignOut, dialog: signOutDialog } = useSignOut()
 
   return (
     <section>
@@ -43,14 +30,7 @@ export function AccountSection() {
       </Card>
 
       <ChangePasswordSheet open={changing} onClose={() => setChanging(false)} email={session?.user.email ?? ''} />
-      <ConfirmDialog
-        open={Boolean(confirmOut)}
-        onClose={() => setConfirmOut(null)}
-        title={confirmOut?.scope === 'global' ? 'Sign out everywhere?' : 'Sign out now?'}
-        message={(confirmOut?.scope === 'global' ? 'You’ll be signed out on every device, including this one.' : '') + pendingNote(confirmOut?.pending ?? 0)}
-        confirmLabel="Sign out"
-        onConfirm={() => confirmOut && void signOut(confirmOut.scope)}
-      />
+      {signOutDialog}
     </section>
   )
 }

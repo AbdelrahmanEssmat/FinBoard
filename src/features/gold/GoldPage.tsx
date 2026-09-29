@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Gem, Pencil, Plus, RefreshCw } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Amount, EmptyState, ListRow, PageHeader, PageSkeleton, Private, SectionTitle } from '@/components/shared'
 import { Button, Card, Divider, Pill } from '@/components/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { useGoldItems } from '@/api/queries'
@@ -21,7 +21,7 @@ import type { GoldItem } from '@/api/database.types'
 const TYPE_LABEL = { bar: 'Bar', coin: 'Coin', jewelry: 'Jewelry' }
 
 export default function GoldPage() {
-  const { data: items } = useGoldItems()
+  const { data: items, isLoading } = useGoldItems()
   const prices = useGoldPriceTable()
   const { toDisplayOrZero, display } = useConvert()
   const [form, setForm] = useState<{ open: boolean; item?: GoldItem | null }>({ open: false })
@@ -94,12 +94,16 @@ export default function GoldPage() {
         </div>
       </Card>
 
-      {!items?.length ? (
+      {isLoading && !items ? (
+        <PageSkeleton />
+      ) : !items?.length ? (
         <EmptyState icon={Gem} title="No gold yet" description="Add bars, coins or jewelry by karat and weight. Value uses Egyptian local prices per gram." action={<Button onClick={() => setForm({ open: true, item: null })}>Add gold</Button>} />
       ) : (
         <div className="space-y-8">
           <Card padded>
-            <div className="text-xs text-muted">Current value · {summary.grams.toFixed(2)} g</div>
+            <div className="text-xs text-muted">
+              Current value · <Private>{summary.grams.toFixed(2)} g</Private>
+            </div>
             <Amount value={valueDisplay} currency={display} size="xl" />
             <div className="mt-1 text-sm">
               <Amount value={gainDisplay} currency={display} colored showSign className="font-medium" />
@@ -123,7 +127,7 @@ export default function GoldPage() {
                       icon={Gem}
                       color="#ca8a04"
                       title={it.name || `${TYPE_LABEL[it.type]} ${it.karat}K`}
-                      subtitle={`${d(it.weight_grams).toString()} g · ${it.karat}K${it.purchase_date ? ' · bought ' + formatDate(it.purchase_date) : ''}${it.workmanship_cost ? ' · +workmanship' : ''}`}
+                      subtitle={<Private>{`${d(it.weight_grams).toString()} g · ${it.karat}K${it.purchase_date ? ' · bought ' + formatDate(it.purchase_date) : ''}${it.workmanship_cost ? ' · +workmanship' : ''}`}</Private>}
                       trailing={
                         <span className="flex flex-col items-end">
                           {value ? <Amount value={value} currency="EGP" className="font-semibold" /> : <span className="text-xs text-faint">no price</span>}

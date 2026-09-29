@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Percent, Plus } from 'lucide-react'
-import { Amount, EmptyState, ListRow, PageHeader, SectionTitle, StatCard } from '@/components/shared'
+import { Amount, EmptyState, ListRow, PageHeader, PageSkeleton, SectionTitle, StatCard } from '@/components/shared'
 import { Button, Card, Divider, Pill } from '@/components/ui'
 import { useAccounts, useCertificates, usePayouts } from '@/api/queries'
 import { useConvert } from '@/hooks/useMoney'
@@ -13,7 +13,7 @@ import { CertificateForm } from '@/features/certificates/components/CertificateF
 
 export default function CertificatesPage() {
   const navigate = useNavigate()
-  const { data: certs } = useCertificates()
+  const { data: certs, isLoading } = useCertificates()
   const { data: payouts } = usePayouts()
   const { data: accounts } = useAccounts()
   const accMap = useMemo(() => byId(accounts), [accounts])
@@ -43,7 +43,9 @@ export default function CertificatesPage() {
           </Button>
         }
       />
-      {!certs?.length ? (
+      {isLoading && !certs ? (
+        <PageSkeleton />
+      ) : !certs?.length ? (
         <EmptyState icon={Percent} title="No certificates yet" description="Track bank certificates and deposits: payouts, interest earned and maturity dates." action={<Button onClick={() => setAdding(true)}>Add certificate</Button>} />
       ) : (
         <div className="space-y-8">

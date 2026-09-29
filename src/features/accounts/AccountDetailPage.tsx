@@ -1,7 +1,7 @@
 import { createElement, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Amount, ListRow, PageHeader, SectionTitle } from '@/components/shared'
+import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Sheet } from '@/components/ui'
 import { useAccounts, useCertificates, useSubAccounts, useTransactions } from '@/api/queries'
 import { useUndoableDelete } from '@/api/mutations'
@@ -54,7 +54,7 @@ export default function AccountDetailPage() {
     return (txs ?? []).filter((t) => ids.has(t.sub_account_id) || (t.to_sub_account_id && ids.has(t.to_sub_account_id))).slice(0, 30)
   }, [txs, mySubs])
 
-  if (!account) return <div className="text-muted py-12 text-center">Account not found</div>
+  if (!account) return accounts ? <NotFound title="Account not found" /> : <PageSkeleton back />
 
   return (
     <div className="anim-fade-up">

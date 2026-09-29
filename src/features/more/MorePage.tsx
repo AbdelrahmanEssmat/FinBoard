@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { Percent, TrendingUp, Gem, PieChart, BarChart3, Repeat, Tags, Settings, Search, Users, LogOut } from 'lucide-react'
 import { Card, Divider } from '@/components/ui'
 import { ListRow, PageHeader } from '@/components/shared'
-import { supabase } from '@/api/supabase'
 import { useAuth } from '@/app/providers/AuthProvider'
+import { useSignOut } from '@/features/auth/useSignOut'
 
 const groups = [
   {
@@ -36,9 +36,10 @@ const groups = [
 export default function MorePage() {
   const navigate = useNavigate()
   const { session } = useAuth()
+  const { askSignOut, dialog: signOutDialog } = useSignOut()
   return (
     <div className="anim-fade-up space-y-8">
-      <PageHeader title="More" subtitle={session?.user.email} />
+      <PageHeader title="More" subtitle={<span className="break-all">{session?.user.email}</span>} />
       {groups.map((g) => (
         <section key={g.title}>
           <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">{g.title}</h2>
@@ -53,8 +54,9 @@ export default function MorePage() {
         </section>
       ))}
       <Card className="overflow-hidden">
-        <ListRow icon={LogOut} color="#dc2626" title="Sign out" onClick={() => void supabase.auth.signOut()} />
+        <ListRow icon={LogOut} color="#dc2626" title="Sign out" subtitle="On this device" onClick={() => void askSignOut('local')} />
       </Card>
+      {signOutDialog}
     </div>
   )
 }

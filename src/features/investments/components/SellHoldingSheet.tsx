@@ -10,6 +10,7 @@ import { formatPercent, todayIso } from '@/domain/format'
 import { previewSale } from '@/domain/investments'
 import { daysBetween } from '@/utils/dates'
 import { toast } from '@/store/toasts'
+import { usePrefs } from '@/store/prefs'
 import type { Holding } from '@/api/database.types'
 import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 
@@ -18,6 +19,7 @@ type PriceMode = 'unit' | 'total'
 /** Sell some or all units of a holding; books the realized profit or loss. */
 export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boolean; onClose: () => void; holding: Holding | null; onSold?: () => void }) {
   const { data: subs } = useSubAccounts()
+  const privacy = usePrefs((s) => s.privacy)
   const sell = useRpc('sell_holding', ['holdings', 'holding_sales', 'transactions', 'sub_accounts'])
 
   const [units, setUnits] = useState('')
@@ -72,7 +74,7 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
       p_sale_id: newId(),
       p_transaction_id: newId(),
     })
-    toast.success(`${p.realized.gte(0) ? 'Profit' : 'Loss'} of ${p.realized.abs().toFixed(2)} ${holding.currency} booked`)
+    toast.success(privacy ? 'Sale booked' : `${p.realized.gte(0) ? 'Profit' : 'Loss'} of ${p.realized.abs().toFixed(2)} ${holding.currency} booked`)
     onSold?.()
     onClose()
   }
@@ -90,11 +92,7 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
     >
       <div className="space-y-5">
         <p className="text-muted text-sm">
-          You hold <span className="tnum text-text font-medium">{held.toString()}</span> units bought at{' '}
-          <span className="tnum text-text font-medium">
-            {d(holding.avg_cost).toFixed(2)} {holding.currency}
-          </span>
-          .
+          You hold <span className="tnum text-text font-medium">{held.toString()}</span> units bought at <Amount value={holding.avg_cost} currency={holding.currency} className="font-medium text-text" />.
         </p>
         <Field label="Units to sell">
           <div className="flex gap-2">

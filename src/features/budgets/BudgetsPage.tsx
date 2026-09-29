@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PieChart, Plus, Trash2 } from 'lucide-react'
-import { Amount, EmptyState, PageHeader } from '@/components/shared'
+import { Amount, EmptyState, PageHeader, PageSkeleton } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Field, Input, ProgressBar, Select, Sheet } from '@/components/ui'
 import { useBudgets, useCategories, useTransactions } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
@@ -14,7 +14,7 @@ import type { Budget } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export default function BudgetsPage() {
-  const { data: budgets } = useBudgets()
+  const { data: budgets, isLoading } = useBudgets()
   const { data: categories } = useCategories()
   const { data: txs } = useTransactions({ from: startOfMonthIso(), to: endOfMonthIso() })
   const { toDisplayOrZero, display } = useConvert()
@@ -57,7 +57,9 @@ export default function BudgetsPage() {
           </Button>
         }
       />
-      {!budgets?.length ? (
+      {isLoading && !budgets ? (
+        <PageSkeleton />
+      ) : !budgets?.length ? (
         <EmptyState icon={PieChart} title="No budgets yet" description="Set a monthly limit per category and watch progress through the month." action={<Button onClick={() => setForm({ open: true, item: null })}>Add budget</Button>} />
       ) : (
         <div className="space-y-5">

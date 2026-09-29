@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
+import { Amount } from '@/components/shared'
 import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
 import { useUpsert, useSaveTransaction } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
@@ -179,7 +180,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         />
         {belowPaid ? (
           <p className="text-negative -mt-2 text-xs">
-            {paidSoFar.toFixed(2)} {currency} has already been paid, so the amount can't be lower than that.
+            <Amount value={paidSoFar} currency={currency} size="sm" /> has already been paid, so the amount can't be lower than that.
           </p>
         ) : null}
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">

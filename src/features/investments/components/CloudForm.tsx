@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Button, ConfirmDialog, Field, FormStack, Input, Segmented, Select, Sheet, Toggle } from '@/components/ui'
+import { Amount } from '@/components/shared'
 import { useAccounts } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
@@ -146,7 +147,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
         </div>
         {preview && d(rate).gt(0) ? (
           <p className="rounded-xl bg-accent-soft px-4 py-2.5 text-sm text-accent">
-            About <span className="tnum font-semibold">{preview.toFixed(2)} {currency}</span> a month · {effectiveAnnualRate(rate, frequency).toFixed(2)}% effective yearly
+            About <Amount value={preview} currency={currency} className="font-semibold" /> a month · {effectiveAnnualRate(rate, frequency).toFixed(2)}% effective yearly
           </p>
         ) : null}
         {initial ? <Toggle checked={archived} onChange={setArchived} label="Archived" description="Hidden from lists and totals" /> : null}

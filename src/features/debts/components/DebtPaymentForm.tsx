@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea } from '@/components/ui'
+import { Amount } from '@/components/shared'
 import { useSubAccounts } from '@/api/queries'
 import { useRpc } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
@@ -16,6 +17,7 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
   const { data: subs } = useSubAccounts()
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
+  const privacy = usePrefs((s) => s.privacy)
   const record = useRpc('record_debt_payment', ['debt_payments', 'debts', 'transactions', 'sub_accounts'])
 
   const [selected, setSelected] = useState(debtId ?? '')
@@ -87,7 +89,8 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
               {!openDebts.length ? <option value="">No open debts</option> : null}
               {openDebts.map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.direction === 'i_owe' ? 'I owe' : 'Owed to me'} · {x.contact?.name} · {x.remaining.toFixed(0)} {x.currency}
+                  {x.direction === 'i_owe' ? 'I owe' : 'Owed to me'} · {x.contact?.name}
+                  {privacy ? '' : ` · ${x.remaining.toFixed(0)} ${x.currency}`}
                 </option>
               ))}
             </Select>
@@ -96,15 +99,12 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
         {debt ? (
           <>
             <p className="text-muted text-sm">
-              Remaining:{' '}
-              <span className="tnum text-text font-medium">
-                {debt.remaining.toFixed(2)} {debt.currency}
-              </span>
+              Remaining: <Amount value={debt.remaining} currency={debt.currency} className="font-medium text-text" />
             </p>
             <AmountInput value={amount} onChange={setAmount} currency={debt.currency} currencies={currencies} />
             {overpay ? (
               <p className="text-negative -mt-2 text-xs">
-                That is more than the {debt.remaining.toFixed(2)} {debt.currency} left on this debt.
+                That is more than the <Amount value={debt.remaining} currency={debt.currency} size="sm" /> left on this debt.
               </p>
             ) : null}
             <Field label="Date">

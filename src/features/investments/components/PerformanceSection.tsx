@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Award, CalendarClock, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button, Card, Divider } from '@/components/ui'
-import { Amount, ListRow, Section, StatCard } from '@/components/shared'
+import { Amount, ListRow, Private, Section, StatCard } from '@/components/shared'
 import { useConvert, useHistoricalConvert } from '@/hooks/useMoney'
 import { byId, cn } from '@/utils'
 import { d } from '@/domain/money'
@@ -126,7 +126,7 @@ export function PerformanceSection({ holdings, sales, categories }: { holdings: 
                   {i > 0 ? <Divider /> : null}
                   <ListRow
                     title={nameOf(s)}
-                    subtitle={`${formatDate(s.date)} · ${d(s.units).toString()} × ${d(s.sell_price).toFixed(2)}`}
+                    subtitle={<Private>{`${formatDate(s.date)} · ${d(s.units).toString()} × ${d(s.sell_price).toFixed(2)}`}</Private>}
                     trailing={
                       <span className="flex flex-col items-end">
                         <Amount value={s.realized} currency={s.currency} showSign className={cn('font-semibold', tone(d(s.realized)))} />
