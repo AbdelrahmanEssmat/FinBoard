@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { monotonePath, sliceRange, trendStats, yDomain } from '@/domain/trend'
+import { sliceRange, trendStats } from '@/domain/trend'
 
 const pts = (entries: [string, number][]) => entries.map(([date, value]) => ({ date, value }))
 
@@ -11,7 +11,7 @@ describe('trend ranges', () => {
   })
 })
 
-describe('trend stats and axis', () => {
+describe('trend stats', () => {
   it('change, percentage, high and low', () => {
     const s = trendStats(pts([['a', 100], ['b', 130], ['c', 90], ['d', 110]]))!
     expect(s.change).toBe(10)
@@ -19,34 +19,5 @@ describe('trend stats and axis', () => {
     expect(s.high.value).toBe(130)
     expect(s.low.value).toBe(90)
   })
-  it('a flat line sits in the middle instead of at the top', () => {
-    const [lo, hi] = yDomain([100000, 100000])
-    expect(lo).toBeLessThan(100000)
-    expect(hi).toBeGreaterThan(100000)
-    expect((lo + hi) / 2).toBeCloseTo(100000)
-  })
-  it('a tiny wobble is not exaggerated (visible span at least 2%)', () => {
-    const [lo, hi] = yDomain([100000, 100050])
-    expect(hi - lo).toBeGreaterThanOrEqual(2000)
-  })
-  it('a real move fills the chart', () => {
-    const [lo, hi] = yDomain([80000, 120000])
-    expect(lo).toBeLessThan(80000)
-    expect(hi).toBeGreaterThan(120000)
-    expect(hi - lo).toBeLessThan(50000)
-  })
 })
 
-describe('monotone path', () => {
-  it('never overshoots between points', () => {
-    const d = monotonePath([0, 10, 20], [50, 0, 0])
-    // control points of the flat second segment stay on y = 0
-    expect(d).toContain('C')
-    const nums = d.replace(/[MC]/g, ' ').trim().split(/[\s,]+/).map(Number)
-    expect(Math.min(...nums.filter((_, i) => i % 2 === 1))).toBeGreaterThanOrEqual(0)
-  })
-  it('handles one and two points', () => {
-    expect(monotonePath([5], [5])).toBe('M5,5')
-    expect(monotonePath([0, 10], [0, 10])).toMatch(/^M0,0 C/)
-  })
-})

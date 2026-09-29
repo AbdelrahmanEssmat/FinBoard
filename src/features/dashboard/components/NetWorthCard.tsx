@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui'
 import { Amount } from '@/components/shared'
-import { usePrefs } from '@/store/prefs'
 import { formatDate, formatPercent, todayIso } from '@/domain/format'
 import type { Decimal } from '@/domain/money'
-import { monotonePath, sliceRange, trendStats, yDomain, type TrendPoint } from '@/domain/trend'
+import { sliceRange, trendStats } from '@/domain/trend'
 import { cn, relativeTime } from '@/utils'
 import { daysBetween } from '@/utils/dates'
 import type { HistoryPoint } from '@/features/dashboard/useNetWorthHistory'
@@ -12,9 +11,8 @@ import type { HistoryPoint } from '@/features/dashboard/useNetWorthHistory'
 /** Rates older than this get a quiet note (they normally refresh every few hours). */
 const STALE_RATES_HOURS = 26
 
-/** Home: net worth, how it changed over the last month, and a small trend line. */
+/** Home: net worth and how it changed over the last month. */
 export function NetWorthCard({ total, history, display, ratesUpdatedAt }: { total: Decimal; history: HistoryPoint[]; display: string; ratesUpdatedAt: string | null }) {
-  const privacy = usePrefs((s) => s.privacy)
   const today = todayIso()
   // read the clock once per mount (render itself must stay pure)
   const [now] = useState(() => Date.now())
@@ -31,11 +29,7 @@ export function NetWorthCard({ total, history, display, ratesUpdatedAt }: { tota
 
   return (
     <Card padded>
-      {/* the trend sits beside the label, so the amount keeps the full width on small phones */}
-      <div className="flex min-h-7 items-center justify-between gap-3">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">Net worth</div>
-        {hasTrend ? <Sparkline points={points} color={flat ? 'var(--color-faint)' : up ? 'var(--color-positive)' : 'var(--color-negative)'} className={privacy ? 'privacy-blur' : ''} /> : null}
-      </div>
+      <div className="text-xs font-medium uppercase tracking-wide text-muted">Net worth</div>
       <Amount value={total} currency={display} size="xl" className="mt-1" />
       <div className="mt-1.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-sm">
         {!hasTrend ? (
@@ -55,19 +49,3 @@ export function NetWorthCard({ total, history, display, ratesUpdatedAt }: { tota
   )
 }
 
-/** A small trend line: shape only, no axes (a flat month draws as a flat line in the middle). */
-function Sparkline({ points, color, className }: { points: TrendPoint[]; color: string; className?: string }) {
-  const W = 88
-  const H = 28
-  const pad = 3
-  const span = Math.max(1, daysBetween(points[0]!.date, points[points.length - 1]!.date))
-  const [lo, hi] = yDomain(points.map((p) => p.value))
-  const xs = points.map((p) => pad + (daysBetween(points[0]!.date, p.date) / span) * (W - pad * 2))
-  const ys = points.map((p) => pad + (1 - (p.value - lo) / (hi - lo)) * (H - pad * 2))
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className={cn('shrink-0 overflow-visible', className)} aria-hidden>
-      <path d={monotonePath(xs, ys)} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r={3} fill={color} />
-    </svg>
-  )
-}
