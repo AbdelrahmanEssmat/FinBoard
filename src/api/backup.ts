@@ -1,7 +1,7 @@
 import { supabase } from '@/api/supabase'
-import { ALL_TABLES } from '@/api/queries'
+import { ALL_TABLES, fetchAllRows, fetchPaged } from '@/api/queries'
 import { downloadFile, toCsv } from '@/utils'
-import type { TableName } from '@/api/database.types'
+import type { TableName, Transaction } from '@/api/database.types'
 
 /**
  * Parents before children: debts and debt payments reference transactions, payouts reference
@@ -33,12 +33,7 @@ const SKIP_COLUMNS: Partial<Record<TableName, string[]>> = {
 
 export async function fetchAllTables(): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {}
-  for (const table of ALL_TABLES) {
-     
-    const { data, error } = await (supabase as any).from(table).select('*').limit(50000)
-    if (error) throw error
-    out[table] = data ?? []
-  }
+  for (const table of ALL_TABLES) out[table] = await fetchAllRows(table)
   return out
 }
 
@@ -49,11 +44,8 @@ export async function exportAll() {
 }
 
 export async function exportTransactionsCsv() {
-  const { data: txs, error } = await supabase.from('transactions').select('*').order('date', { ascending: false }).limit(50000)
-  if (error) throw error
-  const { data: subs } = await supabase.from('sub_accounts').select('*')
-  const { data: accounts } = await supabase.from('accounts').select('*')
-  const { data: cats } = await supabase.from('categories').select('*')
+  const txs = await fetchPaged<Transaction>(() => supabase.from('transactions').select('*').order('date', { ascending: false }).order('id', { ascending: true }))
+  const [subs, accounts, cats] = await Promise.all([fetchAllRows('sub_accounts'), fetchAllRows('accounts'), fetchAllRows('categories')])
   const subName = (id: string | null) => {
     const s = subs?.find((x) => x.id === id)
     const a = s ? accounts?.find((x) => x.id === s.account_id) : undefined

@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Toggle } from '@/components/ui'
 import { useSubAccounts } from '@/api/queries'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
-import { useActiveCurrencies } from '@/hooks/useMoney'
+import { useActiveCurrencies, useConvert } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
 import { d, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
@@ -17,6 +17,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
   const { data: subs } = useSubAccounts()
   const activeSubs = useMemo(() => (subs ?? []).filter((s) => !s.is_archived), [subs])
   const currencies = useActiveCurrencies()
+  const { between } = useConvert()
   const upsert = useUpsert('recurring_transactions')
   const remove = useUndoableDelete('recurring_transactions', { label: 'Recurring item' })
 
@@ -56,8 +57,17 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
   const sub = activeSubs.find((s) => s.id === subId)
   const toSub = activeSubs.find((s) => s.id === toSubId)
   const currency = sub?.currency ?? DEFAULT_CURRENCY
-  const cross = type === 'transfer' && toSub && toSub.currency !== currency
-  const valid = name.trim() && d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId))
+  const toCurrency = toSub?.currency ?? currency
+  const cross = type === 'transfer' && toCurrency !== currency
+  // a cross-currency transfer needs the amount that arrives: suggest today's conversion, keep a saved value
+  useEffect(() => {
+    if (!cross || !open) return
+    const conv = between(amount || 0, currency, toCurrency)
+    const keepSaved = initial && initial.to_amount != null && initial.to_currency === toCurrency && initial.currency === currency
+    if (conv && !keepSaved) setToAmount(conv.toDecimalPlaces(2).toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, currency, toCurrency, cross, open])
+  const valid = name.trim() && d(amount).gt(0) && subId && (type !== 'transfer' || (toSubId && toSubId !== subId && (!cross || d(toAmount).gt(0))))
 
   const save = async () => {
     if (!valid) return
@@ -71,8 +81,8 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
         sub_account_id: subId,
         category_id: type === 'transfer' ? null : categoryId,
         to_sub_account_id: type === 'transfer' ? toSubId : null,
-        to_amount: type === 'transfer' ? toDb(cross ? toAmount || amount : amount) : null,
-        to_currency: type === 'transfer' ? (toSub?.currency ?? currency) : null,
+        to_amount: type === 'transfer' ? toDb(cross ? toAmount : amount) : null,
+        to_currency: type === 'transfer' ? toCurrency : null,
         frequency,
         interval_count: Math.max(1, parseInt(interval) || 1),
         next_date: nextDate,
@@ -130,8 +140,11 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
               </Select>
             </Field>
             {cross ? (
-              <Field label={`Amount received (${toSub?.currency})`}>
-                <AmountInput value={toAmount} onChange={setToAmount} currency={toSub?.currency ?? ''} currencies={currencies} />
+              <Field
+                label={`Amount received (${toCurrency})`}
+                hint={d(amount).gt(0) && d(toAmount).gt(0) ? `Rate used: 1 ${currency} = ${d(toAmount).div(d(amount)).toFixed(4)} ${toCurrency}` : 'Suggested from today’s rate; edit to match what the bank gives you'}
+              >
+                <AmountInput value={toAmount} onChange={setToAmount} currency={toCurrency} currencies={currencies} />
               </Field>
             ) : null}
           </>

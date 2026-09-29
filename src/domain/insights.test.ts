@@ -61,6 +61,21 @@ describe('insights', () => {
     expect(t.days).toBe(30)
     expect(t.expenseCount).toBe(4)
   })
+  it('per-day spending counts only the days that have happened', () => {
+    const t = periodTotals(txs, sep, toBase, '2026-09-15')
+    expect(t.days).toBe(15)
+    expect(t.avgDailySpend.toFixed(2)).toBe(d(11000).div(15).toFixed(2))
+    // a finished period is unaffected by today
+    expect(periodTotals(txs, sep, toBase, '2026-10-20').days).toBe(30)
+  })
+  it('compares with the given previous range when one is passed', () => {
+    const base = { txs, range: sep, today: '2026-09-30', toBase, categories, fixedCategoryIds: new Set(['rent']), money: (v: NumericInput) => `E£ ${d(v).toFixed(0)}`, isCurrentMonth: false }
+    const whole = generateInsights(base).find((i) => i.id === 'spend-vs-prev')!
+    // only the first 11 days of August: rent (Aug 10) counted, food (Aug 12) not
+    const trimmed = generateInsights({ ...base, prevRange: { from: '2026-08-01', to: '2026-08-11' } }).find((i) => i.id === 'spend-vs-prev')!
+    expect(whole.detail).toBe('E£ 11000 vs E£ 9000 before.')
+    expect(trimmed.detail).toBe('E£ 11000 vs E£ 8000 before.')
+  })
   it('category breakdown rolls children into parents', () => {
     const b = categoryBreakdown(txs, sep, 'expense', categories, toBase)
     expect(b.total.toString()).toBe('11000')

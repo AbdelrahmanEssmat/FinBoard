@@ -11,7 +11,7 @@ const PAGE = 1000
  * Read all rows (or up to `limit`) in pages. `build` adds filters and ordering; a stable
  * order is required so pages don't overlap.
  */
-async function fetchPaged<T>(build: () => any, limit = Infinity): Promise<T[]> {
+export async function fetchPaged<T>(build: () => any, limit = Infinity): Promise<T[]> {
   const out: T[] = []
   for (let from = 0; out.length < limit; from += PAGE) {
     const to = Math.min(from + PAGE, limit) - 1
@@ -29,6 +29,14 @@ function fetchTable<T extends TableName>(table: T, order: OrderSpec[] = [], limi
     for (const o of order) q = q.order(o.column, { ascending: o.ascending ?? true })
     return q.order('id', { ascending: true }) // tie-breaker keeps pages stable
   }, limit)
+}
+
+/** Primary key used as the stable order when reading a whole table (most tables: id). */
+const STABLE_ORDER: Partial<Record<TableName, string>> = { settings: 'user_id', currencies: 'code' }
+
+/** Every row of a table, however many (for backups: a single request would stop at 1000). */
+export function fetchAllRows<T extends TableName>(table: T): Promise<Row<T>[]> {
+  return fetchPaged<Row<T>>(() => (supabase as any).from(table).select('*').order(STABLE_ORDER[table] ?? 'id', { ascending: true }))
 }
 
 function tableQuery<T extends TableName>(table: T, order?: OrderSpec[], limit?: number) {

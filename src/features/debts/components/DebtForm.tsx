@@ -4,9 +4,11 @@ import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
 import { useUpsert, useSaveTransaction } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
+import { format, isValid, parseISO } from 'date-fns'
 import { newId } from '@/utils/ids'
 import { d, toDb } from '@/domain/money'
-import { todayIso } from '@/domain/format'
+import { formatDate, todayIso } from '@/domain/format'
+import { addPeriod } from '@/domain/installments'
 import { RECURRENCE_LABELS } from '@/domain/recurring'
 import type { Debt, DebtDirection, Recurrence } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
@@ -76,6 +78,9 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const currencyLocked = Boolean(initial && (initial.transaction_id || paidSoFar.gt(0)))
   const belowPaid = Boolean(initial) && d(amount).lt(paidSoFar)
   const valid = d(amount).gt(0) && !belowPaid && (contactId || newContact.trim()) && (!plan || parseInt(planCount) >= 1)
+  // the first installment falls one period after the money changed hands, not the same day
+  const parsedDate = parseISO(date)
+  const defaultPlanStart = isValid(parsedDate) ? format(addPeriod(parsedDate, planFreq), 'yyyy-MM-dd') : date
 
   const save = async () => {
     if (!valid) return
@@ -118,7 +123,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         plan_count: plan ? parseInt(planCount) || null : null,
         plan_amount: plan && planAmount ? toDb(planAmount) : null,
         plan_frequency: plan ? planFreq : null,
-        plan_start_date: plan ? planStart || date : null,
+        plan_start_date: plan ? planStart || defaultPlanStart : null,
         sub_account_id: moveMoney ? effectiveSubId || null : (initial?.sub_account_id ?? null),
         transaction_id: txId,
         // status (open/settled) is worked out by the database from the payments
@@ -210,7 +215,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
                 ))}
               </Select>
             </Field>
-            <Field label="First due">
+            <Field label="First due" hint={planStart ? undefined : `Blank = ${formatDate(defaultPlanStart, 'd MMM yyyy')}`}>
               <Input type="date" value={planStart} onChange={(e) => setPlanStart(e.target.value)} />
             </Field>
           </div>

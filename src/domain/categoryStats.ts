@@ -49,35 +49,51 @@ export function categoryMonthly(txs: TxLike[], ids: Set<string>, kind: FlowKind,
 export interface CategorySummary {
   total: Decimal
   count: number
-  /** per month, counted from the first month with any activity (so a new category isn't diluted) */
+  /** per full month, counted from the first month with any activity (so a new category isn't diluted) */
   avgPerMonth: Decimal
   activeMonths: number
   avgPerTransaction: Decimal | null
   best: MonthTotal | null
   /** the last month in the series (normally the current month) */
   latest: MonthTotal | null
-  /** latest month vs the average of the months before it, in %; null without history */
+  /** true when the latest month is still in progress: its figures are "so far" */
+  latestIsPartial: boolean
+  /**
+   * latest month vs the average of the months before it, in %; null without history. For a month
+   * in progress the average is prorated to the days elapsed, so mid-month it says how the month is
+   * going, not how far it is from a full month's total.
+   */
   latestVsAvgPct: Decimal | null
 }
 
-export function summarizeCategory(series: MonthTotal[]): CategorySummary {
+export function summarizeCategory(series: MonthTotal[], opts: { today?: string } = {}): CategorySummary {
   const total = series.reduce((a, m) => a.plus(m.value), d(0))
   const count = series.reduce((a, m) => a + m.count, 0)
   const first = series.findIndex((m) => m.count > 0)
-  const span = first === -1 ? 0 : series.length - first
   const best = series.reduce<MonthTotal | null>((b, m) => (m.count && (!b || m.value.gt(b.value)) ? m : b), null)
   const latest = series.length ? series[series.length - 1]! : null
+  const latestIsPartial = Boolean(opts.today && latest && latest.month === opts.today.slice(0, 7))
+  let elapsedFraction = 1
+  if (latestIsPartial) {
+    const [y, m, day] = opts.today!.split('-').map(Number) as [number, number, number]
+    elapsedFraction = day / new Date(y, m, 0).getDate()
+  }
+  const active = first === -1 ? [] : series.slice(first)
+  // the month in progress is left out of the per-month average (unless it is the only month)
+  const full = latestIsPartial && active.length > 1 ? active.slice(0, -1) : active
   const before = first === -1 ? [] : series.slice(first, -1)
   const beforeAvg = before.length ? before.reduce((a, m) => a.plus(m.value), d(0)).div(before.length) : null
+  const expected = beforeAvg?.times(elapsedFraction)
   return {
     total,
     count,
-    avgPerMonth: span ? total.div(span) : d(0),
+    avgPerMonth: full.length ? full.reduce((a, m) => a.plus(m.value), d(0)).div(full.length) : d(0),
     activeMonths: series.filter((m) => m.count > 0).length,
     avgPerTransaction: count ? total.div(count) : null,
     best,
     latest,
-    latestVsAvgPct: latest && beforeAvg && beforeAvg.gt(0) ? latest.value.minus(beforeAvg).div(beforeAvg).times(100) : null,
+    latestIsPartial,
+    latestVsAvgPct: latest && expected && expected.gt(0) ? latest.value.minus(expected).div(expected).times(100) : null,
   }
 }
 

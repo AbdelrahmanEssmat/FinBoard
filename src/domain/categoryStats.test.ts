@@ -52,6 +52,24 @@ describe('category analysis', () => {
     expect(s.latestVsAvgPct!.toFixed(1)).toBe('-66.7')
   })
 
+  it('a month in progress: average over full months, "vs usual" prorated to the days elapsed', () => {
+    const series = categoryMonthly(txs, categoryFamily('concert', cats), 'income', monthKeys('2026-09-15', 6), toBase)
+    const s = summarizeCategory(series, { today: '2026-09-15' })
+    expect(s.latestIsPartial).toBe(true)
+    expect(s.avgPerMonth.toNumber()).toBe(6000) // Jul + Aug only
+    // half of September: 2000 so far vs half of the usual 6000 = −33.3%
+    expect(s.latestVsAvgPct!.toFixed(1)).toBe('-33.3')
+    // the series ends in a finished month: nothing is prorated
+    const done = summarizeCategory(series, { today: '2026-10-05' })
+    expect(done.latestIsPartial).toBe(false)
+    expect(done.avgPerMonth.toNumber()).toBeCloseTo(14000 / 3)
+    expect(done.latestVsAvgPct!.toFixed(1)).toBe('-66.7')
+    // a category whose only month is the current one still shows that month as its average
+    const only = summarizeCategory(categoryMonthly(txs, new Set(['salary']), 'income', monthKeys('2026-09-15', 3), toBase), { today: '2026-09-15' })
+    expect(only.avgPerMonth.toNumber()).toBe(9000)
+    expect(only.latestVsAvgPct).toBeNull()
+  })
+
   it('empty category', () => {
     const s = summarizeCategory(categoryMonthly([], new Set(['x']), 'income', monthKeys('2026-09-27', 3), toBase))
     expect(s.total.toNumber()).toBe(0)

@@ -59,7 +59,7 @@ export default function CategoryDetailPage() {
     const range = { from: months[0] + '-01', to: endOfMonthIso(new Date(months[months.length - 1] + '-01T00:00:00')) }
     const toBase = toDisplayAt
     const series = categoryMonthly(txs ?? [], family, kind, months, toBase)
-    const summary = summarizeCategory(series)
+    const summary = summarizeCategory(series, { today })
     const split = !cat.parent_id ? subcategorySplit(txs ?? [], cat, categories, kind, range, toBase) : []
     const parties = partyTotals(txs ?? [], range, kind, toBase, { only: family, limit: 6 })
     const list = (txs ?? []).filter((t) => t.category_id && family.has(t.category_id) && t.date >= range.from && t.date <= range.to && (kind === 'income' ? isIncome(t) : isExpense(t)))
@@ -129,13 +129,13 @@ export default function CategoryDetailPage() {
 
           {data.summary.count ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <StatCard label="Per month" icon={CalendarRange} value={<Amount value={data.summary.avgPerMonth} currency={display} compact />} foot="average since first entry" />
+              <StatCard label="Per month" icon={CalendarRange} value={<Amount value={data.summary.avgPerMonth} currency={display} compact />} foot={data.summary.latestIsPartial ? 'average of full months' : 'average since first entry'} />
               <StatCard
                 label="This month"
                 icon={up ? TrendingUp : TrendingDown}
                 iconClass={trendGood === null ? undefined : trendGood ? 'text-positive' : 'text-negative'}
                 value={<Amount value={thisMonth?.value ?? 0} currency={display} compact />}
-                foot={data.summary.latestVsAvgPct ? <span className={trendGood ? 'text-positive' : 'text-negative'}>{formatPercent(data.summary.latestVsAvgPct, 0)} vs usual</span> : 'no earlier months'}
+                foot={data.summary.latestVsAvgPct ? <span className={trendGood ? 'text-positive' : 'text-negative'}>{formatPercent(data.summary.latestVsAvgPct, 0)} {data.summary.latestIsPartial ? 'so far vs a usual month' : 'vs usual'}</span> : 'no earlier months'}
               />
               <StatCard label="Best month" icon={Trophy} value={data.summary.best ? <Amount value={data.summary.best.value} currency={display} compact /> : '—'} foot={data.summary.best ? monthLabel(data.summary.best.month, 'long') : undefined} />
               <StatCard label="Per transaction" icon={Hash} value={data.summary.avgPerTransaction ? <Amount value={data.summary.avgPerTransaction} currency={display} compact /> : '—'} foot="average" />

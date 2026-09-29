@@ -5,7 +5,24 @@ vi.mock('@/api/supabase', () => ({ supabase: {}, isNetworkError: () => false }))
 vi.mock('@/offline/mutate', () => ({ submit: vi.fn() }))
 vi.mock('@/store/toasts', () => ({ toast: { info: vi.fn(), error: vi.fn() }, deleteWithUndo: vi.fn() }))
 
-import { cacheApplyBalance, cacheRemove, cacheUpsert } from '@/api/mutations'
+import { cacheApplyBalance, cacheRemove, cacheUpsert, invalidateRelated, RELATED_ON_DELETE, RELATED_ON_WRITE } from '@/api/mutations'
+
+describe('related tables are refreshed', () => {
+  it('a deleted transaction refreshes everything its cleanup trigger touches, once each', () => {
+    const qc = new QueryClient()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    invalidateRelated(qc, 'transactions', RELATED_ON_DELETE, ['sub_accounts'])
+    const keys = spy.mock.calls.map((c) => (c[0] as { queryKey: string[] }).queryKey[0])
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys).toEqual(expect.arrayContaining(['transactions', 'sub_accounts', 'debts', 'debt_payments', 'holdings', 'holding_sales', 'card_installment_plans', 'certificate_payouts']))
+  })
+  it('editing a debt refreshes the linked transaction and balance', () => {
+    const qc = new QueryClient()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    invalidateRelated(qc, 'debts', RELATED_ON_WRITE)
+    expect(spy.mock.calls.map((c) => (c[0] as { queryKey: string[] }).queryKey[0])).toEqual(['debts', 'transactions', 'sub_accounts'])
+  })
+})
 
 const subs = () => [
   { id: 'egp', currency: 'EGP', balance: 1000 },

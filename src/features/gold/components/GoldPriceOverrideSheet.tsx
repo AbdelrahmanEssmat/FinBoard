@@ -24,10 +24,11 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
   const manualRows = KARATS.map((k) => prices.rows[k]).filter((r) => r && r.source === 'manual')
 
   const save = async () => {
+    if (!userId) return
     const now = new Date().toISOString()
     const rows = KARATS.filter((k) => d(values[k]).gt(0)).map((k) => ({
       id: newId(),
-      user_id: userId ?? undefined,
+      user_id: userId,
       karat: k,
       price_per_gram: d(values[k]).toFixed(4),
       currency: 'EGP',
@@ -45,7 +46,7 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
       onClose={onClose}
       title="Override gold price"
       footer={
-        <Button full size="lg" onClick={save} loading={upsert.isPending}>
+        <Button full size="lg" onClick={save} loading={upsert.isPending} disabled={!userId}>
           Save override
         </Button>
       }
@@ -60,7 +61,7 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
           ))}
         </div>
         {manualRows.length ? (
-          <Button variant="ghost" full onClick={async () => { await remove.mutateAsync(manualRows.map((r) => r!.id)); onClose() }}>
+          <Button variant="ghost" full loading={remove.isPending} onClick={async () => { await remove.mutateAsync(manualRows.map((r) => r!.id)); onClose() }}>
             Remove my overrides
           </Button>
         ) : null}

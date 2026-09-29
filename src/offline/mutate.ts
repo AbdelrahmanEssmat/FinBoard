@@ -1,5 +1,7 @@
-import { supabase, isNetworkError } from '@/api/supabase'
+import { supabase } from '@/api/supabase'
+import { queryClient } from '@/api/queryClient'
 import { enqueue, myEntries, notify, offlineDb, type OutboxOp } from '@/offline/outbox'
+import { classifyError } from '@/offline/errors'
 import { toast } from '@/store/toasts'
 
 /** Execute one operation against Supabase. Throws on failure. */
@@ -29,7 +31,12 @@ export async function execute(op: OutboxOp): Promise<unknown> {
   }
 }
 
+/** How often a change the server keeps failing on (without refusing it outright) is retried. */
 const MAX_ATTEMPTS = 5
+
+/** Queue entries a live submit() is waiting on, and the refusal it should report instead of a toast. */
+const awaiting = new Set<number>()
+const rejected = new Map<number, string>()
 
 /**
  * Run a mutation. Changes always reach the server in the order they were made: while older
@@ -45,22 +52,25 @@ export async function submit(op: OutboxOp): Promise<{ queued: boolean; data?: un
   }
   if ((await myEntries()).length > 0) {
     const id = await enqueue(op)
-    await flushOutbox()
-    const mine = await offlineDb.outbox.get(id)
-    if (!mine) return { queued: false }
-    if (mine.lastError && !mine.networkError) {
-      // rejected by the server: take it out of the queue and report it like a direct failure
-      await offlineDb.outbox.delete(id)
-      notify()
-      throw new Error(mine.lastError)
+    awaiting.add(id)
+    try {
+      await flushOutbox()
+    } finally {
+      awaiting.delete(id)
     }
-    return { queued: true }
+    const mine = await offlineDb.outbox.get(id)
+    // still queued: an earlier change is waiting on the network, and this one waits behind it
+    if (mine) return { queued: true }
+    const refusal = rejected.get(id)
+    rejected.delete(id)
+    if (refusal) throw new Error(refusal)
+    return { queued: false }
   }
   try {
     const data = await execute(op)
     return { queued: false, data }
   } catch (err) {
-    if (isNetworkError(err)) {
+    if (classifyError(err) === 'network') {
       await enqueue(op)
       return { queued: true }
     }
@@ -71,14 +81,16 @@ export async function submit(op: OutboxOp): Promise<{ queued: boolean; data?: un
 let flushing: Promise<{ sent: number; remaining: number }> | null = null
 
 /**
- * Replay the queue strictly in order. It stops at the first failure so a later change can
- * never overtake an earlier one. A change the server keeps rejecting is discarded after
- * MAX_ATTEMPTS tries, and you are told so.
+ * Replay the queue strictly in order. It stops at the first network failure so a later change
+ * can never overtake an earlier one. A change the server refuses is dropped at once (the screen
+ * is refreshed so it no longer shows it); one that keeps failing for other reasons is dropped
+ * after MAX_ATTEMPTS tries. Either way you are told.
  */
 export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
   if (flushing) return flushing
   flushing = (async () => {
     let sent = 0
+    let dropped = false
     try {
       // only the signed-in person's changes, in the order they were made
       const entries = await myEntries()
@@ -89,14 +101,19 @@ export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
           sent++
         } catch (err) {
           const message = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err)
-          if (isNetworkError(err)) {
+          const kind = classifyError(err)
+          if (kind === 'network') {
             await offlineDb.outbox.update(entry.id!, { lastError: message, networkError: true })
             break
           }
           const attempts = entry.attempts + 1
-          if (attempts >= MAX_ATTEMPTS) {
+          if (kind === 'permanent' || attempts >= MAX_ATTEMPTS) {
             await offlineDb.outbox.delete(entry.id!)
-            toast.error(`A change made offline could not be saved and was discarded: ${message}`)
+            if (awaiting.has(entry.id!)) rejected.set(entry.id!, message)
+            else {
+              toast.error(`A change could not be saved and was discarded: ${message}`)
+              dropped = true
+            }
             continue
           }
           await offlineDb.outbox.update(entry.id!, { attempts, lastError: message, networkError: false })
@@ -105,6 +122,8 @@ export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
       }
     } finally {
       notify()
+      // the screen still shows the dropped change: reload everything from the server
+      if (dropped) void queryClient.invalidateQueries()
     }
     return { sent, remaining: (await myEntries()).length }
   })().finally(() => {

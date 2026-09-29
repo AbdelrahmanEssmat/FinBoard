@@ -62,14 +62,14 @@ export default function ReportsPage() {
               icon={ArrowDownLeft}
               iconClass="text-positive"
               value={<Amount value={r.totals.income} currency={r.display} compact />}
-              foot={r.prevTotals.income.gt(0) ? <PrevDelta cur={r.totals.income} prev={r.prevTotals.income} good="up" partial={r.isCurrentMonth} /> : undefined}
+              foot={r.prevTotals.income.gt(0) ? <PrevDelta cur={r.totals.income} prev={r.prevTotals.income} good="up" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Spending"
               icon={ArrowUpRight}
               iconClass="text-negative"
               value={<Amount value={r.totals.expense} currency={r.display} compact />}
-              foot={r.prevTotals.expense.gt(0) ? <PrevDelta cur={r.totals.expense} prev={r.prevTotals.expense} good="down" partial={r.isCurrentMonth} /> : undefined}
+              foot={r.prevTotals.expense.gt(0) ? <PrevDelta cur={r.totals.expense} prev={r.prevTotals.expense} good="down" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Saved"
@@ -81,8 +81,8 @@ export default function ReportsPage() {
             <StatCard
               label="Per day"
               icon={CalendarDays}
-              value={<Amount value={r.projection ? r.projection.avgDaily : r.totals.avgDailySpend} currency={r.display} compact />}
-              foot={`${r.totals.expenseCount} expense${r.totals.expenseCount === 1 ? '' : 's'}`}
+              value={<Amount value={r.totals.avgDailySpend} currency={r.display} compact />}
+              foot={`${r.totals.expenseCount} expense${r.totals.expenseCount === 1 ? '' : 's'}${r.partial ? ' · so far' : ''}`}
             />
           </div>
 
@@ -99,14 +99,14 @@ export default function ReportsPage() {
   )
 }
 
-/** Change vs the previous period; a month in progress is compared with the same days of last month. */
-function PrevDelta({ cur, prev, good, partial }: { cur: Decimal; prev: Decimal; good: 'up' | 'down'; partial?: boolean }) {
+/** Change vs the previous period; a period in progress is compared with the same span of the previous one. */
+function PrevDelta({ cur, prev, good, label }: { cur: Decimal; prev: Decimal; good: 'up' | 'down'; label: string }) {
   const pct = cur.minus(prev).div(prev).times(100)
   const isGood = good === 'up' ? pct.gte(0) : pct.lte(0)
   return (
     <span className={isGood ? 'text-positive' : 'text-negative'}>
       {pct.gte(0) ? '+' : ''}
-      {pct.toFixed(0)}% {partial ? 'vs same days last month' : 'vs previous'}
+      {pct.toFixed(0)}% {label}
     </span>
   )
 }

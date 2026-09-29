@@ -79,8 +79,41 @@ export function cacheApplyBalance(qc: QueryClient, tx: Partial<Transaction>, sig
   })
 }
 
+/**
+ * Tables the database rewrites by trigger or cascade when a row of the key table is deleted
+ * (see transactions_cleanup, debts_after_delete and the foreign keys in supabase/migrations).
+ */
+export const RELATED_ON_DELETE: Partial<Record<TableName, TableName[]>> = {
+  transactions: ['sub_accounts', 'debt_payments', 'debts', 'certificate_payouts', 'holdings', 'holding_sales', 'card_installment_plans'],
+  debts: ['transactions', 'sub_accounts', 'debt_payments'],
+  debt_payments: ['debts', 'transactions', 'sub_accounts'],
+  contacts: ['debts', 'debt_payments', 'transactions', 'sub_accounts'],
+  accounts: ['sub_accounts', 'transactions', 'certificates', 'certificate_payouts', 'holdings', 'holding_sales', 'card_installment_plans', 'recurring_transactions', 'debts', 'debt_payments', 'accounts'],
+  sub_accounts: ['transactions', 'certificates', 'certificate_payouts', 'holding_sales', 'card_installment_plans', 'recurring_transactions', 'debts', 'debt_payments'],
+  categories: ['transactions', 'recurring_transactions', 'budgets'],
+  certificates: ['certificate_payouts', 'transactions', 'sub_accounts'],
+  holdings: ['holding_sales', 'transactions', 'sub_accounts'],
+  holding_sales: ['holdings', 'transactions', 'sub_accounts'],
+  investment_categories: ['holdings'],
+}
+
+/** Tables a trigger rewrites when a row is inserted or updated. */
+export const RELATED_ON_WRITE: Partial<Record<TableName, TableName[]>> = {
+  debts: ['transactions', 'sub_accounts'], // debts_sync_transaction moves the linked borrow/lend transaction
+  certificates: ['certificate_payouts'], // the payout schedule is regenerated
+  transactions: ['sub_accounts'], // balances
+  sub_accounts: ['transactions'], // yield accrual / opening balance
+}
+
+/** Refresh a table and everything the server changes along with it (plus any `extra`). */
+export function invalidateRelated(qc: QueryClient, table: TableName, map: Partial<Record<TableName, TableName[]>>, extra?: TableName[]) {
+  for (const t of new Set([table, ...(map[table] ?? []), ...(extra ?? [])])) void qc.invalidateQueries({ queryKey: [t] })
+}
+
 function notifyQueued(queued: boolean) {
-  if (queued) toast.info('Saved offline. Will sync when back online.')
+  if (!queued) return
+  // online but queued = an earlier change is still waiting for the network; this one follows it
+  toast.info(typeof navigator !== 'undefined' && navigator.onLine ? 'Saved. Syncing with the server…' : 'Saved offline. Will sync when back online.')
 }
 
 function reportError(err: unknown) {
@@ -106,14 +139,10 @@ export function useUpsert<T extends TableName>(table: T, opts: { invalidate?: Ta
     onSuccess: (res) => {
       if (!opts.silent) notifyQueued(res.queued)
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: [table] })
-      opts.invalidate?.forEach((t) => void qc.invalidateQueries({ queryKey: [t] }))
-    },
+    onSettled: () => invalidateRelated(qc, table, RELATED_ON_WRITE, opts.invalidate),
   })
 }
 
-/** Generic delete with optimistic removal. */
 /**
  * Change only some columns of existing rows (`{ id, ...changedColumns }`). Use this instead of
  * useUpsert for partial edits: an upsert must satisfy every NOT NULL column even when the row exists.
@@ -142,13 +171,11 @@ export function useUpdateRows<T extends TableName>(table: T, opts: { invalidate?
     onSuccess: (res) => {
       if (!opts.silent) notifyQueued(res.queued)
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: [table] })
-      opts.invalidate?.forEach((t) => void qc.invalidateQueries({ queryKey: [t] }))
-    },
+    onSettled: () => invalidateRelated(qc, table, RELATED_ON_WRITE, opts.invalidate),
   })
 }
 
+/** Generic delete with optimistic removal. */
 export function useDeleteRows<T extends TableName>(table: T, opts: { invalidate?: TableName[] } = {}) {
   const qc = useQueryClient()
   return useMutation({
@@ -164,10 +191,7 @@ export function useDeleteRows<T extends TableName>(table: T, opts: { invalidate?
       reportError(err)
     },
     onSuccess: (res) => notifyQueued(res.queued),
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: [table] })
-      opts.invalidate?.forEach((t) => void qc.invalidateQueries({ queryKey: [t] }))
-    },
+    onSettled: () => invalidateRelated(qc, table, RELATED_ON_DELETE, opts.invalidate),
   })
 }
 
@@ -215,12 +239,7 @@ export function useDeleteTransaction() {
       ctx?.prevSub.forEach(([k, v]) => qc.setQueryData(k, v))
       reportError(err)
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ['transactions'] })
-      void qc.invalidateQueries({ queryKey: ['sub_accounts'] })
-      void qc.invalidateQueries({ queryKey: ['debt_payments'] })
-      void qc.invalidateQueries({ queryKey: ['certificate_payouts'] })
-    },
+    onSettled: () => invalidateRelated(qc, 'transactions', RELATED_ON_DELETE),
   })
 }
 
@@ -240,8 +259,7 @@ export function useUndoableDelete<T extends TableName>(table: T, opts: { invalid
           cacheUpsert(qc, table, [row as unknown as AnyRow])
           reportError(err)
         } finally {
-          void qc.invalidateQueries({ queryKey: [table] })
-          opts.invalidate?.forEach((t) => void qc.invalidateQueries({ queryKey: [t] }))
+          invalidateRelated(qc, table, RELATED_ON_DELETE, opts.invalidate)
         }
       },
     })
@@ -270,7 +288,7 @@ export function useUndoableDeleteTransaction() {
           cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
           reportError(err)
         } finally {
-          for (const t of ['transactions', 'sub_accounts', 'debt_payments', 'certificate_payouts'] as TableName[]) void qc.invalidateQueries({ queryKey: [t] })
+          invalidateRelated(qc, 'transactions', RELATED_ON_DELETE)
         }
       },
     })

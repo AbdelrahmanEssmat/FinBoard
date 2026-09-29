@@ -93,7 +93,8 @@ export interface PeriodTotals {
   incomeCount: number
 }
 
-export function periodTotals(txs: TxLike[], range: DateRange, toBase: ToBase): PeriodTotals {
+/** Totals over a range. With `today`, per-day figures count only the days that have happened. */
+export function periodTotals(txs: TxLike[], range: DateRange, toBase: ToBase, today?: string): PeriodTotals {
   let income = ZERO()
   let expense = ZERO()
   let expenseCount = 0
@@ -108,7 +109,8 @@ export function periodTotals(txs: TxLike[], range: DateRange, toBase: ToBase): P
       expenseCount++
     }
   }
-  const days = Math.max(1, daysBetween(range.from, range.to) + 1)
+  const end = today && today < range.to ? today : range.to
+  const days = Math.max(1, daysBetween(range.from, end) + 1)
   const net = income.minus(expense)
   return { income, expense, net, savingsRate: income.isZero() ? null : net.div(income).times(100), days, avgDailySpend: expense.div(days), expenseCount, incomeCount }
 }
@@ -312,6 +314,8 @@ export interface InsightContext {
   money: (v: NumericInput) => string
   /** true when the range is the current, unfinished month */
   isCurrentMonth: boolean
+  /** what to compare against (default: the whole previous period; pass a trimmed one for a period in progress) */
+  prevRange?: DateRange
   /** previous-month spending, for the projection comparison */
   netWorthChange?: { total: Decimal; fromSavings: Decimal } | null
   budgetsOver?: string[]
@@ -319,7 +323,7 @@ export interface InsightContext {
 
 export function generateInsights(ctx: InsightContext): Insight[] {
   const { txs, range, toBase, categories, money } = ctx
-  const prevRange = previousRange(range)
+  const prevRange = ctx.prevRange ?? previousRange(range)
   const cur = periodTotals(txs, range, toBase)
   const prev = periodTotals(txs, prevRange, toBase)
   const out: Insight[] = []

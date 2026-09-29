@@ -65,17 +65,22 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     const money = (v: NumericInput) => fmt(v, display, { compact: true })
     const fixedCategoryIds = new Set((recurring ?? []).filter((r) => r.type === 'expense' && r.category_id).map((r) => r.category_id!))
     const isCurrentMonth = period === 'this'
-    const elapsedTo = today < range.to ? today : range.to
+    // a period still in progress (this month, or the last 3/6/12 months ending this month)
+    const partial = today < range.to
+    const elapsedTo = partial ? today : range.to
 
-    const totals = periodTotals(filtered, range, toBase)
-    // a month in progress is compared with the same number of days of the previous month
-    const prevCompareTo = isCurrentMonth ? minIso(prev.to, addDaysIso(prev.from, daysBetween(range.from, elapsedTo))) : prev.to
-    const prevTotals = periodTotals(filtered, { from: prev.from, to: prevCompareTo }, toBase)
+    // per-day figures count only the days that have happened
+    const totals = periodTotals(filtered, range, toBase, today)
+    // a period in progress is compared with the same number of days of the previous one
+    const prevCompareTo = partial ? minIso(prev.to, addDaysIso(prev.from, daysBetween(range.from, elapsedTo))) : prev.to
+    const prevCmp = { from: prev.from, to: prevCompareTo }
+    const prevCompareLabel = !partial ? 'vs previous' : isCurrentMonth ? 'vs same days last month' : 'vs same point of the previous period'
+    const prevTotals = periodTotals(filtered, prevCmp, toBase)
     const expenseCats = categoryBreakdown(filtered, range, 'expense', catMap, toBase)
-    const prevExpenseCats = categoryBreakdown(filtered, prev, 'expense', catMap, toBase)
+    const prevExpenseCats = categoryBreakdown(filtered, prevCmp, 'expense', catMap, toBase)
     const incomeCats = categoryBreakdown(filtered, range, 'income', catMap, toBase)
     const changes = categoryChanges(expenseCats.rows, prevExpenseCats.rows)
-    const incomeChanges = categoryChanges(incomeCats.rows, categoryBreakdown(filtered, prev, 'income', catMap, toBase).rows)
+    const incomeChanges = categoryChanges(incomeCats.rows, categoryBreakdown(filtered, prevCmp, 'income', catMap, toBase).rows)
     // who pays you (the income "From" field)
     // interest from certificates and Clouds is shown on its own line, not as an unnamed source
     const incomeSources = partyTotals(filtered.filter((t) => t.source !== 'certificate' && t.source !== 'yield'), range, 'income', toBase, { limit: 8 })
@@ -112,10 +117,10 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
       }
     }
 
-    const insights = generateInsights({ txs: filtered, range, today, toBase, categories: catMap, fixedCategoryIds, money, isCurrentMonth, netWorthChange, budgetsOver })
+    const insights = generateInsights({ txs: filtered, range, today, toBase, categories: catMap, fixedCategoryIds, money, isCurrentMonth, prevRange: prevCmp, netWorthChange, budgetsOver })
     const allTags = Array.from(new Set((txs ?? []).flatMap((t) => t.tags))).sort()
     const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency, t.date)), d(0))
 
-    return { range, prev, prevCompareTo, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth }
+    return { range, prev, prevCompareTo, prevCompareLabel, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth, partial }
   }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
 }
