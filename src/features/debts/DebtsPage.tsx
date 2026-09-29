@@ -45,8 +45,8 @@ export default function DebtsPage() {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4">
-        <StatCard label="Owed to me" icon={ArrowDownLeft} iconClass="text-positive" value={<Amount value={totals.owedToMe} currency={display} className="text-positive" />} />
-        <StatCard label="I owe" icon={ArrowUpRight} iconClass="text-negative" value={<Amount value={totals.iOwe} currency={display} className="text-negative" />} />
+        <StatCard label="Owed to me" icon={ArrowDownLeft} iconClass="text-positive" value={<Amount value={totals.owedToMe} currency={display} fit className="text-positive" />} />
+        <StatCard label="I owe" icon={ArrowUpRight} iconClass="text-negative" value={<Amount value={totals.iOwe} currency={display} fit className="text-negative" />} />
       </div>
 
       <Segmented className="mb-6" value={tab} onChange={(t) => setParams({ tab: t })} options={[{ value: 'owed_to_me', label: 'Owed to me' }, { value: 'i_owe', label: 'I owe' }, { value: 'people', label: 'People' }]} />

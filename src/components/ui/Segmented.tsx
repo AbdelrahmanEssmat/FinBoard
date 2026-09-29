@@ -17,7 +17,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           onClick={() => onChange(o.value)}
           className={cn(
             // min-w-0 + truncate let many options share a narrow phone screen instead of overflowing it
-            'min-h-10 min-w-0 flex-1 truncate rounded-full px-2 py-2 text-sm font-medium transition-all sm:px-3',
+            'min-h-10 min-w-0 flex-1 truncate rounded-full px-1.5 py-2 text-sm font-medium transition-all min-[360px]:px-2 sm:px-3',
             o.value === value ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text',
           )}
         >

@@ -44,7 +44,7 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
     <Card padded>
       <div className="mb-5 flex items-center justify-between gap-3">
         <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Breakdown</h3>
-        <Segmented value={mode} onChange={setMode} options={[{ value: 'class', label: 'Type' }, { value: 'currency', label: 'Currency' }]} className="w-44" />
+        <Segmented value={mode} onChange={setMode} options={[{ value: 'class', label: 'Type' }, { value: 'currency', label: 'Currency' }]} className="w-40 min-[360px]:w-44" />
       </div>
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
         <div className={`relative h-40 w-40 shrink-0 ${privacy ? 'privacy-blur' : ''}`}>

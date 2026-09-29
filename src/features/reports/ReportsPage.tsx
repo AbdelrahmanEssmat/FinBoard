@@ -61,27 +61,27 @@ export default function ReportsPage() {
               label="Income"
               icon={ArrowDownLeft}
               iconClass="text-positive"
-              value={<Amount value={r.totals.income} currency={r.display} compact />}
+              value={<Amount value={r.totals.income} currency={r.display} compact fit />}
               foot={r.prevTotals.income.gt(0) ? <PrevDelta cur={r.totals.income} prev={r.prevTotals.income} good="up" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Spending"
               icon={ArrowUpRight}
               iconClass="text-negative"
-              value={<Amount value={r.totals.expense} currency={r.display} compact />}
+              value={<Amount value={r.totals.expense} currency={r.display} compact fit />}
               foot={r.prevTotals.expense.gt(0) ? <PrevDelta cur={r.totals.expense} prev={r.prevTotals.expense} good="down" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Saved"
               icon={PiggyBank}
               iconClass="text-accent"
-              value={<Amount value={r.totals.net} currency={r.display} compact className={savedTone} />}
+              value={<Amount value={r.totals.net} currency={r.display} compact fit className={savedTone} />}
               foot={r.totals.savingsRate ? `${r.totals.savingsRate.toFixed(0)}% of income` : 'no income recorded'}
             />
             <StatCard
               label="Per day"
               icon={CalendarDays}
-              value={<Amount value={r.totals.avgDailySpend} currency={r.display} compact />}
+              value={<Amount value={r.totals.avgDailySpend} currency={r.display} compact fit />}
               foot={`${r.totals.expenseCount} expense${r.totals.expenseCount === 1 ? '' : 's'}${r.partial ? ' · so far' : ''}`}
             />
           </div>

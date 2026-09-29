@@ -38,7 +38,7 @@ export function LiquidityChip({ variant = 'bar', className }: { variant?: 'bar' 
       className={cn('flex h-10 min-w-0 items-center gap-1.5 rounded-full bg-surface px-3 text-sm font-semibold shadow-[var(--shadow-card)] active:bg-surface-2', className)}
     >
       <Droplets className="h-4 w-4 shrink-0 text-accent" />
-      <Amount value={l.total} currency={l.display} decimals={0} compact className="truncate" />
+      <Amount value={l.total} currency={l.display} decimals={0} compact fit />
     </button>
   )
 }

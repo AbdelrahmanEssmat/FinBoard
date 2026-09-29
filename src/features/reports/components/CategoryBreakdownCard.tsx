@@ -23,7 +23,7 @@ export function CategoryBreakdownCard({
   const navigate = useNavigate()
   const rows = (kind === 'expense' ? expense : income).filter((r) => r.value.gt(0)).sort((a, b) => b.value.comparedTo(a.value))
   return (
-    <Section title="By category" action={<Segmented value={kind} onChange={onKind} options={[{ value: 'expense', label: 'Spending' }, { value: 'income', label: 'Income' }]} className="w-48" />}>
+    <Section title="By category" action={<Segmented value={kind} onChange={onKind} options={[{ value: 'expense', label: 'Spending' }, { value: 'income', label: 'Income' }]} className="w-44 min-[360px]:w-48" />}>
       <Card className="divide-y divide-border overflow-hidden">
         {rows.map((r) => {
           const Icon = iconFor(r.icon)

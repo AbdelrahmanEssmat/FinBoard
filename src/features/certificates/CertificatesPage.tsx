@@ -48,8 +48,8 @@ export default function CertificatesPage() {
       ) : (
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-4">
-            <StatCard label="Invested" value={<Amount value={total} currency={display} />} />
-            <StatCard label="Interest / month" value={<Amount value={monthlyIncome} currency={display} className="text-positive" />} />
+            <StatCard label="Invested" value={<Amount value={total} currency={display} fit />} />
+            <StatCard label="Interest / month" value={<Amount value={monthlyIncome} currency={display} fit className="text-positive" />} />
           </div>
           {pendingDue ? <div className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">{pendingDue} payout{pendingDue > 1 ? 's' : ''} waiting to be logged.</div> : null}
           <div>

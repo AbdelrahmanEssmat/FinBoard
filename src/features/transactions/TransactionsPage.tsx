@@ -20,6 +20,7 @@ interface Filters {
   text: string
 }
 const EMPTY: Filters = { accountId: '', categoryId: '', type: '', tag: '', text: '' }
+const TYPE_LABEL: Record<TransactionType, string> = { expense: 'Expenses', income: 'Income', transfer: 'Transfers' }
 
 export default function TransactionsPage() {
   const navigate = useNavigate()
@@ -47,7 +48,8 @@ export default function TransactionsPage() {
 
   const subMap = useMemo(() => byId(subs), [subs])
   const catMap = useMemo(() => byId(categories), [categories])
-  const activeFilters = Object.values(filters).filter(Boolean).length
+  // the filters chosen in the sheet (the search box is separate: typing doesn't light the filter button)
+  const activeFilters = (['accountId', 'categoryId', 'type', 'tag'] as const).filter((k) => filters[k]).length
 
   const filtered = useMemo(() => {
     const q = filters.text.trim().toLowerCase()
@@ -109,9 +111,9 @@ export default function TransactionsPage() {
         <button onClick={() => shift(-1)} aria-label="Previous month" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-2">
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <div className="text-center">
+        <div className="min-w-0 flex-1 text-center">
           <div className="text-[15px] font-semibold">{monthLabel}</div>
-          <div className="flex gap-3 text-xs text-muted">
+          <div className="flex flex-wrap justify-center gap-x-3 text-xs text-muted">
             <span>
               In <Amount value={totals.income} currency={display} size="sm" className="text-positive" />
             </span>
@@ -126,14 +128,14 @@ export default function TransactionsPage() {
       </Card>
 
       <div className="mb-4">
-        <Input value={filters.text} onChange={(e) => setFilters({ ...filters, text: e.target.value })} placeholder="Search this month…" />
+        <Input value={filters.text} onChange={(e) => setFilters({ ...filters, text: e.target.value })} placeholder="Search this month…" aria-label="Search this month" />
       </div>
 
       {activeFilters ? (
         <div className="mb-3 flex flex-wrap gap-2">
           {filters.accountId ? <Chip label={accounts?.find((a) => a.id === filters.accountId)?.name ?? ''} onClear={() => setFilters({ ...filters, accountId: '' })} /> : null}
           {filters.categoryId ? <Chip label={catMap.get(filters.categoryId)?.name ?? ''} onClear={() => setFilters({ ...filters, categoryId: '' })} /> : null}
-          {filters.type ? <Chip label={filters.type} onClear={() => setFilters({ ...filters, type: '' })} /> : null}
+          {filters.type ? <Chip label={TYPE_LABEL[filters.type]} onClear={() => setFilters({ ...filters, type: '' })} /> : null}
           {filters.tag ? <Chip label={'#' + filters.tag} onClear={() => setFilters({ ...filters, tag: '' })} /> : null}
         </div>
       ) : null}

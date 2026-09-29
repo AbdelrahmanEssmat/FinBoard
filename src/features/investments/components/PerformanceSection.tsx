@@ -38,14 +38,14 @@ export function PerformanceSection({ holdings, sales, categories }: { holdings: 
             label="Realized profit"
             icon={p.realized.gte(0) ? TrendingUp : TrendingDown}
             iconClass={tone(p.realized)}
-            value={p.trades ? <Amount value={p.realized} currency={display} showSign compact className={tone(p.realized)} /> : '—'}
+            value={p.trades ? <Amount value={p.realized} currency={display} showSign compact fit className={tone(p.realized)} /> : '—'}
             foot={p.trades ? `${p.realizedPct ? formatPercent(p.realizedPct) + ' · ' : ''}${p.trades} sale${p.trades === 1 ? '' : 's'}` : 'After you sell'}
           />
           <StatCard
             label="Unrealized"
             icon={p.unrealized.gte(0) ? TrendingUp : TrendingDown}
             iconClass={tone(p.unrealized)}
-            value={p.openCost.gt(0) ? <Amount value={p.unrealized} currency={display} showSign compact className={tone(p.unrealized)} /> : '—'}
+            value={p.openCost.gt(0) ? <Amount value={p.unrealized} currency={display} showSign compact fit className={tone(p.unrealized)} /> : '—'}
             foot={p.unrealizedPct ? `${formatPercent(p.unrealizedPct)} on open positions` : 'Nothing open'}
           />
           <StatCard

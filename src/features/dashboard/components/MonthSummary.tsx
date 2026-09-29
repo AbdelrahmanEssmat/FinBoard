@@ -32,10 +32,11 @@ export function MonthSummary() {
         </button>
       }
     >
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Income" icon={ArrowDownLeft} iconClass="text-positive" value={<Amount value={month.income} currency={display} compact />} />
-        <StatCard label="Spending" icon={ArrowUpRight} iconClass="text-negative" value={<Amount value={month.expense} currency={display} compact />} />
-        <StatCard label="Saved" icon={PiggyBank} iconClass="text-accent" value={<Amount value={month.savings} currency={display} colored compact />} />
+      {/* three tiles across a phone: whole amounts, shrunk to fit when long */}
+      <div className="grid grid-cols-3 gap-2 min-[360px]:gap-3">
+        <StatCard label="Income" icon={ArrowDownLeft} iconClass="text-positive" value={<Amount value={month.income} currency={display} decimals={0} compact fit />} />
+        <StatCard label="Spending" icon={ArrowUpRight} iconClass="text-negative" value={<Amount value={month.expense} currency={display} decimals={0} compact fit />} />
+        <StatCard label="Saved" icon={PiggyBank} iconClass="text-accent" value={<Amount value={month.savings} currency={display} colored decimals={0} compact fit />} />
       </div>
     </Section>
   )

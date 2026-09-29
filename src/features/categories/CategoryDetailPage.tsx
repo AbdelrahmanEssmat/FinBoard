@@ -129,12 +129,12 @@ export default function CategoryDetailPage() {
 
           {data.summary.count ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <StatCard label="Per month" icon={CalendarRange} value={<Amount value={data.summary.avgPerMonth} currency={display} compact />} foot={data.summary.latestIsPartial ? 'average of full months' : 'average since first entry'} />
+              <StatCard label="Per month" icon={CalendarRange} value={<Amount value={data.summary.avgPerMonth} currency={display} compact fit />} foot={data.summary.latestIsPartial ? 'average of full months' : 'average since first entry'} />
               <StatCard
                 label="This month"
                 icon={up ? TrendingUp : TrendingDown}
                 iconClass={trendGood === null ? undefined : trendGood ? 'text-positive' : 'text-negative'}
-                value={<Amount value={thisMonth?.value ?? 0} currency={display} compact />}
+                value={<Amount value={thisMonth?.value ?? 0} currency={display} compact fit />}
                 foot={data.summary.latestVsAvgPct ? <span className={trendGood ? 'text-positive' : 'text-negative'}>{formatPercent(data.summary.latestVsAvgPct, 0)} {data.summary.latestIsPartial ? 'so far vs a usual month' : 'vs usual'}</span> : 'no earlier months'}
               />
               <StatCard label="Best month" icon={Trophy} value={data.summary.best ? <Amount value={data.summary.best.value} currency={display} compact /> : '—'} foot={data.summary.best ? monthLabel(data.summary.best.month, 'long') : undefined} />
