@@ -43,7 +43,7 @@ export default function CategoriesPage() {
                 {children.map((c) => (
                   <ListRow key={c.id} className="pl-14" title={<span className={c.is_archived ? 'text-faint line-through' : 'text-muted'}>{c.name}</span>} onClick={() => navigate(`/categories/${c.id}`)} chevron />
                 ))}
-                <button onClick={() => setForm({ open: true, item: null, parentId: p.id })} className="flex w-full items-center gap-2 py-2 pl-14 text-xs font-medium text-accent hover:bg-surface-2">
+                <button onClick={() => setForm({ open: true, item: null, parentId: p.id })} className="flex min-h-11 w-full items-center gap-2 pl-14 text-xs font-medium text-accent hover:bg-surface-2">
                   <Plus className="h-3 w-3" /> Sub-category
                 </button>
               </div>

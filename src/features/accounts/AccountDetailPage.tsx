@@ -95,7 +95,7 @@ export default function AccountDetailPage() {
 
       <SectionTitle
         action={
-          <button onClick={() => setSubForm({ open: true, sub: null })} className="text-accent flex items-center gap-1 text-xs font-medium">
+          <button onClick={() => setSubForm({ open: true, sub: null })} className="text-accent -my-1.5 -mr-2 flex min-h-11 items-center gap-1 px-2 text-xs font-medium">
             <Plus className="h-3.5 w-3.5" /> Currency
           </button>
         }

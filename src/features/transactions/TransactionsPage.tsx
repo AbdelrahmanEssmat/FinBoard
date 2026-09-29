@@ -197,13 +197,12 @@ export default function TransactionsPage() {
   )
 }
 
+/** An active filter; tapping anywhere on it removes the filter. */
 function Chip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
+    <button onClick={onClear} aria-label={`Remove filter ${label}`} className="inline-flex min-h-9 items-center gap-1 rounded-full bg-accent-soft px-3 text-xs font-medium text-accent">
       {label}
-      <button onClick={onClear} aria-label="Remove filter">
-        <X className="h-3 w-3" />
-      </button>
-    </span>
+      <X className="h-3 w-3" />
+    </button>
   )
 }

@@ -149,7 +149,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
             ) : null}
           </>
         ) : (
-          <Field label="Category">
+          <Field label="Category" group>
             <CategoryPicker kind={type} value={categoryId} onChange={setCategoryId} />
           </Field>
         )}

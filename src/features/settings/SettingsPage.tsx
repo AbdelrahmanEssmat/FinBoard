@@ -87,7 +87,7 @@ export default function SettingsPage() {
       <section>
         <SectionTitle>Appearance</SectionTitle>
         <Card padded className="space-y-4">
-          <Field label="Theme">
+          <Field label="Theme" group>
             <Segmented
               value={theme}
               onChange={(t: ThemePref) => setTheme(t)}

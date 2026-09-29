@@ -194,10 +194,10 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
             </p>
           </div>
         ) : null}
-        <Field label="Colour">
+        <Field label="Colour" group>
           <ColorPicker value={color} onChange={setColor} />
         </Field>
-        <Field label="Icon">
+        <Field label="Icon" group>
           <IconPicker value={icon} onChange={setIcon} color={color} />
         </Field>
         <Field label="Notes">

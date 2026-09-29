@@ -351,7 +351,7 @@ export function TransactionForm({
               ) : null}
             </>
           ) : (
-            <Field label="Category">
+            <Field label="Category" group>
               <CategoryPicker
                 kind={type}
                 value={categoryId}

@@ -19,10 +19,13 @@
   --color-faint: #98a2b3;
   --color-accent: #2f6bff;
   --color-accent-soft: #e9efff;
+  /* filled controls with white text (buttons, the "+"): dark enough for white to read on */
+  --color-accent-strong: #2f6bff;
   --color-positive: #15803d;
   --color-positive-soft: #e5f5ea;
   --color-negative: #dc2626;
   --color-negative-soft: #fdecec;
+  --color-negative-strong: #dc2626;
   --color-warning: #c2700a;
   --color-warning-soft: #fdf1df;
   --color-gold: #b8860b;
@@ -48,10 +51,13 @@
   --color-faint: #7b869b;
   --color-accent: #6b98ff;
   --color-accent-soft: #2a3a5c;
+  /* links stay light on the dark surfaces; filled controls go darker so white text stays legible */
+  --color-accent-strong: #3b6fe6;
   --color-positive: #4ade80;
   --color-positive-soft: #1d3a2a;
   --color-negative: #f87171;
   --color-negative-soft: #47262a;
+  --color-negative-strong: #dc2626;
   --color-warning: #fbbf24;
   --color-warning-soft: #45361a;
   --color-gold: #f5c542;
@@ -70,10 +76,12 @@
   --color-faint: #7a7368;
   --color-accent: #2152c8;
   --color-accent-soft: #c0cbec;
+  --color-accent-strong: #2152c8;
   --color-positive: #1e6e3c;
   --color-positive-soft: #bfdcc7;
   --color-negative: #a62828;
   --color-negative-soft: #ebc5c0;
+  --color-negative-strong: #a62828;
   --color-warning: #825606;
   --color-warning-soft: #e8d8ad;
   --color-gold: #7d6200;

@@ -43,7 +43,7 @@ export function CreditCardPanel({ card, onEdit }: { card: CreditCardView; onEdit
             ) : null}
           </>
         ) : (
-          <button onClick={onEdit} className="mt-2 text-xs font-medium text-accent">
+          <button onClick={onEdit} className="mt-1 flex min-h-11 items-center text-xs font-medium text-accent">
             Set a credit limit to see available credit
           </button>
         )}
@@ -101,7 +101,7 @@ export function CreditCardPanel({ card, onEdit }: { card: CreditCardView; onEdit
       ) : (
         <Card padded className="text-sm text-muted">
           Set the statement and due days to track each statement, the minimum payment and the due date.{' '}
-          <button onClick={onEdit} className="font-medium text-accent">
+          <button onClick={onEdit} className="inline-flex min-h-11 items-center font-medium text-accent">
             Set them
           </button>
         </Card>

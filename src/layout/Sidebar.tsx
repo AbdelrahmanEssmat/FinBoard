@@ -18,7 +18,7 @@ export function Sidebar({ onQuickAdd }: { onQuickAdd: () => void }) {
       </NavLink>
       <div className="space-y-3 px-4">
         <LiquidityChip variant="sidebar" />
-        <button onClick={onQuickAdd} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent text-[15px] font-medium text-white shadow-sm hover:brightness-110">
+        <button onClick={onQuickAdd} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent-strong text-[15px] font-medium text-white shadow-sm hover:brightness-110">
           <Plus className="h-4 w-4" /> Add
         </button>
       </div>

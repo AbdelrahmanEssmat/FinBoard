@@ -23,7 +23,7 @@ export function InstallmentPlansSection({ card }: { card: CreditCardView }) {
       <Section
         title="Installment plans"
         action={
-          <button onClick={() => setAdding(true)} className="flex items-center gap-1 text-xs font-medium text-accent">
+          <button onClick={() => setAdding(true)} className="-my-1.5 -mr-2 flex min-h-11 items-center gap-1 px-2 text-xs font-medium text-accent">
             <Plus className="h-3.5 w-3.5" /> Installment purchase
           </button>
         }

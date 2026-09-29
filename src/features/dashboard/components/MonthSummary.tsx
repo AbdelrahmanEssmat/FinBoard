@@ -27,7 +27,7 @@ export function MonthSummary() {
     <Section
       title="This month"
       action={
-        <button onClick={() => navigate('/reports')} className="text-xs font-medium text-accent">
+        <button onClick={() => navigate('/reports')} className="-my-1.5 -mr-2 flex min-h-11 items-center px-2 text-xs font-medium text-accent">
           Reports
         </button>
       }

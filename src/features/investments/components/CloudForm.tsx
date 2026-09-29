@@ -101,7 +101,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
                   setFrequency(p.frequency)
                   setName(p.frequency === 'daily' ? 'Daily Cloud' : 'Monthly Cloud')
                 }}
-                className="rounded-full bg-accent-soft px-3.5 py-1.5 text-xs font-medium text-accent"
+                className="min-h-10 rounded-full bg-accent-soft px-3.5 text-xs font-medium text-accent"
               >
                 {p.label}
               </button>
@@ -134,7 +134,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
             </Select>
           </Field>
         </div>
-        <Field label="Interest is paid">
+        <Field label="Interest is paid" group>
           <Segmented value={frequency} onChange={setFrequency} options={[{ value: 'monthly', label: 'Monthly' }, { value: 'daily', label: 'Daily' }]} />
         </Field>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">

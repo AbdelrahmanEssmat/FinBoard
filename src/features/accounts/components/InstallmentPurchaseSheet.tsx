@@ -176,7 +176,7 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
           <Field label="Price">
             <AmountInput value={amount} onChange={setAmount} currency={card?.currency ?? 'EGP'} currencies={currencies} />
           </Field>
-          <Field label="Months">
+          <Field label="Months" group>
             <div className="flex flex-wrap gap-2">
               {MONTH_CHOICES.map((m) => (
                 <button
@@ -188,7 +188,7 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
                   }}
                   className={cn(
                     'h-10 min-w-12 rounded-full px-3.5 text-sm font-medium transition-colors',
-                    !customMonths && months === m ? 'bg-accent text-white' : 'bg-surface-2 text-muted hover:text-text',
+                    !customMonths && months === m ? 'bg-accent-strong text-white' : 'bg-surface-2 text-muted hover:text-text',
                   )}
                 >
                   {m}
@@ -212,7 +212,7 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
           </div>
-          <Field label="Category">
+          <Field label="Category" group>
             <CategoryPicker kind="expense" value={categoryId} onChange={setCategoryId} />
           </Field>
 

@@ -17,7 +17,7 @@ export function CloudsSection() {
     <Section
       title="Clouds"
       action={
-        <button onClick={() => setForm({ open: true, item: null })} className="flex items-center gap-1 text-xs font-medium text-accent">
+        <button onClick={() => setForm({ open: true, item: null })} className="-my-1.5 -mr-2 flex min-h-11 items-center gap-1 px-2 text-xs font-medium text-accent">
           <Plus className="h-3.5 w-3.5" /> Cloud
         </button>
       }

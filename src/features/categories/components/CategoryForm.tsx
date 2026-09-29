@@ -78,10 +78,10 @@ export function CategoryForm({ open, onClose, initial, kind, parentId }: { open:
         </Field>
         {!parent ? (
           <>
-            <Field label="Colour">
+            <Field label="Colour" group>
               <ColorPicker value={color} onChange={setColor} />
             </Field>
-            <Field label="Icon">
+            <Field label="Icon" group>
               <IconPicker value={icon} onChange={setIcon} color={color} />
             </Field>
           </>

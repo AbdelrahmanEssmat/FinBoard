@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/utils'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 import { lockScroll } from '@/utils/scrollLock'
 
 /**
@@ -36,6 +37,8 @@ export function Sheet({
   const [moreBelow, setMoreBelow] = useState(false)
   const vv = useVisualViewport(open)
   const drag = useRef<{ startY: number; dy: number } | null>(null)
+  const titleId = useId()
+  useDialogFocus(panelRef, open)
 
   const measure = useCallback(() => {
     const el = bodyRef.current
@@ -43,10 +46,10 @@ export function Sheet({
     setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 8)
   }, [])
 
-  // Escape closes; lock the page behind the sheet (works on iOS unlike overflow:hidden alone)
+  // Escape closes (unless a dialog on top already took it); lock the page behind the sheet (works on iOS unlike overflow:hidden alone)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose()
     document.addEventListener('keydown', onKey)
     const unlock = lockScroll()
     return () => {
@@ -113,12 +116,13 @@ export function Sheet({
   const viewportStyle = vv.height ? { top: vv.offsetTop, height: vv.height } : undefined
   return createPortal(
     // top padding = the iPhone status bar / notch, so a tall sheet never slides under the clock and battery
-    <div className="fixed inset-x-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true">
+    <div className="fixed inset-x-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="anim-fade absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         ref={panelRef}
+        tabIndex={-1}
         className={cn(
-          'anim-sheet sm:anim-scale relative flex w-full flex-col overflow-hidden bg-surface shadow-2xl',
+          'anim-sheet sm:anim-scale relative flex w-full flex-col overflow-hidden bg-surface shadow-2xl focus:outline-none',
           'max-h-[calc(100%-0.75rem)] rounded-t-3xl sm:max-h-[90%] sm:rounded-3xl',
           vv.keyboardOpen && 'max-h-full rounded-t-2xl',
           size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg',
@@ -127,7 +131,9 @@ export function Sheet({
         <div className="shrink-0 touch-none select-none sm:touch-auto" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
           <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-border sm:hidden" />
           <div className="flex items-center justify-between px-6 pb-3 pt-3 sm:pt-6">
-            <h2 className="min-w-0 truncate pr-3 text-lg font-semibold">{title}</h2>
+            <h2 id={titleId} className="min-w-0 truncate pr-3 text-lg font-semibold">
+              {title}
+            </h2>
             <button onClick={onClose} aria-label="Close" className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface-2">
               <X className="h-5 w-5" />
             </button>

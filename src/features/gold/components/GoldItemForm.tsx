@@ -77,7 +77,7 @@ export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClos
     >
       <div className="space-y-5">
         <Segmented value={type} onChange={setType} options={[{ value: 'bar', label: 'Bar' }, { value: 'coin', label: 'Coin' }, { value: 'jewelry', label: 'Jewelry' }]} />
-        <Field label="Karat">
+        <Field label="Karat" group>
           <Segmented value={String(karat)} onChange={(v) => setKarat(Number(v))} options={KARATS.map((k) => ({ value: String(k), label: `${k}K` }))} />
         </Field>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">

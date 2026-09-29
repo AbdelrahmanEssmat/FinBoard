@@ -27,7 +27,7 @@ export function IconPicker({ value, onChange, color }: { value: string; onChange
               aria-pressed={active}
               onClick={() => onChange(name)}
               className={cn('mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-full transition-colors', active ? 'text-white' : 'text-muted hover:bg-surface-2')}
-              style={active ? { background: color ?? 'var(--color-accent)' } : undefined}
+              style={active ? { background: color ?? 'var(--color-accent-strong)' } : undefined}
             >
               <Icon className="h-[18px] w-[18px]" />
             </button>
