@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Coins, Download, Moon, RefreshCw, Sun, Contrast, Upload, Monitor, Eye, Smartphone } from 'lucide-react'
-import { Button, Card, ConfirmDialog, Divider, Field, Segmented, Select, Toggle } from '@/components/ui'
+import { Card, ConfirmDialog, Divider, Field, Segmented, Select, Toggle } from '@/components/ui'
 import { ListRow, PageHeader, SectionTitle } from '@/components/shared'
 import { useCurrencies, useSettings } from '@/api/queries'
 import { useUpsert } from '@/api/mutations'
@@ -32,6 +32,7 @@ export default function SettingsPage() {
   }
 
   const doExport = async (kind: 'json' | 'csv') => {
+    if (busy) return
     setBusy(kind)
     try {
       if (kind === 'json') await exportAll()
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   }
 
   const doImport = async (file: File) => {
+    if (busy) return
     setBusy('import')
     try {
       const n = await importAll(file)
@@ -108,7 +110,7 @@ export default function SettingsPage() {
         <Card className="overflow-hidden">
           <ListRow icon={Download} color="#16a34a" title="Export everything (JSON)" subtitle="Full backup you can restore later" onClick={() => void doExport('json')} trailing={busy === 'json' ? <span className="text-xs text-muted">…</span> : null} />
           <Divider />
-          <ListRow icon={Download} color="#0ea5e9" title="Export transactions (CSV)" subtitle="Open in Excel or Numbers" onClick={() => void doExport('csv')} />
+          <ListRow icon={Download} color="#0ea5e9" title="Export transactions (CSV)" subtitle="Open in Excel or Numbers" onClick={() => void doExport('csv')} trailing={busy === 'csv' ? <span className="text-xs text-muted">…</span> : null} />
           <Divider />
           <ListRow icon={Upload} color="#f97316" title="Restore from JSON" subtitle="Merges a backup into this account" onClick={() => fileRef.current?.click()} trailing={busy === 'import' ? <span className="text-xs text-muted">…</span> : null} />
           <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setImportConfirm(f); e.target.value = '' }} />
@@ -139,7 +141,6 @@ export default function SettingsPage() {
         danger={false}
         onConfirm={() => importConfirm && void doImport(importConfirm)}
       />
-      <Button variant="ghost" className="hidden" />
     </div>
   )
 }

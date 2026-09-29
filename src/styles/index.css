@@ -139,6 +139,7 @@ label,
 select,
 [role='button'],
 [role='tab'],
+[role='radio'],
 [role='switch'] {
   touch-action: manipulation;
 }

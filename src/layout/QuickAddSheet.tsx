@@ -9,6 +9,7 @@ import { useHoldings } from '@/api/queries'
 import { d } from '@/domain/money'
 import { cn } from '@/utils'
 import { useCreditCards } from '@/hooks/useCreditCards'
+import { useDebtViews } from '@/features/debts/useDebtViews'
 
 export function QuickAddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [txType, setTxType] = useState<TransactionType | null>(null)
@@ -17,6 +18,7 @@ export function QuickAddSheet({ open, onClose }: { open: boolean; onClose: () =>
   const { data: holdings } = useHoldings()
   const hasHoldings = (holdings ?? []).some((h) => d(h.units).gt(0))
   const { cards, mostUrgent } = useCreditCards()
+  const { open: openDebts } = useDebtViews()
   // pay the card that needs it first (else the first card), prefilled with what's left on its statement
   const cardToPay = mostUrgent ?? cards.find((c) => c.usage.owed.gt(0)) ?? cards[0]
   const [payCard, setPayCard] = useState(false)
@@ -29,7 +31,8 @@ export function QuickAddSheet({ open, onClose }: { open: boolean; onClose: () =>
     { label: 'Expense', icon: ArrowUpRight, color: '#dc2626', onClick: () => pick('expense') },
     { label: 'Income', icon: ArrowDownLeft, color: '#16a34a', onClick: () => pick('income') },
     { label: 'Transfer', icon: ArrowLeftRight, color: '#2563eb', onClick: () => pick('transfer') },
-    { label: 'Debt payment', icon: HandCoins, color: '#f97316', onClick: () => { onClose(); setDebtPay(true) } },
+    // only when there is a debt to pay, like the card tile
+    ...(openDebts.length ? [{ label: 'Debt payment', icon: HandCoins, color: '#f97316', onClick: () => { onClose(); setDebtPay(true) } }] : []),
     ...(cardToPay ? [{ label: 'Pay card', icon: CreditCard, color: '#dc2626', onClick: () => { onClose(); setPayCard(true) } }] : []),
     ...(hasHoldings ? [{ label: 'Update prices', icon: RefreshCw, color: '#8b5cf6', onClick: () => { onClose(); navigate('/investments/prices') } }] : []),
   ]

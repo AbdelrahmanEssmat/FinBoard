@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared'
 import { useCurrencies, useSettings } from '@/api/queries'
 import { useUpsert } from '@/api/mutations'
 import { useUserId } from '@/app/providers/AuthProvider'
+import { toast } from '@/store/toasts'
 
 export default function CurrenciesPage() {
   const { data: currencies } = useCurrencies()
@@ -46,7 +47,10 @@ export default function CurrenciesPage() {
             <Toggle
               checked={c.is_active}
               onChange={(v) => {
-                if (!v && c.code === settings?.base_currency) return
+                if (!v && c.code === settings?.base_currency) {
+                  toast.info('The base currency stays active. Pick another base currency in Settings first.')
+                  return
+                }
                 void upsert.mutateAsync([{ ...c, is_active: v }]) // full row: an upsert must satisfy every required column
               }}
               label={`${c.code} · ${c.symbol}`}
@@ -55,7 +59,7 @@ export default function CurrenciesPage() {
           </div>
         ))}
       </Card>
-      <Sheet open={adding} onClose={() => setAdding(false)} title="Add currency" footer={<Button full size="lg" onClick={add} disabled={!/^[A-Za-z]{3}$/.test(code)}>Add</Button>}>
+      <Sheet open={adding} onClose={() => setAdding(false)} title="Add currency" footer={<Button full size="lg" onClick={add} loading={upsert.isPending} disabled={!/^[A-Za-z]{3}$/.test(code)}>Add</Button>}>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field label="Code" hint="ISO code, e.g. EUR">
             <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={3} placeholder="EUR" className="uppercase" />

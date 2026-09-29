@@ -22,20 +22,20 @@ export function InvestmentCategoriesSheet({ open, onClose }: { open: boolean; on
             {editing === c.id ? (
               <>
                 <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9" />
-                <button aria-label="Save" onClick={async () => { await rename.mutateAsync([{ id: c.id, name: draft.trim() || c.name }]); setEditing(null) }} className="p-2 text-positive">
+                <button aria-label="Save" disabled={rename.isPending} onClick={async () => { await rename.mutateAsync([{ id: c.id, name: draft.trim() || c.name }]); setEditing(null) }} className="flex h-11 w-11 items-center justify-center text-positive disabled:opacity-50">
                   <Check className="h-4 w-4" />
                 </button>
-                <button aria-label="Cancel" onClick={() => setEditing(null)} className="p-2 text-muted">
+                <button aria-label="Cancel" onClick={() => setEditing(null)} className="flex h-11 w-11 items-center justify-center text-muted">
                   <X className="h-4 w-4" />
                 </button>
               </>
             ) : (
               <>
                 <span className="flex-1 text-[15px]">{c.name}</span>
-                <button aria-label="Rename" onClick={() => { setEditing(c.id); setDraft(c.name) }} className="p-2 text-muted">
+                <button aria-label={`Rename ${c.name}`} onClick={() => { setEditing(c.id); setDraft(c.name) }} className="flex h-11 w-11 items-center justify-center text-muted">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button aria-label="Delete" onClick={() => remove(c)} className="p-2 text-negative">
+                <button aria-label={`Delete ${c.name}`} onClick={() => remove(c)} className="flex h-11 w-11 items-center justify-center text-negative">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </>
@@ -43,9 +43,12 @@ export function InvestmentCategoriesSheet({ open, onClose }: { open: boolean; on
           </div>
         ))}
         <div className="flex gap-2 pt-2">
-          <Input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="New type, e.g. Bonds" />
+          <Input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="New type, e.g. Bonds" aria-label="New type" />
           <Button
             variant="soft"
+            aria-label="Add type"
+            loading={upsert.isPending}
+            disabled={!adding.trim()}
             onClick={async () => {
               if (!adding.trim()) return
               await upsert.mutateAsync([{ id: newId(), name: adding.trim(), sort_order: (data?.length ?? 0) + 1 }])

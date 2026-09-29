@@ -6,7 +6,8 @@ export function Toaster() {
   const { toasts, dismiss } = useToasts()
   if (!toasts.length) return null
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 px-4 md:bottom-6">
+    // phones: under the top bar, clear of the "+" button, sheet footers and the keyboard; desktop: bottom
+    <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.25rem)] z-[70] flex flex-col items-center gap-2 px-4 md:top-auto md:bottom-6">
       {toasts.map((t) => {
         const Icon = t.kind === 'success' ? CheckCircle2 : t.kind === 'error' ? XCircle : Info
         return (
@@ -16,7 +17,7 @@ export function Toaster() {
               'anim-fade-up pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl px-4 py-3 text-sm shadow-xl',
               'bg-text text-bg dark:bg-surface-2 dark:text-text dark:border dark:border-border',
             )}
-            role="status"
+            role={t.kind === 'error' ? 'alert' : 'status'}
           >
             <Icon className={cn('h-4 w-4 shrink-0', t.kind === 'error' ? 'text-negative' : t.kind === 'success' ? 'text-positive' : 'opacity-70')} />
             <span className="flex-1">{t.message}</span>

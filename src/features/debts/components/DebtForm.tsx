@@ -140,7 +140,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
       onClose={onClose}
       title={initial ? 'Edit debt' : dir === 'i_owe' ? 'Money I owe' : 'Money owed to me'}
       footer={
-        <Button full size="lg" onClick={save} loading={upsertDebt.isPending || saveTx.isPending} disabled={!valid}>
+        <Button full size="lg" onClick={save} loading={upsertDebt.isPending || saveTx.isPending || upsertContact.isPending} disabled={!valid}>
           Save
         </Button>
       }

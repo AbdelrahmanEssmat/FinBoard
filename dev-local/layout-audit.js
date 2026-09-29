@@ -88,7 +88,7 @@ window.__audit = () => {
     }
     return x2 - x1 > 1 && y2 - y1 > 1 ? { x1, y1, x2, y2 } : null
   }
-  const controls = all.filter((el) => el.matches('input:not([type=hidden]), select, textarea, button, [role=switch], [role=tab], a[href]'))
+  const controls = all.filter((el) => el.matches('input:not([type=hidden]), select, textarea, button, [role=switch], [role=tab], [role=radio], a[href]'))
   const vis = controls.map(visible)
   for (let i = 0; i < controls.length; i++) {
     for (let j = i + 1; j < controls.length; j++) {
@@ -131,9 +131,9 @@ window.__auditDialog = async (label, out) => {
   __finish()
   let r = __audit()
   if (r.length) out.push({ where: label, issues: r })
-  const count = topDialog()?.querySelectorAll('[role=switch], [role=tab]').length ?? 0
+  const count = topDialog()?.querySelectorAll('[role=switch], [role=tab], [role=radio]').length ?? 0
   for (let i = 0; i < count; i++) {
-    const t = topDialog()?.querySelectorAll('[role=switch], [role=tab]')[i]
+    const t = topDialog()?.querySelectorAll('[role=switch], [role=tab], [role=radio]')[i]
     if (!t || t.disabled) continue
     const tl = (t.innerText || t.closest('label')?.innerText || 'switch').trim().split('\n')[0].slice(0, 24)
     t.click()

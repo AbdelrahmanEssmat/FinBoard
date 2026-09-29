@@ -154,12 +154,14 @@ export default function CertificateDetailPage() {
               <option value="">Choose account…</option>
               <BalanceOptions subs={payoutSubs} />
             </Select>
-            <Button full size="lg" onClick={doLog} loading={logPayout.isPending} disabled={!logSub}>
+            <Button full size="lg" onClick={doLog} loading={logPayout.isPending} disabled={!logSub || updatePayout.isPending}>
               Add income
             </Button>
             <Button
               full
               variant="ghost"
+              loading={updatePayout.isPending}
+              disabled={logPayout.isPending}
               onClick={async () => {
                 await updatePayout.mutateAsync([{ id: logging.id, status: 'skipped' }])
                 setLogging(null)

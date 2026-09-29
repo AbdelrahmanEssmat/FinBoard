@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useSubAccounts } from '@/api/queries'
@@ -14,6 +15,7 @@ import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
 /** Record a partial or full payment. Works standalone (choose the debt) or bound to one debt. */
 export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onClose: () => void; debtId?: string }) {
   const { open: openDebts } = useDebtViews()
+  const navigate = useNavigate()
   const { data: subs } = useSubAccounts()
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
@@ -83,10 +85,22 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
       }
     >
       <div className="space-y-5">
-        {!debtId ? (
+        {!debtId && !openDebts.length ? (
+          <div className="space-y-4 py-2 text-center">
+            <p className="text-sm text-muted">Nothing to pay: there are no open debts. Record money you lent or borrowed first.</p>
+            <Button
+              variant="soft"
+              onClick={() => {
+                onClose()
+                navigate('/debts')
+              }}
+            >
+              Go to debts
+            </Button>
+          </div>
+        ) : !debtId ? (
           <Field label="Debt">
             <Select value={selected} onChange={(e) => setSelected(e.target.value)}>
-              {!openDebts.length ? <option value="">No open debts</option> : null}
               {openDebts.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.direction === 'i_owe' ? 'I owe' : 'Owed to me'} · {x.contact?.name}

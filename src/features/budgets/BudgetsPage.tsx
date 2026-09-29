@@ -153,15 +153,19 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
       }
     >
       <div className="space-y-5">
-        <Field label="Category">
-          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={Boolean(initial)}>
-            {available.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {!initial && !available.length ? (
+          <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">Every expense category already has a budget. Tap one on the Budgets page to change it.</p>
+        ) : (
+          <Field label="Category">
+            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={Boolean(initial)}>
+              {available.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field label="Monthly limit">
             <Input inputMode="decimal" className="tnum" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
