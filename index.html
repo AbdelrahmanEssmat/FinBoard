@@ -2,8 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- resizes-visual: the keyboard shrinks only the visible area, never the page; sheets size themselves to the visible area -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, interactive-widget=resizes-visual" />
+    <!-- no viewport-fit=cover: in a home-screen app it makes iOS shrink the page by the status bar after the keyboard and never
+         paint below that again (WebKit 254868/301857). iOS keeps the status bar and home indicator areas outside the page instead;
+         they show the canvas colour, which matches the top and bottom bars. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161b24" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -104,6 +104,10 @@
 html[data-standalone] {
   --app-height: 100vh;
 }
+html[data-standalone] .h-tabbar {
+  /* the home indicator sits outside the page in an installed app; no extra padding for it */
+  height: 4.25rem;
+}
 .h-app {
   height: var(--app-height);
 }
@@ -116,6 +120,13 @@ body {
   height: 100%;
   background: var(--color-bg);
   color: var(--color-text);
+}
+/* the canvas outside the page (the status bar and home indicator areas of an installed app) continues the bars' colour */
+html {
+  background: var(--color-surface);
+}
+html,
+body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;

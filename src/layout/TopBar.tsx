@@ -9,7 +9,7 @@ export function TopBar() {
   const { privacy, togglePrivacy } = usePrefs()
   const navigate = useNavigate()
   return (
-    <header className="pt-safe z-30 shrink-0 bg-bg/85 backdrop-blur md:hidden">
+    <header className="pt-safe z-30 shrink-0 bg-surface/95 backdrop-blur md:hidden">
       <div className="flex h-14 items-center justify-between gap-2 px-5">
         <div className="flex min-w-0 items-center gap-2">
           <CurrencyToggle />
