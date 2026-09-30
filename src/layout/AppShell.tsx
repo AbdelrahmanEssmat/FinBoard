@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
+import { settleViewport } from '@/utils/viewport'
 import { Plus } from 'lucide-react'
 import { useConnectivity } from '@/hooks/useConnectivity'
 import { useDailyJobs } from '@/hooks/useDailyJobs'
@@ -25,6 +26,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   useRealtimeSync()
   useDailyJobs()
   useMarketData()
+
+  // a new page starts at its top (switching tabs used to keep the previous page's scroll position)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    settleViewport()
+  }, [location.pathname])
+
+  // when the keyboard goes away, make sure the bottom bar is back on the bottom of the screen
+  const keyboardWasOpen = useRef(false)
+  useEffect(() => {
+    if (keyboardWasOpen.current && !keyboardOpen) settleViewport()
+    keyboardWasOpen.current = keyboardOpen
+  }, [keyboardOpen])
 
   return (
     <div className="min-h-dvh md:flex">

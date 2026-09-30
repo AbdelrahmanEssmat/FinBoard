@@ -1,3 +1,5 @@
+import { settleViewport } from '@/utils/viewport'
+
 /**
  * Reference-counted page scroll lock. `overflow: hidden` alone does not stop iOS Safari
  * from scrolling the page behind an overlay, so the body is pinned with position: fixed
@@ -20,9 +22,13 @@ export function lockScroll(): () => void {
     released = true
     locks = Math.max(0, locks - 1)
     if (locks === 0 && saved) {
+      // a field still focused inside the closing overlay would keep the keyboard up while the page is released
+      const active = document.activeElement as HTMLElement | null
+      if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) active.blur()
       Object.assign(document.body.style, saved.style)
       window.scrollTo(0, saved.scrollY)
       saved = null
+      settleViewport()
     }
   }
 }
