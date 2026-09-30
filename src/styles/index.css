@@ -108,10 +108,11 @@ html[data-standalone] .h-tabbar {
   /* the home indicator sits outside the page in an installed app; no extra padding for it */
   height: 4.25rem;
 }
-.h-app {
+/* real utilities, so responsive overrides such as md:h-auto still win on desktop */
+@utility h-app {
   height: var(--app-height);
 }
-.min-h-app {
+@utility min-h-app {
   min-height: var(--app-height);
 }
 
