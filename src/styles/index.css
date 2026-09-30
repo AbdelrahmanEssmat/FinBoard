@@ -91,6 +91,26 @@
 /* ------------------------------------------------------------------ */
 /* Base                                                                */
 /* ------------------------------------------------------------------ */
+/*
+ * The height of the app on a phone. In a browser tab it follows the toolbars (dvh). Installed on
+ * the home screen the app is the whole screen, and only plain vh can be trusted for that: once the
+ * keyboard has been used, WebKit under-reports dvh, innerHeight and the visual viewport by the
+ * status bar for the rest of the session (bugs 254868, 301857), which is what left a blank strip
+ * under the tab bar. The phone layout is a frame of this height with the page scrolling inside.
+ */
+:root {
+  --app-height: 100dvh;
+}
+html[data-standalone] {
+  --app-height: 100vh;
+}
+.h-app {
+  height: var(--app-height);
+}
+.min-h-app {
+  min-height: var(--app-height);
+}
+
 html,
 body {
   height: 100%;

@@ -6,13 +6,6 @@ export interface VisualViewportState {
   /** how far the visible area is scrolled from the layout viewport's top (iOS shifts it when the keyboard opens) */
   offsetTop: number
   keyboardOpen: boolean
-  /**
-   * How far the page's bottom edge sits above the visible bottom of the screen. Normally 0.
-   * iPhone Safari sometimes leaves the page shorter than the screen after the keyboard closes,
-   * and anything fixed to the page's bottom then hangs above a blank strip; bars use this to
-   * stay on the real bottom.
-   */
-  bottomGap: number
 }
 
 /**
@@ -24,7 +17,7 @@ export interface VisualViewportState {
 const baseline = { width: 0, height: 0 }
 
 export function readVisualViewport(): VisualViewportState {
-  if (typeof window === 'undefined') return { height: 0, offsetTop: 0, keyboardOpen: false, bottomGap: 0 }
+  if (typeof window === 'undefined') return { height: 0, offsetTop: 0, keyboardOpen: false }
   const vv = window.visualViewport
   const height = vv?.height ?? window.innerHeight
   const offsetTop = vv?.offsetTop ?? 0
@@ -34,9 +27,7 @@ export function readVisualViewport(): VisualViewportState {
   }
   baseline.height = Math.max(baseline.height, window.innerHeight, height)
   const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false
-  const keyboardOpen = coarse && baseline.height - height > 150
-  const bottomGap = keyboardOpen ? 0 : Math.max(0, Math.round(offsetTop + height - window.innerHeight))
-  return { height, offsetTop, keyboardOpen, bottomGap }
+  return { height, offsetTop, keyboardOpen: coarse && baseline.height - height > 150 }
 }
 
 /**
@@ -53,12 +44,10 @@ export function useVisualViewport(enabled = true): VisualViewportState {
     vv?.addEventListener('resize', update)
     vv?.addEventListener('scroll', update)
     window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, { passive: true })
     return () => {
       vv?.removeEventListener('resize', update)
       vv?.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update)
     }
   }, [enabled])
   return state

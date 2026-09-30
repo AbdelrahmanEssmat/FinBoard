@@ -49,7 +49,7 @@ export default function ConfirmPage() {
   const Icon = copy?.icon ?? MailCheck
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-6 py-10 pt-safe pb-safe">
+    <div className="flex min-h-app items-center justify-center bg-bg px-6 py-10 pt-safe pb-safe">
       <div className="anim-fade-up w-full max-w-sm">
         <Brand variant="stacked" className="mb-9" />
         <div className="space-y-4 rounded-3xl bg-surface p-5 text-center shadow-[var(--shadow-card)]">

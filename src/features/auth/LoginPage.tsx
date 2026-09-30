@@ -121,7 +121,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-6 py-10 pt-safe pb-safe">
+    <div className="flex min-h-app items-center justify-center bg-bg px-6 py-10 pt-safe pb-safe">
       <div className="anim-fade-up w-full max-w-sm">
         <h1 className="sr-only">FinBoard</h1>
         <Brand variant="stacked" className="mb-9" />

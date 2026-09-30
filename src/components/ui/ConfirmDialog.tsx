@@ -44,8 +44,8 @@ export function ConfirmDialog({
   if (!open) return null
   return createPortal(
     <div
-      className="fixed inset-x-0 z-[60] flex items-center justify-center p-6"
-      style={vv.height ? { top: vv.offsetTop, height: vv.height } : undefined}
+      className="h-app fixed inset-x-0 top-0 z-[60] flex items-center justify-center p-6"
+      style={vv.keyboardOpen && vv.height ? { top: vv.offsetTop, height: vv.height } : undefined}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby={titleId}

@@ -9,7 +9,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!isConfigured) return <Navigate to="/login" replace />
   if (loading)
     return (
-      <div className="flex min-h-dvh items-center justify-center text-muted">
+      <div className="flex min-h-app items-center justify-center text-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     )

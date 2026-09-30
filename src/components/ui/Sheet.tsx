@@ -113,10 +113,11 @@ export function Sheet({
   }
 
   if (!open) return null
-  const viewportStyle = vv.height ? { top: vv.offsetTop, height: vv.height } : undefined
+  // the sheet fills the app's height; only while the keyboard is up does it follow the visible area instead
+  const viewportStyle = vv.keyboardOpen && vv.height ? { top: vv.offsetTop, height: vv.height } : undefined
   return createPortal(
     // top padding = the iPhone status bar / notch, so a tall sheet never slides under the clock and battery
-    <div className="fixed inset-x-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div className="h-app fixed inset-x-0 top-0 z-50 flex items-end justify-center pt-[env(safe-area-inset-top)] sm:items-center sm:p-6" style={viewportStyle} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="anim-fade absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         ref={panelRef}
