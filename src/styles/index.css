@@ -122,9 +122,12 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
 }
-/* installed on a phone: the canvas outside the page (the status bar and home indicator areas) continues the bars' colour */
-html[data-standalone] {
-  background: var(--color-surface);
+/* installed on a phone: the canvas outside the page (the status bar and home indicator areas) continues the bars' colour
+   (phone widths only: the desktop app is "installed" too, and there the document scrolls over the canvas) */
+@media (max-width: 767px) {
+  html[data-standalone] {
+    background: var(--color-surface);
+  }
 }
 html,
 body {
