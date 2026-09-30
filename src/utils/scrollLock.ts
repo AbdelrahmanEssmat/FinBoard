@@ -20,9 +20,6 @@ export function lockScroll(): () => void {
     released = true
     locks = Math.max(0, locks - 1)
     if (locks === 0) {
-      // a field still focused inside the closing overlay would keep the keyboard up
-      const active = document.activeElement as HTMLElement | null
-      if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) active.blur()
       if (savedOverflow !== null) {
         document.body.style.overflow = savedOverflow
         savedOverflow = null

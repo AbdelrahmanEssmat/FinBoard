@@ -46,17 +46,24 @@ export function Sheet({
     setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 8)
   }, [])
 
+  // the latest onClose, so the lock below survives re-renders: a new onClose function on every
+  // keystroke must not release and re-take it (that briefly dropped focus from the field being typed in)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   // Escape closes (unless a dialog on top already took it); lock the page behind the sheet (works on iOS unlike overflow:hidden alone)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onCloseRef.current()
     document.addEventListener('keydown', onKey)
     const unlock = lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey)
       unlock()
     }
-  }, [open, onClose])
+  }, [open])
 
   // fade indicator
   useEffect(() => {
