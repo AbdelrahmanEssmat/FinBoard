@@ -121,8 +121,8 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
 }
-/* the canvas outside the page (the status bar and home indicator areas of an installed app) continues the bars' colour */
-html {
+/* installed on a phone: the canvas outside the page (the status bar and home indicator areas) continues the bars' colour */
+html[data-standalone] {
   background: var(--color-surface);
 }
 html,
