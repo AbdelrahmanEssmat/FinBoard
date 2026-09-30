@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { online, pending } = useConnectivity()
   const location = useLocation()
   // while typing on a phone, the tab bar and "+" would sit on top of the keyboard
-  const { keyboardOpen } = useVisualViewport()
+  const { keyboardOpen, bottomGap } = useVisualViewport()
   useRealtimeSync()
   useDailyJobs()
   useMarketData()
@@ -55,7 +55,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             onClick={() => setQuickAdd(true)}
             aria-label="Quick add"
-            className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-strong text-white shadow-lg shadow-accent-strong/30 transition-transform active:scale-95 md:hidden"
+            className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-strong text-white shadow-lg shadow-accent-strong/30 transition-transform active:scale-95 md:hidden"
+            style={{ bottom: `calc(5.25rem + env(safe-area-inset-bottom) - ${bottomGap}px)` }}
           >
             <Plus className="h-6 w-6" />
           </button>

@@ -1,11 +1,14 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/utils'
+import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { TABS } from '@/layout/nav'
 
 /** Phone-only bottom tab bar, padded for the iPhone home indicator. */
 export function TabBar() {
+  // pinned to the real bottom of the screen even when Safari leaves the page shorter than it
+  const { bottomGap } = useVisualViewport()
   return (
-    <nav className="h-tabbar pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur md:hidden">
+    <nav className="h-tabbar pb-safe fixed inset-x-0 z-30 border-t border-border bg-surface/95 backdrop-blur md:hidden" style={{ bottom: -bottomGap }}>
       <div className="grid h-[4.25rem] grid-cols-5">
         {TABS.map((t) => (
           <NavLink
