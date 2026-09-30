@@ -8,11 +8,10 @@ import { usePrefs } from '@/store/prefs'
 import { d, type Decimal } from '@/domain/money'
 import type { NetWorthResult } from '@/domain/networth'
 
-/** Each asset class and the page that lists what is inside it. */
+/** Each asset class and the page that lists what is inside it. Investments = stocks and funds plus Clouds, as on the Investments page. */
 const CLASS_META = [
   { key: 'accounts', label: 'Accounts', color: '#2f6bff', to: '/accounts' },
   { key: 'certificates', label: 'Certificates', color: '#eab308', to: '/certificates' },
-  { key: 'clouds', label: 'Clouds', color: '#06b6d4', to: '/investments' },
   { key: 'investments', label: 'Investments', color: '#8b5cf6', to: '/investments' },
   { key: 'gold', label: 'Gold', color: '#c08a06', to: '/gold' },
   { key: 'receivables', label: 'Owed to me', color: '#16a34a', to: '/debts' },
@@ -32,7 +31,7 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
   const privacy = usePrefs((s) => s.privacy)
   const navigate = useNavigate()
 
-  const byClass: Slice[] = CLASS_META.map((m) => ({ ...m, value: nw.byClass[m.key] })).filter((x) => x.value.gt(0))
+  const byClass: Slice[] = CLASS_META.map((m) => ({ ...m, value: m.key === 'investments' ? nw.byClass.investments.plus(nw.byClass.clouds) : nw.byClass[m.key] })).filter((x) => x.value.gt(0))
   const byCurrency: Slice[] = Object.entries(nw.byCurrency)
     .filter(([, v]) => v.gt(0))
     .sort((a, b) => b[1].comparedTo(a[1]))
