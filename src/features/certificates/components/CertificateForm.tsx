@@ -47,7 +47,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
     setNotes(initial?.notes ?? '')
     setClosed(initial?.is_closed ?? false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial])
+  }, [open, initial?.id])
 
   const payoutSubs = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
   // the payout account must hold the certificate's currency; a stale choice from another currency is never sent

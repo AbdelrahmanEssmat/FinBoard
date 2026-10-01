@@ -6,7 +6,7 @@ import { Amount, PageHeader } from '@/components/shared'
 import { useHoldings, useInvestmentCategories } from '@/api/queries'
 import { useUpdateRows } from '@/api/mutations'
 import { useConvert } from '@/hooks/useMoney'
-import { d, type Decimal } from '@/domain/money'
+import { d, parseAmount, type Decimal } from '@/domain/money'
 import { formatPercent } from '@/domain/format'
 import { isPriceFresh } from '@/domain/investments'
 import { toast } from '@/store/toasts'
@@ -36,12 +36,10 @@ export default function UpdatePricesPage() {
   const [typed, setTyped] = useState<Record<string, string>>({})
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
-
   /** New per-unit price for a holding, or null when nothing valid was typed (a blank field means "same as before"). */
   const newPrice = (h: Holding): Decimal | null => {
-    const raw = typed[h.id]?.trim().replace(/,/g, '')
-    if (!raw || !/^\d*\.?\d+$|^\d+\.$/.test(raw)) return null
-    const n = d(raw)
+    const n = parseAmount(typed[h.id])
+    if (!n || n.isNegative()) return null
     return mode === 'unit' ? n : n.div(d(h.units))
   }
   const hasMoved = (h: Holding) => {
@@ -61,6 +59,9 @@ export default function UpdatePricesPage() {
     setMode(m)
   }
   const changed = holdings.filter(hasMoved)
+  // something typed that isn't a price: don't save (and mark every price as checked) until it's fixed
+  const badEntry = (h: Holding) => Boolean(typed[h.id]?.trim()) && newPrice(h) === null
+  const invalid = holdings.some(badEntry)
   const freshCount = holdings.filter((h) => isPriceFresh(h.price_updated_at)).length
 
   const before = holdings.reduce((a, h) => a.plus(toDisplayOrZero(d(h.units).times(d(h.current_price)), h.currency)), d(0))
@@ -68,11 +69,13 @@ export default function UpdatePricesPage() {
   const delta = after.minus(before)
 
   const save = async () => {
-    if (!holdings.length) return
+    if (!holdings.length || invalid) return
     const now = new Date().toISOString()
     const changedIds = new Set(changed.map((h) => h.id))
     await update.mutateAsync(
-      holdings.map((h) => (changedIds.has(h.id) ? { id: h.id, current_price: newPrice(h)!.toFixed(6), price_updated_at: now } : { id: h.id, price_updated_at: now })),
+      holdings.map((h) =>
+        changedIds.has(h.id) ? { id: h.id, current_price: newPrice(h)!.toFixed(6), price_updated_at: now } : { id: h.id, price_updated_at: now },
+      ),
     )
     const unchanged = holdings.length - changed.length
     toast.success(
@@ -91,7 +94,7 @@ export default function UpdatePricesPage() {
         subtitle={holdings.length ? `${freshCount} of ${holdings.length} checked today` : undefined}
         action={
           holdings.length ? (
-            <Button size="sm" onClick={save} loading={update.isPending}>
+            <Button size="sm" onClick={save} loading={update.isPending} disabled={invalid}>
               {changed.length ? `Save (${changed.length})` : 'Done'}
             </Button>
           ) : undefined
@@ -99,7 +102,7 @@ export default function UpdatePricesPage() {
       />
 
       {!holdings.length ? (
-        <Card padded className="text-sm text-muted">
+        <Card padded className="text-muted text-sm">
           No open stocks or funds. Add one from Investments.
         </Card>
       ) : (
@@ -108,7 +111,7 @@ export default function UpdatePricesPage() {
             {/* the change (or hint) moves under the total when both don't fit on one line */}
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
               <div>
-                <div className="text-xs font-medium text-muted">Stocks &amp; funds</div>
+                <div className="text-muted text-xs font-medium">Stocks &amp; funds</div>
                 <Amount value={after} currency={display} size="lg" className="mt-1 block" />
               </div>
               {changed.length ? (
@@ -117,7 +120,7 @@ export default function UpdatePricesPage() {
                   {!before.isZero() ? <div className="text-xs font-medium">{formatPercent(delta.div(before).times(100))}</div> : null}
                 </div>
               ) : (
-                <span className="shrink-0 text-xs text-muted">Type only what moved</span>
+                <span className="text-muted shrink-0 text-xs">Type only what moved</span>
               )}
             </div>
           </Card>
@@ -148,9 +151,9 @@ export default function UpdatePricesPage() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium">
                         {h.name}
-                        {h.ticker ? <span className="ml-1.5 text-xs font-normal text-muted">{h.ticker}</span> : null}
+                        {h.ticker ? <span className="text-muted ml-1.5 text-xs font-normal">{h.ticker}</span> : null}
                       </span>
-                      <span className="mt-1 block truncate text-xs text-muted">
+                      <span className="text-muted mt-1 block truncate text-xs">
                         {mode === 'unit' ? <Amount value={was} currency={h.currency} size="sm" /> : privacy ? '••• units' : `${d(h.units).toString()} units`}
                         {cat ? ` · ${cat}` : ''}
                       </span>
@@ -167,7 +170,8 @@ export default function UpdatePricesPage() {
                         inputMode="decimal"
                         enterKeyHint={i === holdings.length - 1 ? 'done' : 'next'}
                         aria-label={`${mode === 'unit' ? 'New price' : 'Total value'} for ${h.name}`}
-                        className={cn('tnum h-11 text-right', moved && 'border-accent')}
+                        className={cn('tnum h-11 text-right', moved && 'border-accent', badEntry(h) && 'border-negative')}
+                        aria-invalid={badEntry(h)}
                         placeholder={privacy ? '' : mode === 'unit' ? was.toFixed(2) : was.times(d(h.units)).toFixed(2)}
                         value={typed[h.id] ?? ''}
                         onChange={(e) => setTyped({ ...typed, [h.id]: e.target.value })}
@@ -179,7 +183,12 @@ export default function UpdatePricesPage() {
                           else e.currentTarget.blur()
                         }}
                       />
-                      <span className={cn('mt-1 h-4 whitespace-nowrap text-[11px] font-medium', pct?.gt(0) ? 'text-positive' : pct?.lt(0) ? 'text-negative' : 'text-faint')}>
+                      <span
+                        className={cn(
+                          'mt-1 h-4 text-[11px] font-medium whitespace-nowrap',
+                          pct?.gt(0) ? 'text-positive' : pct?.lt(0) ? 'text-negative' : 'text-faint',
+                        )}
+                      >
                         {moved && valueDelta ? (
                           <>
                             {pct ? formatPercent(pct) + ' · ' : ''}
@@ -196,7 +205,7 @@ export default function UpdatePricesPage() {
             })}
           </Card>
 
-          <Button full size="lg" onClick={save} loading={update.isPending}>
+          <Button full size="lg" onClick={save} loading={update.isPending} disabled={invalid}>
             {changed.length ? `Save ${changed.length} change${changed.length === 1 ? '' : 's'}` : 'Mark all as checked'}
           </Button>
         </div>

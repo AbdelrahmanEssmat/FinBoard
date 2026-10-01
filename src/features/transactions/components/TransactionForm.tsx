@@ -249,6 +249,10 @@ export function TransactionForm({
                 { value: 'transfer', label: 'Transfer' },
               ]}
             />
+          ) : initial.source === 'detached_transfer' ? (
+            <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
+              Money moved to or from a balance you deleted. It is kept so this balance stays correct, and is not counted as income or spending.
+            </p>
           ) : (
             <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
               Created automatically from a{' '}

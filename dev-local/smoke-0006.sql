@@ -79,8 +79,9 @@ select pg_temp.ok('the deposit is gone from the balance', pg_temp.bal((select th
 select sell_holding('80000000-0000-0000-0000-000000000001', 1000, 13, '2026-09-25', 0, (select thndr_cash from ids));
 delete from holdings where id = '80000000-0000-0000-0000-000000000001';
 select pg_temp.ok('the sale money stays in the account after the holding is deleted', pg_temp.bal((select thndr_cash from ids)) = 13000);
-select pg_temp.fails('a balance that received sale money cannot be deleted',
-  format('delete from sub_accounts where id = %L', (select thndr_cash from ids)), '%Archive it instead%');
+delete from sub_accounts where id = (select thndr_cash from ids);
+select pg_temp.ok('a balance that received sale money can be deleted (0013)',
+  not exists (select 1 from sub_accounts where id = (select thndr_cash from ids)));
 select pg_temp.ok('every stored balance equals opening balance + its transactions',
   not exists (select 1 from sub_accounts s where s.balance <> balance_as_of(s.id, '9999-12-31')));
 \echo 'ALL 0006 CHECKS PASSED'

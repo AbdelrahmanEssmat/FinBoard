@@ -126,7 +126,7 @@ function BudgetForm({ open, onClose, initial }: { open: boolean; onClose: () => 
     setAmount(initial ? String(initial.amount) : '')
     setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial])
+  }, [open, initial?.id])
 
   const save = async () => {
     if (!categoryId || !d(amount).gt(0)) return

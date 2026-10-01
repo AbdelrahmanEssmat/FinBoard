@@ -44,6 +44,16 @@ describe('insights', () => {
     expect(categoryBreakdown(withDebt, sep, 'income', categories, toBase).total.toString()).toBe('20000')
     expect(monthlySeries(withDebt, sep, toBase)[0]!.income.toString()).toBe('20000')
   })
+  it('the side of a transfer left after its other balance was deleted is not income or spending', () => {
+    const withDetached = [
+      ...txs,
+      { id: 'x1', type: 'income' as const, date: '2026-09-04', amount: '3000', currency: 'EGP', category_id: null, source: 'detached_transfer' },
+      { id: 'x2', type: 'expense' as const, date: '2026-09-05', amount: '2000', currency: 'EGP', category_id: null, source: 'detached_transfer' },
+    ]
+    const t = periodTotals(withDetached, sep, toBase)
+    expect(t.income.toString()).toBe('20000')
+    expect(t.expense.toString()).toBe('11000')
+  })
   it("conversion uses each transaction's own date", () => {
     const byDate = (amount: NumericInput, currency: string, date: string) => (currency === 'USD' ? d(amount).times(date < '2026-09-10' ? 48 : 50) : d(amount))
     const t = periodTotals([

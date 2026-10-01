@@ -52,7 +52,7 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
     setAutoPost(initial?.auto_post ?? true)
     setActive(initial?.is_active ?? true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial])
+  }, [open, initial?.id])
 
   const sub = activeSubs.find((s) => s.id === subId)
   const toSub = activeSubs.find((s) => s.id === toSubId)

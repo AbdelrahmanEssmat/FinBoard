@@ -4,7 +4,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'credit_card' | 'other'
 export type TransactionType = 'income' | 'expense' | 'transfer'
-export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment'
+export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment' | 'detached_transfer'
 export type CategoryKind = 'income' | 'expense'
 export type PayoutFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'at_maturity'
 export type PayoutStatus = 'pending' | 'logged' | 'skipped'
@@ -429,6 +429,7 @@ export type Database = {
       }
       generate_certificate_payouts: { Args: { p_certificate_id: string }; Returns: undefined }
       recompute_sub_account_balance: { Args: { p_sub_account_id: string }; Returns: undefined }
+      set_sub_account_balance: { Args: { p_sub_account_id: string; p_balance: string }; Returns: number }
       convert_amount: { Args: { p_user: string; p_amount: number | string; p_from: string; p_to: string; p_date: string }; Returns: number }
     }
     Enums: {

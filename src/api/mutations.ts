@@ -61,6 +61,13 @@ export function cacheRemove(qc: QueryClient, table: TableName, ids: string[]) {
   qc.setQueriesData<unknown>({ queryKey: [table] }, (old: unknown) => (Array.isArray(old) ? (old as AnyRow[]).filter((r) => !ids.includes(r.id)) : old))
 }
 
+/** Rows a delete takes with it that the screens must stop counting at once (an account's balances). */
+function cascadeRows(qc: QueryClient, table: TableName, row: AnyRow): { table: TableName; rows: AnyRow[] } | null {
+  if (table !== 'accounts') return null
+  const subs = qc.getQueryData<AnyRow[]>(['sub_accounts']) ?? []
+  return { table: 'sub_accounts', rows: subs.filter((s) => s.account_id === row.id) }
+}
+
 /** Optimistically mirror the SQL balance trigger for a transaction. */
 export function cacheApplyBalance(qc: QueryClient, tx: Partial<Transaction>, sign: 1 | -1) {
   qc.setQueriesData<SubAccount[]>({ queryKey: ['sub_accounts'] }, (old) => {
@@ -88,8 +95,29 @@ export const RELATED_ON_DELETE: Partial<Record<TableName, TableName[]>> = {
   debts: ['transactions', 'sub_accounts', 'debt_payments'],
   debt_payments: ['debts', 'transactions', 'sub_accounts'],
   contacts: ['debts', 'debt_payments', 'transactions', 'sub_accounts'],
-  accounts: ['sub_accounts', 'transactions', 'certificates', 'certificate_payouts', 'holdings', 'holding_sales', 'card_installment_plans', 'recurring_transactions', 'debts', 'debt_payments', 'accounts'],
-  sub_accounts: ['transactions', 'certificates', 'certificate_payouts', 'holding_sales', 'card_installment_plans', 'recurring_transactions', 'debts', 'debt_payments'],
+  accounts: [
+    'sub_accounts',
+    'transactions',
+    'certificates',
+    'certificate_payouts',
+    'holdings',
+    'holding_sales',
+    'card_installment_plans',
+    'recurring_transactions',
+    'debts',
+    'debt_payments',
+    'accounts',
+  ],
+  sub_accounts: [
+    'transactions',
+    'certificates',
+    'certificate_payouts',
+    'holding_sales',
+    'card_installment_plans',
+    'recurring_transactions',
+    'debts',
+    'debt_payments',
+  ],
   categories: ['transactions', 'recurring_transactions', 'budgets'],
   certificates: ['certificate_payouts', 'transactions', 'sub_accounts'],
   holdings: ['holding_sales', 'transactions', 'sub_accounts'],
@@ -246,23 +274,66 @@ export function useDeleteTransaction() {
 /** Delete any row after a 6-second undo window (optimistic removal, restored on undo). */
 export function useUndoableDelete<T extends TableName>(table: T, opts: { invalidate?: TableName[]; label?: string } = {}) {
   const qc = useQueryClient()
-  return (row: Row<T>, message = `${opts.label ?? 'Item'} deleted`) =>
+  return (row: Row<T>, message = `${opts.label ?? 'Item'} deleted`) => {
+    const r = row as unknown as AnyRow
+    // e.g. a deleted account's balances leave the totals now, not when the undo window ends
+    const cascade = cascadeRows(qc, table, r)
+    const restore = () => {
+      cacheUpsert(qc, table, [r])
+      if (cascade?.rows.length) cacheUpsert(qc, cascade.table, cascade.rows)
+    }
     deleteWithUndo({
       message,
-      apply: () => cacheRemove(qc, table, [(row as unknown as AnyRow).id]),
-      revert: () => cacheUpsert(qc, table, [row as unknown as AnyRow]),
+      apply: () => {
+        cacheRemove(qc, table, [r.id])
+        if (cascade?.rows.length)
+          cacheRemove(
+            qc,
+            cascade.table,
+            cascade.rows.map((x) => x.id),
+          )
+      },
+      revert: restore,
       commit: async () => {
         try {
-          const res = await submit({ kind: 'delete', table, ids: [(row as unknown as AnyRow).id] })
+          const res = await submit({ kind: 'delete', table, ids: [r.id] })
           notifyQueued(res.queued)
         } catch (err) {
-          cacheUpsert(qc, table, [row as unknown as AnyRow])
+          restore()
           reportError(err)
         } finally {
           invalidateRelated(qc, table, RELATED_ON_DELETE, opts.invalidate)
         }
       },
     })
+  }
+}
+
+/**
+ * Set a balance to exactly what it is now. The server puts the difference into the opening
+ * balance (set_sub_account_balance), so transactions stay as they are and the result is exact
+ * even if another device changed the balance meanwhile or the change waits in the offline queue.
+ */
+export function useSetBalance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ sub, balance }: { sub: SubAccount; balance: string }) =>
+      submit({ kind: 'rpc', fn: 'set_sub_account_balance', args: { p_sub_account_id: sub.id, p_balance: balance } }),
+    onMutate: async ({ sub, balance }) => {
+      await qc.cancelQueries({ queryKey: ['sub_accounts'] })
+      const prev = qc.getQueriesData<unknown>({ queryKey: ['sub_accounts'] })
+      const current = (qc.getQueryData<SubAccount[]>(['sub_accounts']) ?? []).find((s) => s.id === sub.id) ?? sub
+      const shift = d(balance).minus(d(current.balance))
+      cacheUpsert(qc, 'sub_accounts', [{ id: sub.id, balance: d(balance).toNumber(), opening_balance: d(current.opening_balance).plus(shift).toNumber() }])
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => invalidateRelated(qc, 'sub_accounts', RELATED_ON_WRITE),
+  })
 }
 
 /** Transaction delete with undo; keeps balances in step. */

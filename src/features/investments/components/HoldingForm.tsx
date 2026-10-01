@@ -7,7 +7,7 @@ import { useUndoableDelete, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
 import { cn } from '@/utils'
-import { d } from '@/domain/money'
+import { d, parseAmount } from '@/domain/money'
 import { formatPercent, todayIso } from '@/domain/format'
 import { openPosition } from '@/domain/investments'
 import type { Holding } from '@/api/database.types'
@@ -19,7 +19,17 @@ type EntryMode = 'unit' | 'total'
  * A stock or fund. Prices can be typed per unit or as totals (what you paid in all / what it is
  * worth now); both are stored per unit.
  */
-export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean; onClose: () => void; initial?: Holding | null; onSell?: (h: Holding) => void }) {
+export function HoldingForm({
+  open,
+  onClose,
+  initial,
+  onSell,
+}: {
+  open: boolean
+  onClose: () => void
+  initial?: Holding | null
+  onSell?: (h: Holding) => void
+}) {
   const { data: accounts } = useAccounts()
   const { data: categories } = useInvestmentCategories()
   const { data: sales } = useHoldingSales()
@@ -59,8 +69,9 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
     setBoughtAt(initial ? (initial.bought_at ?? '') : todayIso())
     setCurrency(initial?.currency ?? DEFAULT_CURRENCY)
     setNotes(initial?.notes ?? '')
+    // only when the sheet opens or another holding is picked, so a price refresh never wipes typing
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial])
+  }, [open, initial?.id])
 
   const u = d(units)
   // per-unit prices that will be saved, whichever way they were typed
@@ -69,7 +80,10 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
   const pos = openPosition({ units: u, avg_cost: unitCost, current_price: unitPrice })
   const mySales = initial ? (sales ?? []).filter((s) => s.holding_id === initial.id) : []
 
-  const valid = !!accountId && !!name.trim() && u.gte(0) && unitCost.gte(0) && unitPrice.gte(0) && (mode === 'unit' || u.gt(0))
+  // every number field must hold a number (empty counts as 0); d() alone would read "12a" as 0
+  const numberOk = (v: string) => v.trim() === '' || parseAmount(v) !== null
+  const typedOk = numberOk(units) && (mode === 'unit' ? numberOk(avgCost) && numberOk(price) : numberOk(totalPaid) && numberOk(totalNow))
+  const valid = !!accountId && !!name.trim() && typedOk && u.gte(0) && unitCost.gte(0) && unitPrice.gte(0) && (mode === 'unit' || u.gt(0))
 
   const switchMode = (m: EntryMode) => {
     if (m === mode) return
@@ -121,7 +135,7 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
         <div className="flex gap-3">
           {initial ? (
             <Button variant="secondary" size="lg" onClick={() => setConfirm(true)} aria-label="Delete">
-              <Trash2 className="h-4 w-4 text-negative" />
+              <Trash2 className="text-negative h-4 w-4" />
             </Button>
           ) : null}
           {canSell ? (
@@ -169,7 +183,7 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
             <Input inputMode="decimal" className="tnum" value={units} onChange={(e) => setUnits(e.target.value)} placeholder="0" />
           </Field>
           <Field label="Currency">
-            <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            <Select value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={mySales.length > 0}>
               {currencies.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.code}
@@ -205,9 +219,10 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
             </Field>
           </div>
         )}
-        {mode === 'total' && !u.gt(0) ? <p className="-mt-3 text-xs text-muted">Enter the units first so the price per unit can be worked out.</p> : null}
+        {mode === 'total' && !u.gt(0) ? <p className="text-muted -mt-3 text-xs">Enter the units first so the price per unit can be worked out.</p> : null}
+        {!typedOk ? <p className="text-negative -mt-3 text-xs">Use numbers only, e.g. 1250 or 12.75.</p> : null}
         {pos.value.gt(0) || pos.cost.gt(0) ? (
-          <div className="space-y-1.5 rounded-2xl bg-surface-2 p-4 text-sm">
+          <div className="bg-surface-2 space-y-1.5 rounded-2xl p-4 text-sm">
             <div className="flex justify-between gap-3">
               <span className="text-muted">{mode === 'unit' ? 'Paid in total' : 'Buy price per unit'}</span>
               <Amount value={mode === 'unit' ? pos.cost : unitCost} currency={currency} />
@@ -216,7 +231,7 @@ export function HoldingForm({ open, onClose, initial, onSell }: { open: boolean;
               <span className="text-muted">{mode === 'unit' ? 'Worth now' : 'Price per unit now'}</span>
               <Amount value={mode === 'unit' ? pos.value : unitPrice} currency={currency} />
             </div>
-            <div className="flex justify-between gap-3 border-t border-border pt-1.5">
+            <div className="border-border flex justify-between gap-3 border-t pt-1.5">
               <span className="font-medium">{pos.pl.gte(0) ? 'Profit so far' : 'Loss so far'}</span>
               <span className={cn('font-semibold', pos.pl.gte(0) ? 'text-positive' : 'text-negative')}>
                 <Amount value={pos.pl} currency={currency} showSign /> {pos.plPct ? `(${formatPercent(pos.plPct)})` : ''}

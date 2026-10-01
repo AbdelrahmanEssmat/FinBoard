@@ -95,7 +95,10 @@ export default function AccountDetailPage() {
 
       <SectionTitle
         action={
-          <button onClick={() => setSubForm({ open: true, sub: null })} className="text-accent -my-1.5 -mr-2 flex min-h-11 items-center gap-1 px-2 text-xs font-medium">
+          <button
+            onClick={() => setSubForm({ open: true, sub: null })}
+            className="text-accent -my-1.5 -mr-2 flex min-h-11 items-center gap-1 px-2 text-xs font-medium"
+          >
             <Plus className="h-3.5 w-3.5" /> Currency
           </button>
         }
@@ -186,7 +189,7 @@ export default function AccountDetailPage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         title="Delete this account?"
-        message="Its balances and their own transactions are deleted too. If it has transfers with other accounts or debt payments, it can't be deleted: archive it instead (Edit account) so your history stays correct."
+        message="Its balances, certificates and holdings go with it, along with their own income and expenses. Transfers with your other accounts stay on their side, so those accounts don't change. Debt repayments, investment sales and interest stay recorded. To keep it but hide it, archive it instead (Edit account)."
         onConfirm={() => {
           deleteAccount(account)
           navigate('/accounts')
@@ -197,6 +200,7 @@ export default function AccountDetailPage() {
         open={subForm.open}
         onClose={() => setSubForm({ open: false })}
         accountId={account.id}
+        isCard={account.type === 'credit_card'}
         initial={subForm.sub ?? null}
         onDelete={subForm.sub ? () => deleteSub(subForm.sub!) : undefined}
       />

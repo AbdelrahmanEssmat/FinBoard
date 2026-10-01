@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { d, roundMoney, sum, toDb, percentChange } from '@/domain/money'
+import { d, parseAmount, roundMoney, sum, toDb, percentChange } from '@/domain/money'
 import { formatMoney, formatNumber, formatDate } from '@/domain/format'
 
 describe('money', () => {
@@ -17,6 +17,22 @@ describe('money', () => {
     expect(roundMoney('-2.345').toString()).toBe('-2.35')
     expect(roundMoney('2.355').toString()).toBe('2.36')
     expect(toDb('10')).toBe('10.0000')
+  })
+  it('reads amounts typed with Arabic digits', () => {
+    expect(d('١٢٣٬٤٥٦٫٧٥').toString()).toBe('123456.75')
+    expect(d('۵۰').toString()).toBe('50')
+  })
+  it('parseAmount accepts only real numbers', () => {
+    expect(parseAmount('1,234.50')!.toString()).toBe('1234.5')
+    expect(parseAmount(' -300 ')!.toString()).toBe('-300')
+    expect(parseAmount('.5')!.toString()).toBe('0.5')
+    expect(parseAmount('12.')!.toString()).toBe('12')
+    expect(parseAmount('٣٠٠')!.toString()).toBe('300')
+    expect(parseAmount('')).toBeNull()
+    expect(parseAmount('abc')).toBeNull()
+    expect(parseAmount('12a')).toBeNull()
+    expect(parseAmount('1.2.3')).toBeNull()
+    expect(parseAmount('-')).toBeNull()
   })
   it('percent change', () => {
     expect(percentChange(100, 125)!.toString()).toBe('25')

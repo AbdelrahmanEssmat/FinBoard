@@ -35,7 +35,8 @@ export function GoldItemForm({ open, onClose, initial }: { open: boolean; onClos
     setWorkmanship(initial && initial.workmanship_cost ? String(initial.workmanship_cost) : '')
     setDate(initial?.purchase_date ?? '')
     setNotes(initial?.notes ?? '')
-  }, [open, initial])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id])
 
   const valid = d(weight).gt(0)
   const save = async () => {

@@ -35,9 +35,10 @@ const inRange = (t: TxLike, r: DateRange) => t.date >= r.from && t.date <= r.to
 /**
  * Real income / spending. Money borrowed or lent (and repayments) and money coming back from
  * selling an investment move cash but are not earned or spent, so they are excluded, as are
- * transfers between own accounts. (Investment profit is reported with the investments.)
+ * transfers between own accounts, including the side of a transfer that is left after the other
+ * balance was deleted ('detached_transfer'). (Investment profit is reported with the investments.)
  */
-const NOT_FLOW = new Set(['debt', 'investment'])
+const NOT_FLOW = new Set(['debt', 'investment', 'detached_transfer'])
 export function isIncome(t: Pick<TxLike, 'type' | 'source'>): boolean {
   return t.type === 'income' && !NOT_FLOW.has(t.source ?? '')
 }

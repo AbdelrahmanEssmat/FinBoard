@@ -6,12 +6,34 @@ Decimal.set({ precision: 30, rounding: Decimal.ROUND_HALF_UP })
 /** Anything the database or a form can hand us. */
 export type NumericInput = Decimal | number | string | null | undefined
 
+/**
+ * Normalise what a person types: Arabic-Indic and Persian digits become 0-9, the Arabic decimal
+ * separator becomes a dot, and grouping (commas, the Arabic thousands separator, spaces, underscores) goes.
+ */
+function cleanNumber(value: string): string {
+  return value
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+    .replace(/٫/g, '.')
+    .replace(/[,٬\s_]/g, '')
+}
+
+/**
+ * A typed amount, or null when the text is empty or not a plain number ("12a", "1.2.3").
+ * Use it to validate form fields: d() quietly turns anything it can't read into 0.
+ */
+export function parseAmount(value: string | null | undefined): Decimal | null {
+  const cleaned = cleanNumber(value ?? '')
+  if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null
+  return new Decimal(cleaned)
+}
+
 /** Build a Decimal safely. Null/undefined/empty/invalid become 0. */
 export function d(value: NumericInput): Decimal {
   if (value instanceof Decimal) return value
   if (value === null || value === undefined || value === '') return new Decimal(0)
   if (typeof value === 'number') return Number.isFinite(value) ? new Decimal(value) : new Decimal(0)
-  const cleaned = value.replace(/[,\s_]/g, '')
+  const cleaned = cleanNumber(value)
   try {
     const n = new Decimal(cleaned)
     return n.isFinite() ? n : new Decimal(0)

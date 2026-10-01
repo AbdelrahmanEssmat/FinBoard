@@ -61,7 +61,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     setMoveMoney(false)
     setSubId(prefs.lastSubAccountId ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial, direction])
+  }, [open, initial?.id, direction])
 
   const subsForCurrency = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
   // keep the chosen balance in the debt's currency whenever the currency or the balances change

@@ -152,16 +152,17 @@ insert into sub_accounts (id, user_id, account_id, currency) values ('20000000-0
 insert into transactions (user_id, type, date, amount, currency, sub_account_id, to_sub_account_id, to_amount, to_currency)
 values ('aaaaaaaa-0000-0000-0000-000000000001', 'transfer', app_today(), 3000, 'EGP', pg_temp.sub('aaaaaaaa-0000-0000-0000-000000000001', 'Cash', 'EGP'),
         '20000000-0000-0000-0000-000000000010', 3000, 'EGP');
-select pg_temp.fails('an account with transfers to other accounts cannot be deleted',
-  $q$delete from accounts where id = '10000000-0000-0000-0000-000000000002'$q$, '%Archive it instead%');
+-- since 0013 an account with transfers to other accounts can be deleted (see smoke-0013); this one is used below
 insert into accounts (id, user_id, name, type) values ('10000000-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000001', 'TwoCur', 'bank');
 insert into sub_accounts (id, user_id, account_id, currency) values
   ('20000000-0000-0000-0000-000000000011', 'aaaaaaaa-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'EGP'),
   ('20000000-0000-0000-0000-000000000012', 'aaaaaaaa-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'USD');
 insert into transactions (user_id, type, date, amount, currency, sub_account_id, to_sub_account_id, to_amount, to_currency)
 values ('aaaaaaaa-0000-0000-0000-000000000001', 'transfer', app_today(), 5000, 'EGP', '20000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000012', 100, 'USD');
-select pg_temp.fails('one balance of an internal transfer cannot be deleted on its own',
-  $q$delete from sub_accounts where id = '20000000-0000-0000-0000-000000000012'$q$, '%Archive it instead%');
+delete from sub_accounts where id = '20000000-0000-0000-0000-000000000012';
+select pg_temp.ok('one balance of an internal transfer can be deleted on its own (0013); the other side keeps its money movement',
+  (select type = 'expense' and amount = 5000 from transactions where sub_account_id = '20000000-0000-0000-0000-000000000011')
+  and (select balance from sub_accounts where id = '20000000-0000-0000-0000-000000000011') = -5000);
 delete from accounts where id = '10000000-0000-0000-0000-000000000003';
 select pg_temp.ok('a whole account with only internal transfers can be deleted', not exists (select 1 from accounts where id = '10000000-0000-0000-0000-000000000003'));
 

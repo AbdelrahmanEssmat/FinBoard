@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Button, ColorPicker, Field, FormStack, IconPicker, Input, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
-import { useAccounts } from '@/api/queries'
+import { useAccounts, useSubAccounts } from '@/api/queries'
 import { newId } from '@/utils/ids'
-import { d, toDb } from '@/domain/money'
+import { d, parseAmount, toDb } from '@/domain/money'
 import type { Account, AccountType } from '@/api/database.types'
 import { ACCOUNT_TYPE_LABELS } from '@/features/accounts/useAccountsWithBalances'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
@@ -41,6 +41,12 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
   const { data: allAccounts } = useAccounts()
   const banks = (allAccounts ?? []).filter((a) => a.type === 'bank' && !a.is_archived && a.id !== initial?.id)
   const isCard = type === 'credit_card'
+  const { data: subs } = useSubAccounts()
+  // a card balance is what you owe (below zero); turning an account with money in it into a card,
+  // or a card into an account, would silently flip what its balances mean
+  const kindFlip = Boolean(initial) && (initial!.type === 'credit_card') !== isCard
+  const flipBlocked = kindFlip && (subs ?? []).some((s) => s.account_id === initial!.id && !d(s.balance).isZero())
+  const start = opening.trim() === '' ? d(0) : parseAmount(opening)
 
   useEffect(() => {
     if (!open) return
@@ -57,10 +63,12 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
     setDueDay(initial?.due_day ? String(initial.due_day) : '')
     setMinPct(initial?.min_payment_pct != null ? String(initial.min_payment_pct) : '5')
     setBankId(initial?.bank_account_id ?? '')
-  }, [open, initial, currencies])
+    // only when the sheet opens or another account is picked, so a background refresh never wipes typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.id])
 
   const save = async () => {
-    if (!name.trim()) return
+    if (!name.trim() || flipBlocked || (!initial && !start)) return
     const id = initial?.id ?? newId()
     const card = isCard
       ? {
@@ -74,12 +82,8 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
     await upsertAccount.mutateAsync([{ id, name: name.trim(), type, color, icon, notes: notes || null, is_archived: archived, ...card }])
     if (!initial) {
       // on a card, what you owe is a balance below zero
-      const start = isCard
-        ? d(opening || 0)
-            .abs()
-            .neg()
-        : d(opening || 0)
-      await upsertSub.mutateAsync([{ id: newId(), account_id: id, currency: firstCurrency, opening_balance: toDb(start), balance: toDb(start) }])
+      const first = isCard ? start!.abs().neg() : start!
+      await upsertSub.mutateAsync([{ id: newId(), account_id: id, currency: firstCurrency, opening_balance: toDb(first), balance: toDb(first) }])
     }
     onClose()
   }
@@ -90,7 +94,13 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
       onClose={onClose}
       title={initial ? 'Edit account' : 'New account'}
       footer={
-        <Button full size="lg" onClick={save} loading={upsertAccount.isPending || upsertSub.isPending} disabled={!name.trim()}>
+        <Button
+          full
+          size="lg"
+          onClick={save}
+          loading={upsertAccount.isPending || upsertSub.isPending}
+          disabled={!name.trim() || flipBlocked || (!initial && !start)}
+        >
           {initial ? 'Save changes' : 'Add account'}
         </Button>
       }
@@ -102,11 +112,15 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
         <Field
           label="Type"
           hint={
-            isCard
-              ? 'Borrowed money: shown as what you owe, never as liquid money'
-              : isLiquidType(type)
-                ? 'Counts as liquid money (spendable any time)'
-                : 'Not counted as liquid money'
+            flipBlocked
+              ? isCard
+                ? 'This account has money in it. Set its balances to 0 first, or add the card as a new account.'
+                : 'This card has a balance. Set it to 0 first, or add a new account instead.'
+              : isCard
+                ? 'Borrowed money: shown as what you owe, never as liquid money'
+                : isLiquidType(type)
+                  ? 'Counts as liquid money (spendable any time)'
+                  : 'Not counted as liquid money'
           }
         >
           <Select
@@ -135,8 +149,15 @@ export function AccountForm({ open, onClose, initial }: { open: boolean; onClose
                 ))}
               </Select>
             </Field>
-            <Field label={isCard ? 'Amount you owe now' : 'Current balance'}>
-              <Input inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" className="tnum" />
+            <Field label={isCard ? 'Amount you owe now' : 'Current balance'} hint={start ? undefined : 'Enter a number'}>
+              <Input
+                inputMode="decimal"
+                aria-invalid={!start}
+                value={opening}
+                onChange={(e) => setOpening(e.target.value)}
+                placeholder="0.00"
+                className="tnum"
+              />
             </Field>
           </div>
         ) : null}
