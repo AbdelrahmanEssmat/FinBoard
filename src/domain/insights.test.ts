@@ -160,3 +160,20 @@ describe('insights', () => {
     expect(ins.find((i) => i.id === 'budgets')!.detail).toBe('Food')
   })
 })
+
+describe('a month in progress', () => {
+  it('the projection is compared with the whole of last month', () => {
+    const ctx = { txs, range: sep, today: '2026-09-15', toBase, categories, fixedCategoryIds: new Set(['rent']), money: (v: NumericInput) => `E£ ${d(v).toFixed(0)}`, isCurrentMonth: true }
+    const proj = spendingProjection(txs, sep, '2026-09-15', toBase)
+    // the trimmed comparison range (1–11 Aug: 8,000) is for "vs same days"; the projection uses all of August (9,000)
+    const insight = generateInsights({ ...ctx, prevRange: { from: '2026-08-01', to: '2026-08-11' } }).find((i) => i.id === 'projection')!
+    expect(insight.detail).toContain(`E£ ${proj.projected.minus(9000).toFixed(0)} more than last month`)
+  })
+  it('per-day spending and "so far" totals leave out future-dated entries', () => {
+    const withFuture = [...txs, { id: 'f', type: 'expense' as const, date: '2026-09-28', amount: '15000', currency: 'EGP', category_id: 'rent' }]
+    const t = periodTotals(withFuture, sep, toBase, '2026-09-15')
+    expect(t.expense.toString()).toBe('26000')
+    expect(t.expenseToDate.toString()).toBe('11000')
+    expect(t.avgDailySpend.toFixed(2)).toBe(d(11000).div(15).toFixed(2))
+  })
+})

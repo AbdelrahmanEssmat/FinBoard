@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Toggle } from '@/components/ui'
 import { useSubAccounts } from '@/api/queries'
@@ -36,8 +36,10 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
   const [active, setActive] = useState(true)
   const [confirm, setConfirm] = useState(false)
 
+  const skipConvert = useRef(false)
   useEffect(() => {
     if (!open) return
+    skipConvert.current = true
     setName(initial?.name ?? '')
     setType(initial?.type ?? 'expense')
     setAmount(initial ? String(initial.amount) : '')
@@ -54,13 +56,20 @@ export function RecurringForm({ open, onClose, initial }: { open: boolean; onClo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id])
 
-  const sub = activeSubs.find((s) => s.id === subId)
-  const toSub = activeSubs.find((s) => s.id === toSubId)
+  // a rule on an archived balance keeps that balance's currency (it fell back to EGP and every posting failed)
+  const sub = activeSubs.find((s) => s.id === subId) ?? subs?.find((s) => s.id === subId)
+  const toSub = activeSubs.find((s) => s.id === toSubId) ?? subs?.find((s) => s.id === toSubId)
   const currency = sub?.currency ?? DEFAULT_CURRENCY
   const toCurrency = toSub?.currency ?? currency
   const cross = type === 'transfer' && toCurrency !== currency
   // a cross-currency transfer needs the amount that arrives: suggest today's conversion, keep a saved value
   useEffect(() => {
+    // the run in the same render as the reset still sees the previous item's amounts: skip it, or it
+    // overwrites the received amount just loaded (e.g. 100 USD shown as 5,000 USD after editing another transfer)
+    if (skipConvert.current) {
+      skipConvert.current = false
+      return
+    }
     if (!cross || !open) return
     const conv = between(amount || 0, currency, toCurrency)
     const keepSaved = initial && initial.to_amount != null && initial.to_currency === toCurrency && initial.currency === currency

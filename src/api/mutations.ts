@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { submit } from '@/offline/mutate'
 import { deleteWithUndo, toast } from '@/store/toasts'
-import { d } from '@/domain/money'
+import { d, type NumericInput } from '@/domain/money'
 import type { Insert, Row, SubAccount, TableName, Transaction } from '@/api/database.types'
 
 type AnyRow = { id: string } & Record<string, unknown>
@@ -21,6 +21,12 @@ function rowKey(table: TableName, row: Record<string, unknown>): unknown {
 export function rowFitsQuery(table: TableName, key: readonly unknown[], row: AnyRow): boolean | undefined {
   if (table !== 'transactions') return undefined
   if (key[1] === 'yield') return row.source === 'yield'
+  if (key[1] === 'cards') {
+    // a card's activity: anything on or into its balances from the statement start on
+    const ids = String(key[3] ?? '').split(',')
+    const date = row.date as string | undefined
+    return (!date || date >= String(key[2])) && (ids.includes(row.sub_account_id as string) || ids.includes(row.to_sub_account_id as string))
+  }
   const date = row.date as string | undefined
   if (!date) return undefined
   const from = key[1] as string | null | undefined
@@ -40,9 +46,9 @@ export function cacheUpsert(qc: QueryClient, table: TableName, rows: AnyRow[]) {
   for (const [, data] of caches) if (Array.isArray(data)) for (const r of data as AnyRow[]) known.set(rowKey(table, r), r)
   for (const [key, old] of caches) {
     if (old !== undefined && !Array.isArray(old)) continue
-    // named transaction lists other than Cloud interest (payee suggestions, card activity…) have their
+    // named transaction lists other than Cloud interest and card activity (payee suggestions) have their
     // own shape or filter: leave them to the refetch instead of merging rows in as if by date
-    if (table === 'transactions' && typeof key[1] === 'string' && key[1] !== 'yield' && !/^\d{4}-\d{2}-\d{2}$/.test(key[1])) continue
+    if (table === 'transactions' && typeof key[1] === 'string' && key[1] !== 'yield' && key[1] !== 'cards' && !/^\d{4}-\d{2}-\d{2}$/.test(key[1])) continue
     const list = [...((old as AnyRow[] | undefined) ?? [])]
     for (const row of rows) {
       const i = list.findIndex((r) => rowKey(table, r) === rowKey(table, row))
@@ -61,11 +67,58 @@ export function cacheRemove(qc: QueryClient, table: TableName, ids: string[]) {
   qc.setQueriesData<unknown>({ queryKey: [table] }, (old: unknown) => (Array.isArray(old) ? (old as AnyRow[]).filter((r) => !ids.includes(r.id)) : old))
 }
 
-/** Rows a delete takes with it that the screens must stop counting at once (an account's balances). */
-function cascadeRows(qc: QueryClient, table: TableName, row: AnyRow): { table: TableName; rows: AnyRow[] } | null {
-  if (table !== 'accounts') return null
-  const subs = qc.getQueryData<AnyRow[]>(['sub_accounts']) ?? []
-  return { table: 'sub_accounts', rows: subs.filter((s) => s.account_id === row.id) }
+interface Cascade {
+  table: TableName
+  /** cached rows to take off (and put back on) the screens */
+  rows: AnyRow[]
+  /** the money movements whose balance effect goes with them: worked out from the debt and repayment
+   *  records (always loaded), since the transactions themselves may be in a month not loaded yet */
+  balance?: Partial<Transaction>[]
+}
+
+/** Every cached row of a table, from all its list caches (transactions are cached per date range). */
+function cachedRows(qc: QueryClient, table: TableName): AnyRow[] {
+  const seen = new Map<unknown, AnyRow>()
+  for (const [, data] of qc.getQueriesData<unknown>({ queryKey: [table] })) if (Array.isArray(data)) for (const r of data as AnyRow[]) seen.set(r.id, r)
+  return [...seen.values()]
+}
+
+/**
+ * Rows the database removes along with a deleted row, which the screens must stop counting at once
+ * (and, for transactions, whose balance effect must be reversed): an account's balances, a debt's
+ * repayments and money movements, a repayment's money movement, a contact's debts.
+ */
+function cascadeRows(qc: QueryClient, table: TableName, row: AnyRow): Cascade[] {
+  if (table === 'accounts') return [{ table: 'sub_accounts', rows: cachedRows(qc, 'sub_accounts').filter((s) => s.account_id === row.id) }]
+  const debtCascade = (debtIds: Set<unknown>, extraDebts: AnyRow[] = []): Cascade[] => {
+    const debts = new Map<unknown, AnyRow>([...extraDebts, ...cachedRows(qc, 'debts')].filter((x) => debtIds.has(x.id)).map((x) => [x.id, x]))
+    const payments = cachedRows(qc, 'debt_payments').filter((p) => debtIds.has(p.debt_id))
+    const balance: Partial<Transaction>[] = []
+    for (const x of debts.values())
+      if (x.transaction_id && x.sub_account_id)
+        balance.push({ id: x.transaction_id as string, type: x.direction === 'i_owe' ? 'income' : 'expense', amount: x.amount as number, sub_account_id: x.sub_account_id as string })
+    for (const p of payments) balance.push(...paymentMovement(p, debts.get(p.debt_id)))
+    const txIds = new Set<unknown>(balance.map((b) => b.id))
+    const txs = cachedRows(qc, 'transactions').filter((t) => txIds.has(t.id) || (t.source === 'debt' && debtIds.has(t.source_id)))
+    return [
+      { table: 'debt_payments', rows: payments },
+      { table: 'transactions', rows: txs, balance },
+    ]
+  }
+  const paymentMovement = (p: AnyRow, debt: AnyRow | undefined): Partial<Transaction>[] =>
+    p.transaction_id && p.sub_account_id && debt
+      ? [{ id: p.transaction_id as string, type: debt.direction === 'owed_to_me' ? 'income' : 'expense', amount: p.amount as number, sub_account_id: p.sub_account_id as string }]
+      : []
+  if (table === 'debts') return debtCascade(new Set([row.id]), [row])
+  if (table === 'contacts') {
+    const debts = cachedRows(qc, 'debts').filter((x) => x.contact_id === row.id)
+    return [{ table: 'debts', rows: debts }, ...debtCascade(new Set(debts.map((x) => x.id)))]
+  }
+  if (table === 'debt_payments' && row.transaction_id) {
+    const debt = cachedRows(qc, 'debts').find((x) => x.id === row.debt_id)
+    return [{ table: 'transactions', rows: cachedRows(qc, 'transactions').filter((t) => t.id === row.transaction_id), balance: paymentMovement(row, debt) }]
+  }
+  return []
 }
 
 /** Optimistically mirror the SQL balance trigger for a transaction. */
@@ -271,27 +324,47 @@ export function useDeleteTransaction() {
   })
 }
 
+/** Whether a transaction is in any cached transaction list (e.g. it came back with a refetch). */
+function txCached(qc: QueryClient, id: string): boolean {
+  return qc.getQueriesData<unknown>({ queryKey: ['transactions'] }).some(([, data]) => Array.isArray(data) && (data as AnyRow[]).some((r) => r.id === id))
+}
+
+/** Put deleted rows back after Undo or a refused delete, without counting anything twice. */
+function restoreRows(qc: QueryClient, table: TableName, row: AnyRow, cascade: Cascade[]) {
+  cacheUpsert(qc, table, [row])
+  for (const c of cascade) {
+    if (c.table === 'transactions') {
+      // a refetch in the meantime may already have brought a transaction (and its balance effect) back
+      const effects = (c.balance ?? c.rows).filter((t) => !txCached(qc, t.id as string))
+      const missing = c.rows.filter((t) => !txCached(qc, t.id))
+      for (const t of effects) cacheApplyBalance(qc, t as Partial<Transaction>, 1)
+      if (missing.length) cacheUpsert(qc, 'transactions', missing)
+    } else if (c.rows.length) cacheUpsert(qc, c.table, c.rows)
+  }
+}
+
 /** Delete any row after a 6-second undo window (optimistic removal, restored on undo). */
 export function useUndoableDelete<T extends TableName>(table: T, opts: { invalidate?: TableName[]; label?: string } = {}) {
   const qc = useQueryClient()
   return (row: Row<T>, message = `${opts.label ?? 'Item'} deleted`) => {
     const r = row as unknown as AnyRow
-    // e.g. a deleted account's balances leave the totals now, not when the undo window ends
+    // what the database removes along with it (an account's balances, a debt's money movements…) leaves
+    // the screens now, not when the undo window ends
     const cascade = cascadeRows(qc, table, r)
     const restore = () => {
-      cacheUpsert(qc, table, [r])
-      if (cascade?.rows.length) cacheUpsert(qc, cascade.table, cascade.rows)
+      restoreRows(qc, table, r, cascade)
+      invalidateRelated(qc, table, RELATED_ON_DELETE, opts.invalidate)
     }
     deleteWithUndo({
       message,
       apply: () => {
+        for (const t of new Set<TableName>([table, ...cascade.map((c) => c.table)])) void qc.cancelQueries({ queryKey: [t] })
+        if (cascade.some((c) => c.table === 'transactions')) void qc.cancelQueries({ queryKey: ['sub_accounts'] })
         cacheRemove(qc, table, [r.id])
-        if (cascade?.rows.length)
-          cacheRemove(
-            qc,
-            cascade.table,
-            cascade.rows.map((x) => x.id),
-          )
+        for (const c of cascade) {
+          if (c.table === 'transactions') for (const t of c.balance ?? c.rows) cacheApplyBalance(qc, t as Partial<Transaction>, -1)
+          if (c.rows.length) cacheRemove(qc, c.table, c.rows.map((x) => x.id))
+        }
       },
       revert: restore,
       commit: async () => {
@@ -299,7 +372,7 @@ export function useUndoableDelete<T extends TableName>(table: T, opts: { invalid
           const res = await submit({ kind: 'delete', table, ids: [r.id] })
           notifyQueued(res.queued)
         } catch (err) {
-          restore()
+          restoreRows(qc, table, r, cascade)
           reportError(err)
         } finally {
           invalidateRelated(qc, table, RELATED_ON_DELETE, opts.invalidate)
@@ -310,9 +383,10 @@ export function useUndoableDelete<T extends TableName>(table: T, opts: { invalid
 }
 
 /**
- * Set a balance to exactly what it is now. The server puts the difference into the opening
- * balance (set_sub_account_balance), so transactions stay as they are and the result is exact
- * even if another device changed the balance meanwhile or the change waits in the offline queue.
+ * Set a balance to exactly what it is now (set_sub_account_balance). On a normal balance the
+ * difference goes into the opening balance; on a Cloud it is a dated "Balance correction" entry, so
+ * interest for past days is not recalculated. Exact even if another device changed the balance
+ * meanwhile or the change waits in the offline queue.
  */
 export function useSetBalance() {
   const qc = useQueryClient()
@@ -324,7 +398,11 @@ export function useSetBalance() {
       const prev = qc.getQueriesData<unknown>({ queryKey: ['sub_accounts'] })
       const current = (qc.getQueryData<SubAccount[]>(['sub_accounts']) ?? []).find((s) => s.id === sub.id) ?? sub
       const shift = d(balance).minus(d(current.balance))
-      cacheUpsert(qc, 'sub_accounts', [{ id: sub.id, balance: d(balance).toNumber(), opening_balance: d(current.opening_balance).plus(shift).toNumber() }])
+      cacheUpsert(qc, 'sub_accounts', [
+        current.yield_rate != null
+          ? { id: sub.id, balance: d(balance).toNumber() }
+          : { id: sub.id, balance: d(balance).toNumber(), opening_balance: d(current.opening_balance).plus(shift).toNumber() },
+      ])
       return { prev }
     },
     onError: (err, _v, ctx) => {
@@ -332,37 +410,217 @@ export function useSetBalance() {
       reportError(err)
     },
     onSuccess: (res) => notifyQueued(res.queued),
-    onSettled: () => invalidateRelated(qc, 'sub_accounts', RELATED_ON_WRITE),
+    onSettled: () => invalidateRelated(qc, 'sub_accounts', RELATED_ON_WRITE, ['transactions']),
   })
 }
 
 /** Transaction delete with undo; keeps balances in step. */
 export function useUndoableDeleteTransaction() {
   const qc = useQueryClient()
-  return (tx: Transaction) =>
+  return (tx: Transaction) => {
+    const row = tx as unknown as AnyRow
+    // deleting a debt repayment, sale deposit or plan purchase also changes those records on the server
+    const restore = () => {
+      if (!txCached(qc, tx.id)) {
+        cacheApplyBalance(qc, tx, 1)
+        cacheUpsert(qc, 'transactions', [row])
+      }
+    }
     deleteWithUndo({
       message: 'Transaction deleted',
       apply: () => {
+        void qc.cancelQueries({ queryKey: ['transactions'] })
+        void qc.cancelQueries({ queryKey: ['sub_accounts'] })
         cacheApplyBalance(qc, tx, -1)
         cacheRemove(qc, 'transactions', [tx.id])
       },
       revert: () => {
-        cacheApplyBalance(qc, tx, 1)
-        cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
+        restore()
+        invalidateRelated(qc, 'transactions', RELATED_ON_DELETE)
       },
       commit: async () => {
         try {
           const res = await submit({ kind: 'delete', table: 'transactions', ids: [tx.id] })
           notifyQueued(res.queued)
         } catch (err) {
-          cacheApplyBalance(qc, tx, 1)
-          cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
+          restore()
           reportError(err)
         } finally {
           invalidateRelated(qc, 'transactions', RELATED_ON_DELETE)
         }
       },
     })
+  }
+}
+
+/** Snapshot every list cache of these tables, to put back if a change is refused. */
+function snapshot(qc: QueryClient, tables: TableName[]) {
+  return tables.flatMap((t) => qc.getQueriesData<unknown>({ queryKey: [t] }))
+}
+
+/**
+ * Record a debt repayment (record_debt_payment) and show it at once: the payment, its money
+ * movement and the balance change appear immediately, also offline, so the remaining amount and
+ * the overpayment check are right for the next payment. Pass the same ids when retrying.
+ */
+export function useRecordDebtPayment() {
+  const qc = useQueryClient()
+  const tables: TableName[] = ['debt_payments', 'transactions', 'sub_accounts', 'debts']
+  return useMutation({
+    mutationFn: async (input: {
+      debt: { id: string; direction: 'i_owe' | 'owed_to_me'; currency: string; contactName?: string | null }
+      amount: string
+      date: string
+      subAccountId: string | null
+      notes: string | null
+      paymentId: string
+      transactionId: string
+    }) =>
+      submit({
+        kind: 'rpc',
+        fn: 'record_debt_payment',
+        args: {
+          p_debt_id: input.debt.id,
+          p_amount: input.amount,
+          p_date: input.date,
+          p_sub_account_id: input.subAccountId,
+          p_notes: input.notes,
+          p_payment_id: input.paymentId,
+          p_transaction_id: input.transactionId,
+        },
+      }),
+    onMutate: async (input) => {
+      await Promise.all(tables.map((t) => qc.cancelQueries({ queryKey: [t] })))
+      const prev = snapshot(qc, tables)
+      const txId = input.subAccountId ? input.transactionId : null
+      cacheUpsert(qc, 'debt_payments', [
+        { id: input.paymentId, debt_id: input.debt.id, amount: input.amount, date: input.date, sub_account_id: input.subAccountId, transaction_id: txId, notes: input.notes },
+      ])
+      if (txId) {
+        const tx = {
+          id: txId,
+          type: input.debt.direction === 'owed_to_me' ? 'income' : 'expense',
+          date: input.date,
+          amount: input.amount,
+          currency: input.debt.currency,
+          sub_account_id: input.subAccountId,
+          category_id: null,
+          tags: [],
+          notes: `${input.debt.direction === 'owed_to_me' ? 'Repayment from' : 'Repayment to'} ${input.debt.contactName ?? ''}`.trim(),
+          payee: input.debt.contactName ?? null,
+          to_sub_account_id: null,
+          to_amount: null,
+          to_currency: null,
+          source: 'debt',
+          source_id: input.debt.id,
+        } as const
+        cacheApplyBalance(qc, tx as unknown as Partial<Transaction>, 1)
+        cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
+      }
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => tables.forEach((t) => void qc.invalidateQueries({ queryKey: [t] })),
+  })
+}
+
+/**
+ * Sell units of a holding (sell_holding) and show it at once: fewer units, the sale in the history
+ * and the money in the receiving balance appear immediately, also offline, so a second sale or an
+ * edit is checked against what is really left. Pass the same ids when retrying.
+ */
+export function useSellHolding() {
+  const qc = useQueryClient()
+  const tables: TableName[] = ['holdings', 'holding_sales', 'transactions', 'sub_accounts']
+  return useMutation({
+    mutationFn: async (input: {
+      holding: { id: string; name: string; units: NumericInput; avg_cost: NumericInput; currency: string; bought_at: string | null }
+      units: string
+      price: string
+      fees: string
+      date: string
+      subAccountId: string | null
+      notes: string | null
+      saleId: string
+      transactionId: string
+    }) =>
+      submit({
+        kind: 'rpc',
+        fn: 'sell_holding',
+        args: {
+          p_holding_id: input.holding.id,
+          p_units: input.units,
+          p_price: input.price,
+          p_date: input.date,
+          p_fees: input.fees,
+          p_sub_account_id: input.subAccountId,
+          p_notes: input.notes,
+          p_sale_id: input.saleId,
+          p_transaction_id: input.transactionId,
+        },
+      }),
+    onMutate: async (input) => {
+      await Promise.all(tables.map((t) => qc.cancelQueries({ queryKey: [t] })))
+      const prev = snapshot(qc, tables)
+      const h = input.holding
+      const left = d(h.units).minus(d(input.units))
+      const cost = d(h.avg_cost).times(d(input.units)).toDecimalPlaces(4)
+      const proceeds = d(input.units).times(d(input.price)).minus(d(input.fees)).toDecimalPlaces(4)
+      const txId = input.subAccountId && proceeds.gt(0) ? input.transactionId : null
+      cacheUpsert(qc, 'holdings', [{ id: h.id, units: left.toNumber(), closed_at: left.isZero() ? input.date : null }])
+      cacheUpsert(qc, 'holding_sales', [
+        {
+          id: input.saleId,
+          holding_id: h.id,
+          date: input.date,
+          units: input.units,
+          sell_price: input.price,
+          fees: input.fees,
+          avg_cost: h.avg_cost,
+          cost_basis: cost.toNumber(),
+          proceeds: proceeds.toNumber(),
+          realized: proceeds.minus(cost).toNumber(),
+          currency: h.currency,
+          bought_at: h.bought_at,
+          sub_account_id: txId ? input.subAccountId : null,
+          transaction_id: txId,
+          notes: input.notes,
+        },
+      ])
+      if (txId) {
+        const tx = {
+          id: txId,
+          type: 'income',
+          date: input.date,
+          amount: proceeds.toNumber(),
+          currency: h.currency,
+          sub_account_id: input.subAccountId,
+          category_id: null,
+          tags: [],
+          notes: `Sold ${d(input.units).toString()} ${h.name}`,
+          payee: h.name,
+          to_sub_account_id: null,
+          to_amount: null,
+          to_currency: null,
+          source: 'investment',
+          source_id: h.id,
+        } as const
+        cacheApplyBalance(qc, tx as unknown as Partial<Transaction>, 1)
+        cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
+      }
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => tables.forEach((t) => void qc.invalidateQueries({ queryKey: [t] })),
+  })
 }
 
 /** Call a Postgres function; queued offline if needed. */

@@ -30,7 +30,9 @@ export default function CertificatesPage() {
     const perMonth = c.payout_frequency === 'monthly' ? per : c.payout_frequency === 'quarterly' ? per.div(3) : c.payout_frequency === 'semi_annual' ? per.div(6) : c.payout_frequency === 'annual' ? per.div(12) : d(0)
     return a.plus(toDisplayOrZero(perMonth, c.currency))
   }, d(0))
-  const pendingDue = (payouts ?? []).filter((p) => p.status === 'pending' && p.due_date <= today).length
+  // a closed (broken or finished) certificate pays nothing more: its leftover schedule isn't waiting to be logged
+  const closedIds = new Set(closed.map((c) => c.id))
+  const pendingDue = (payouts ?? []).filter((p) => p.status === 'pending' && p.due_date <= today && !closedIds.has(p.certificate_id)).length
 
   return (
     <div className="anim-fade-up">

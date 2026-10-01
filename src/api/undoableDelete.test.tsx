@@ -75,3 +75,31 @@ describe('deleting with undo', () => {
     expect(useToasts.getState().toasts).toHaveLength(0)
   })
 })
+
+describe('deleting a debt', () => {
+  it('takes its money movements and repayments off the screens at once, and Undo puts them back exactly', () => {
+    vi.useFakeTimers()
+    const qc = new QueryClient()
+    qc.setQueryData(['sub_accounts'], [{ id: 'bank', balance: 4000 }])
+    const debt = { id: 'debt1', contact_id: 'c1', direction: 'owed_to_me', amount: 5000, sub_account_id: 'bank', transaction_id: 'lend' }
+    qc.setQueryData(['debts'], [debt])
+    qc.setQueryData(['debt_payments'], [{ id: 'pay1', debt_id: 'debt1', amount: 1000, sub_account_id: 'bank', transaction_id: 'repay' }])
+    // lent 5,000 from the bank in September (that month isn't loaded), 1,000 repaid in October → bank 4,000 (from 8,000)
+    qc.setQueryData(['transactions', '2026-10-01', '2026-10-31'], [
+      { id: 'repay', type: 'income', amount: 1000, sub_account_id: 'bank', source: 'debt', source_id: 'debt1', date: '2026-10-02' },
+      { id: 'other', type: 'expense', amount: 10, sub_account_id: 'bank', source: 'manual', date: '2026-10-02' },
+    ])
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    const { result } = renderHook(() => useUndoableDelete('debts', { label: 'Debt' }), { wrapper })
+    const bank = () => qc.getQueryData<{ balance: number }[]>(['sub_accounts'])![0]!.balance
+    const txIds = () => qc.getQueryData<{ id: string }[]>(['transactions', '2026-10-01', '2026-10-31'])!.map((t) => t.id)
+    act(() => result.current(debt as never))
+    expect(bank()).toBe(8000)
+    expect(txIds()).toEqual(['other'])
+    expect(ids(qc, 'debt_payments')).toEqual([])
+    act(() => useToasts.getState().toasts[0]!.undo!())
+    expect(bank()).toBe(4000)
+    expect(txIds().sort()).toEqual(['other', 'repay'])
+    expect(ids(qc, 'debt_payments')).toEqual(['pay1'])
+  })
+})

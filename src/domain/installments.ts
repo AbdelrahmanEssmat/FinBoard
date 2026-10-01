@@ -70,10 +70,15 @@ export function installmentPlan(debt: DebtLike, payments: PaymentLike[], today: 
     for (let i = 0; i < count; i++) {
       const due = format(addPeriod(parseISO(debt.plan_start_date), debt.plan_frequency, i), 'yyyy-MM-dd')
       const isLast = i === count - 1
-      const amount = isLast ? Decimal.max(total.minus(running), 0) : per
+      // never schedule more than is owed (a debt edited down after its plan was set): each installment is
+      // capped at what's left, and the last one takes the remainder
+      const left = Decimal.max(total.minus(running), 0)
+      const amount = isLast ? left : Decimal.min(per, left)
       items.push({ dueDate: due, amount })
       running = running.plus(amount)
     }
+    // installments left with nothing to pay are dropped
+    while (items.length > 1 && items[items.length - 1]!.amount.isZero()) items.pop()
   } else if (debt.due_date) {
     items.push({ dueDate: debt.due_date, amount: total })
   } else {

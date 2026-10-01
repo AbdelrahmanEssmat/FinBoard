@@ -37,7 +37,8 @@ export default function CertificateDetailPage() {
   const matureIn = daysUntil(cert.maturity_date, today)
   const per = payoutAmount(cert)
   const expected = totalExpectedInterest(cert)
-  const pendingDue = mine.filter((p) => p.status === 'pending' && p.due_date <= today)
+  // nothing is waiting once the certificate is closed (each row can still be logged by hand)
+  const pendingDue = cert?.is_closed ? [] : mine.filter((p) => p.status === 'pending' && p.due_date <= today)
   const payoutSubs = (subs ?? []).filter((s) => !s.is_archived && s.currency === cert.currency)
 
   const doLog = async () => {

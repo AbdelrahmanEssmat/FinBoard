@@ -31,7 +31,8 @@ export function useClouds() {
     const accMap = byId(accounts)
     const monthStart = startOfMonthIso()
     return (subs ?? [])
-      .filter((s) => s.yield_rate !== null && s.yield_frequency && !s.is_archived)
+      // a Cloud in an archived account is hidden like one archived itself (net worth and interest skip both)
+      .filter((s) => s.yield_rate !== null && s.yield_frequency && !s.is_archived && !accMap.get(s.account_id)?.is_archived)
       .map((s) => {
         const freq = (s.yield_frequency === 'daily' ? 'daily' : 'monthly') as YieldFrequency
         const mine = (yieldTxs ?? []).filter((t) => t.source === 'yield' && t.sub_account_id === s.id)

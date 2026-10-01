@@ -66,13 +66,31 @@ export function useCreditCards() {
               unbilledAtStatement: unbilledInstallments(onPrimary, sd, statementDate!),
             })
           : null
+      // an installment purchase made since the statement is in its spending in full, but only its first
+      // installment goes on the next statement
+      const shownStatement =
+        statement && sd
+          ? {
+              ...statement,
+              newSpending: Decimal.max(
+                0,
+                statement.newSpending.minus(
+                  unbilledInstallments(
+                    onPrimary.filter((p) => p.purchase_date > statement.statementDate && p.purchase_date <= today),
+                    sd,
+                    statement.nextStatementDate,
+                  ),
+                ),
+              ),
+            }
+          : statement
       return {
         account,
         primary,
         subs: mine,
         currency,
         usage,
-        statement,
+        statement: shownStatement,
         plans: cardPlans.map((plan) => ({ plan, progress: sd ? planProgress(plan, sd, today) : null })),
         unbilled: sd ? unbilledInstallments(onPrimary, sd, today) : d(0),
         installmentsThisStatement: sd && statementDate ? installmentsOnStatement(onPrimary, sd, statementDate) : d(0),

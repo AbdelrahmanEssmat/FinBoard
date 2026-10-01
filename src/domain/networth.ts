@@ -107,8 +107,9 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
   let receivables = new Decimal(0)
   let liabilities = new Decimal(0)
   for (const debt of input.debts) {
-    if (debt.status !== 'open') continue
+    // open = not fully paid (the database's rule), so a debt changed on this device counts before the refetch
     const remaining = debtProgress({ amount: debt.amount }, input.paymentsByDebt[debt.id] ?? []).remaining
+    if (remaining.lte(0)) continue
     const v = conv(remaining, debt.currency)
     if (debt.direction === 'owed_to_me') receivables = receivables.plus(v)
     else liabilities = liabilities.plus(v)

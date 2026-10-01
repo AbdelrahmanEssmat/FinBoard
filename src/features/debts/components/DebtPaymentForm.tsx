@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AmountInput, Button, Field, Input, Select, Sheet, Textarea } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useSubAccounts } from '@/api/queries'
-import { useRpc } from '@/api/mutations'
+import { useRecordDebtPayment } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { newId } from '@/utils/ids'
-import { d, toDb } from '@/domain/money'
+import { d, Decimal, toDb } from '@/domain/money'
 import { todayIso } from '@/domain/format'
 import { useDebtViews } from '@/features/debts/useDebtViews'
 import { BalanceOptions } from '@/features/accounts/components/BalanceOptions'
@@ -20,7 +20,9 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
   const privacy = usePrefs((s) => s.privacy)
-  const record = useRpc('record_debt_payment', ['debt_payments', 'debts', 'transactions', 'sub_accounts'])
+  const record = useRecordDebtPayment()
+  // fixed per opening: a retried Save records the payment once, never twice
+  const ids = useRef({ payment: '', tx: '' })
 
   const [selected, setSelected] = useState(debtId ?? '')
   const [amount, setAmount] = useState('')
@@ -31,6 +33,7 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
 
   useEffect(() => {
     if (!open) return
+    ids.current = { payment: newId(), tx: newId() }
     setSelected(debtId ?? openDebts[0]?.id ?? '')
     setAmount('')
     setDate(todayIso())
@@ -41,7 +44,8 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
 
   // Prefill with the next installment (or the whole remainder) whenever the sheet opens or the debt changes
   useEffect(() => {
-    if (open && debt) setAmount(debt.next ? debt.next.amount.minus(debt.next.paid).toString() : debt.remaining.toString())
+    // never more than is left, even if the plan's installment is bigger
+    if (open && debt) setAmount((debt.next ? Decimal.min(debt.next.amount.minus(debt.next.paid), debt.remaining) : debt.remaining).toString())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, debt?.id])
 
@@ -61,13 +65,13 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
   const save = async () => {
     if (!valid || !debt) return
     await record.mutateAsync({
-      p_debt_id: debt.id,
-      p_amount: toDb(amount),
-      p_date: date,
-      p_sub_account_id: effectiveSubId || null,
-      p_notes: notes.trim() || null,
-      p_payment_id: newId(),
-      p_transaction_id: newId(),
+      debt: { id: debt.id, direction: debt.direction, currency: debt.currency, contactName: debt.contact?.name },
+      amount: toDb(amount),
+      date,
+      subAccountId: effectiveSubId || null,
+      notes: notes.trim() || null,
+      paymentId: ids.current.payment,
+      transactionId: ids.current.tx,
     })
     if (effectiveSubId) prefs.remember({ lastSubAccountId: effectiveSubId })
     onClose()

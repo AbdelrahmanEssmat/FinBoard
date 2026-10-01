@@ -5,7 +5,7 @@ import { useAccounts, useSubAccounts } from '@/api/queries'
 import { useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
-import { d, toDb } from '@/domain/money'
+import { d, parseAmount, toDb } from '@/domain/money'
 import { PAYOUT_LABELS, payoutAmount, payoutSchedule } from '@/domain/certificates'
 import { todayIso } from '@/domain/format'
 import type { Certificate, PayoutFrequency } from '@/api/database.types'
@@ -52,7 +52,10 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   const payoutSubs = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
   // the payout account must hold the certificate's currency; a stale choice from another currency is never sent
   const effectivePayoutSubId = payoutSubs.some((s) => s.id === payoutSubId) ? payoutSubId : ''
-  const valid = accountId && name.trim() && d(principal).gt(0) && d(rate).gte(0) && start && maturity && maturity > start && (!autoLog || effectivePayoutSubId)
+  // real numbers only: "27%" used to save 0% and "27,5" saved 275%
+  const principalOk = parseAmount(principal)?.gt(0) ?? false
+  const rateOk = !rate.includes(',') && (parseAmount(rate)?.gte(0) ?? false)
+  const valid = accountId && name.trim() && principalOk && rateOk && start && maturity && maturity > start && (!autoLog || effectivePayoutSubId)
   const preview = valid
     ? {
         amount: payoutAmount({ principal, interest_rate: rate, payout_frequency: frequency, start_date: start, maturity_date: maturity }),
@@ -113,7 +116,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
           <AmountInput value={principal} onChange={setPrincipal} currency={currency} currencies={currencies} onCurrencyChange={setCurrency} />
         </Field>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
-          <Field label="Interest rate (% / year)">
+          <Field label="Interest rate (% / year)" hint={rate.trim() && !rateOk ? "A number like 27 or 27.5" : undefined}>
             <Input inputMode="decimal" className="tnum" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="27" />
           </Field>
           <Field label="Payout">

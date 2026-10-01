@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AmountInput, Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
 import { useAccounts, useCategories, useInstallmentPlans, usePayeeHistory, useSubAccounts } from '@/api/queries'
@@ -7,7 +7,7 @@ import { lastCategoryByParty } from '@/domain/categoryStats'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { formatDate } from '@/domain/format'
 import { Amount } from '@/components/shared'
-import { useSaveTransaction, useUndoableDeleteTransaction } from '@/api/mutations'
+import { useSaveTransaction, useUndoableDeleteTransaction, useUpdateRows } from '@/api/mutations'
 import { useConvert, useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { newId } from '@/utils/ids'
@@ -50,6 +50,7 @@ export function TransactionForm({
   const { between } = useConvert()
   const prefs = usePrefs()
   const save = useSaveTransaction()
+  const updateLinked = useUpdateRows('transactions', { silent: true })
   const remove = useUndoableDeleteTransaction()
   const accMap = useMemo(() => byId(accounts), [accounts])
   const activeSubs = useMemo(() => (subs ?? []).filter((s) => !s.is_archived && !accMap.get(s.account_id)?.is_archived), [subs, accMap])
@@ -84,7 +85,8 @@ export function TransactionForm({
   }, [payeeHistory, type])
 
   const sub = activeSubs.find((s) => s.id === subId) ?? subs?.find((s) => s.id === subId)
-  const toSub = activeSubs.find((s) => s.id === toSubId)
+  // an archived destination still has its own currency (else an edit sent the source currency and was refused)
+  const toSub = activeSubs.find((s) => s.id === toSubId) ?? subs?.find((s) => s.id === toSubId)
   const currency = sub?.currency ?? DEFAULT_CURRENCY
   const toCurrency = toSub?.currency ?? currency
   const crossCurrency = type === 'transfer' && toCurrency !== currency
@@ -98,8 +100,10 @@ export function TransactionForm({
     Boolean(initial && (initial.source === 'debt' || initial.source === 'certificate' || initial.source === 'yield' || initial.source === 'investment')) ||
     Boolean(planOfTx)
 
+  const skipConvert = useRef(false)
   useEffect(() => {
     if (!open) return
+    skipConvert.current = true
     if (initial) {
       setType(initial.type)
       setAmount(String(initial.amount))
@@ -152,6 +156,12 @@ export function TransactionForm({
 
   // suggest converted amount for cross-currency transfers
   useEffect(() => {
+    // the run in the same render as the reset still sees the previous item's amounts: skip it, or it
+    // overwrites the received amount just loaded (e.g. 100 USD shown as 5,000 USD after editing another transfer)
+    if (skipConvert.current) {
+      skipConvert.current = false
+      return
+    }
     if (!crossCurrency || !open) return
     const conv = between(amount || 0, currency, toCurrency)
     // keep the saved received amount only while both currencies are unchanged; otherwise suggest a fresh one
@@ -214,7 +224,13 @@ export function TransactionForm({
       lastCurrency: currency,
       ...(type === 'expense' ? { lastExpenseCategoryId: categoryId } : type === 'income' ? { lastIncomeCategoryId: categoryId } : {}),
     })
-    await save.mutateAsync({ row, previous: initial ?? null })
+    if (initial && linked) {
+      // amount, account, date and type belong to the debt / payout / sale / plan: send only what can change
+      // here, so a stale copy of the rest can never overwrite what that record set
+      await updateLinked.mutateAsync([{ id: initial.id, category_id: row.category_id, tags: row.tags, notes: row.notes, payee: row.payee }])
+    } else {
+      await save.mutateAsync({ row, previous: initial ?? null })
+    }
     onSaved?.()
     onClose()
   }
@@ -232,14 +248,14 @@ export function TransactionForm({
                 <Trash2 className="text-negative h-4 w-4" />
               </Button>
             ) : null}
-            <Button full size="lg" onClick={submit} loading={save.isPending} disabled={!valid}>
+            <Button full size="lg" onClick={submit} loading={save.isPending || updateLinked.isPending} disabled={!valid}>
               {initial ? 'Save changes' : 'Save'}
             </Button>
           </div>
         }
       >
         <div className="space-y-5">
-          {!initial?.source || initial.source === 'manual' ? (
+          {planOfTx ? null : !initial?.source || initial.source === 'manual' ? (
             <Segmented
               value={type}
               onChange={setType}
@@ -249,6 +265,10 @@ export function TransactionForm({
                 { value: 'transfer', label: 'Transfer' },
               ]}
             />
+          ) : initial.source === 'adjustment' ? (
+            <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
+              A balance correction you made. It is not counted as income or spending.
+            </p>
           ) : initial.source === 'detached_transfer' ? (
             <p className="bg-surface-2 text-muted rounded-xl px-3 py-2 text-xs">
               Money moved to or from a balance you deleted. It is kept so this balance stays correct, and is not counted as income or spending.

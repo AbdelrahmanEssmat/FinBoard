@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Field, Input, Sheet } from '@/components/ui'
-import { useGoldPriceTable } from '@/hooks/useGoldPrices'
+import { MANUAL_GOLD_PRICE_HOURS, useGoldPriceTable } from '@/hooks/useGoldPrices'
+import { useGoldPrices } from '@/api/queries'
 import { useUpsert, useDeleteRows } from '@/api/mutations'
 import { useUserId } from '@/app/providers/AuthProvider'
 import { newId } from '@/utils/ids'
@@ -10,18 +11,24 @@ import { KARATS, type Karat } from '@/domain/gold'
 /** Manually set today's EGP price per gram. A blank field keeps the automatic price. */
 export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const prices = useGoldPriceTable()
+  const { data: allPrices } = useGoldPrices()
   const upsert = useUpsert('gold_prices')
   const remove = useDeleteRows('gold_prices')
   const userId = useUserId()
   const [values, setValues] = useState<Record<Karat, string>>({ 24: '', 22: '', 21: '', 18: '' })
 
+  // when the sheet opened: manual prices typed within the 24 hours before count as in force
+  const [openedAt, setOpenedAt] = useState(0)
   useEffect(() => {
     if (!open) return
     setValues({ 24: '', 22: '', 21: '', 18: '' })
+    setOpenedAt(Date.now())
   }, [open])
 
-  // only prices typed in here (automatic prices are also saved under the user's account)
-  const manualRows = KARATS.map((k) => prices.rows[k]).filter((r) => r && r.source === 'manual')
+  // every price typed in here that is still in force, not just the newest per karat: removing only the
+  // newest brought back an older typo (automatic prices are also saved under the user's account)
+  const since = openedAt - MANUAL_GOLD_PRICE_HOURS * 3_600_000
+  const manualRows = (allPrices ?? []).filter((r) => r.source === 'manual' && r.user_id === userId && new Date(r.price_at).getTime() > since)
 
   const save = async () => {
     if (!userId) return
@@ -61,7 +68,7 @@ export function GoldPriceOverrideSheet({ open, onClose }: { open: boolean; onClo
           ))}
         </div>
         {manualRows.length ? (
-          <Button variant="ghost" full loading={remove.isPending} onClick={async () => { await remove.mutateAsync(manualRows.map((r) => r!.id)); onClose() }}>
+          <Button variant="ghost" full loading={remove.isPending} onClick={async () => { await remove.mutateAsync(manualRows.map((r) => r.id)); onClose() }}>
             Remove my overrides
           </Button>
         ) : null}

@@ -32,7 +32,11 @@ export function useMarketData() {
         const [rates, gold] = await Promise.allSettled([
           (async () => {
             const { data: currencies } = await supabase.from('currencies').select('code').eq('is_active', true)
-            return refreshRatesFromClient((currencies ?? []).map((c) => c.code), userId)
+            // plus currencies switched off but still holding money, so their rate never goes stale
+            const codes = new Set((currencies ?? []).map((c) => c.code))
+            for (const t of ['sub_accounts', 'holdings', 'certificates', 'debts'] as const)
+              for (const r of qc.getQueryData<{ currency: string }[]>([t]) ?? []) codes.add(r.currency)
+            return refreshRatesFromClient([...codes], userId)
           })(),
           refreshGoldPrices(userId),
         ])

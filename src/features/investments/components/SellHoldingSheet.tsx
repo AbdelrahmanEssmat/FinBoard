@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useSubAccounts } from '@/api/queries'
-import { useRpc } from '@/api/mutations'
+import { useSellHolding } from '@/api/mutations'
 import { newId } from '@/utils/ids'
 import { cn } from '@/utils'
-import { d } from '@/domain/money'
+import { d, parseAmount } from '@/domain/money'
 import { formatPercent, todayIso } from '@/domain/format'
 import { previewSale } from '@/domain/investments'
 import { daysBetween } from '@/utils/dates'
@@ -20,7 +20,9 @@ type PriceMode = 'unit' | 'total'
 export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boolean; onClose: () => void; holding: Holding | null; onSold?: () => void }) {
   const { data: subs } = useSubAccounts()
   const privacy = usePrefs((s) => s.privacy)
-  const sell = useRpc('sell_holding', ['holdings', 'holding_sales', 'transactions', 'sub_accounts'])
+  const sell = useSellHolding()
+  // fixed per opening: a retried Sell books the same sale once, never twice
+  const ids = useRef({ sale: '', tx: '' })
 
   const [units, setUnits] = useState('')
   const [mode, setMode] = useState<PriceMode>('unit')
@@ -36,6 +38,7 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
 
   useEffect(() => {
     if (!open || !holding) return
+    ids.current = { sale: newId(), tx: newId() }
     setUnits(String(holding.units))
     setMode('unit')
     setPrice(String(holding.current_price))
@@ -59,20 +62,23 @@ export function SellHoldingSheet({ open, onClose, holding, onSold }: { open: boo
   const days = holding.bought_at ? Math.max(0, daysBetween(holding.bought_at, date)) : null
   const tooMany = u.gt(held)
   const effectiveSubId = subsForCurrency.some((s) => s.id === subId) ? subId : ''
-  const valid = u.gt(0) && !tooMany && unitPrice.gte(0) && d(fees || 0).gte(0) && p.proceeds.gte(0) && !!date
+  // every field must hold a real number: "12..5" used to be read as 0 and booked the sale at price 0
+  const numberOk = (v: string, required: boolean) => (v.trim() === '' ? !required : parseAmount(v) !== null)
+  const typedOk = numberOk(units, true) && (mode === 'unit' ? numberOk(price, true) : numberOk(total, true)) && numberOk(fees, false)
+  const valid = typedOk && u.gt(0) && !tooMany && unitPrice.gte(0) && d(fees || 0).gte(0) && p.proceeds.gte(0) && !!date
 
   const save = async () => {
     if (!valid) return
     await sell.mutateAsync({
-      p_holding_id: holding.id,
-      p_units: u.toString(),
-      p_price: priceArg,
-      p_date: date,
-      p_fees: d(fees || 0).toString(),
-      p_sub_account_id: effectiveSubId || null,
-      p_notes: notes.trim() || null,
-      p_sale_id: newId(),
-      p_transaction_id: newId(),
+      holding,
+      units: u.toString(),
+      price: priceArg,
+      fees: d(fees || 0).toString(),
+      date,
+      subAccountId: effectiveSubId || null,
+      notes: notes.trim() || null,
+      saleId: ids.current.sale,
+      transactionId: ids.current.tx,
     })
     toast.success(privacy ? 'Sale booked' : `${p.realized.gte(0) ? 'Profit' : 'Loss'} of ${p.realized.abs().toFixed(2)} ${holding.currency} booked`)
     onSold?.()

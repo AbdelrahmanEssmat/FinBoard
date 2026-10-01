@@ -40,6 +40,9 @@ export function useDebtViews() {
       const next = plan.find((p) => p.status !== 'paid') ?? null
       return {
         ...debt,
+        // the database's rule (settled once the payments cover the amount), worked out here so a debt just
+        // added, raised or repaid on this device (or offline) is listed and counted correctly at once
+        status: prog.remaining.gt(0) ? ('open' as const) : ('settled' as const),
         contact: contactMap.get(debt.contact_id),
         payments: pays,
         paid: prog.paid,
@@ -47,7 +50,7 @@ export function useDebtViews() {
         percent: prog.percent,
         plan,
         next,
-        overdue: debt.status === 'open' && plan.some((p) => p.status === 'overdue'),
+        overdue: prog.remaining.gt(0) && plan.some((p) => p.status === 'overdue'),
         remainingDisplay: toDisplayOrZero(prog.remaining, debt.currency),
       }
     })

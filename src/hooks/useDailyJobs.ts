@@ -44,14 +44,41 @@ export function useDailyJobs() {
     const check = () => {
       if (document.visibilityState === 'visible' && todayIso() !== lastRunDate.current) void run()
     }
+    // Today's net worth snapshot is the one the history and reports use for today: refresh it when
+    // money changes (on this device or another), not only once a day, so the day's last value is kept.
+    const MONEY = new Set(['sub_accounts', 'holdings', 'gold_items', 'gold_prices', 'debts', 'debt_payments', 'certificates', 'exchange_rates'])
+    let dirty = false
+    let pending: number | undefined
+    const snapshot = async () => {
+      window.clearTimeout(pending)
+      pending = undefined
+      if (!dirty || !navigator.onLine) return
+      dirty = false
+      const { error } = await supabase.rpc('snapshot_net_worth')
+      if (error) dirty = true
+      else void qc.invalidateQueries({ queryKey: ['net_worth_snapshots'] })
+    }
+    const unsubscribe = qc.getQueryCache().subscribe((e) => {
+      if (e.type !== 'updated' || e.action.type !== 'success' || !MONEY.has(String(e.query.queryKey[0]))) return
+      dirty = true
+      if (pending === undefined) pending = window.setTimeout(() => void snapshot(), 20_000)
+    })
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') void snapshot()
+    }
+
     check()
     const timer = window.setInterval(check, 60_000)
     document.addEventListener('visibilitychange', check)
+    document.addEventListener('visibilitychange', onHide)
     window.addEventListener('focus', check)
     window.addEventListener('online', check)
     return () => {
+      unsubscribe()
+      window.clearTimeout(pending)
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', check)
+      document.removeEventListener('visibilitychange', onHide)
       window.removeEventListener('focus', check)
       window.removeEventListener('online', check)
     }

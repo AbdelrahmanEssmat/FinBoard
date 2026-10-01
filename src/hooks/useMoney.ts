@@ -3,7 +3,7 @@ import { buildRateTable, convert, DEFAULT_CURRENCY, rateResolver, type RateTable
 import { d, Decimal, type NumericInput } from '@/domain/money'
 import { formatMoney, type FormatMoneyOptions, type CurrencyMeta } from '@/domain/format'
 import { usePrefs } from '@/store/prefs'
-import { useCurrencies, useRates, useSettings } from '@/api/queries'
+import { useCertificates, useCurrencies, useDebts, useHoldings, useRates, useSettings, useSubAccounts } from '@/api/queries'
 
 export function useBaseCurrency(): string {
   const { data } = useSettings()
@@ -15,6 +15,23 @@ export function useDisplayCurrency(): string {
   const base = useBaseCurrency()
   const override = usePrefs((s) => s.displayCurrency)
   return override ?? base
+}
+
+/**
+ * Active currencies plus any switched off but still holding money (a balance, holding, certificate or
+ * debt in it): their rates must keep updating and stay editable, or totals use a stale rate forever.
+ */
+export function useCurrenciesInUse(): CurrencyMeta[] {
+  const { data } = useCurrencies()
+  const { data: subs } = useSubAccounts()
+  const { data: holdings } = useHoldings()
+  const { data: certs } = useCertificates()
+  const { data: debts } = useDebts()
+  return useMemo(() => {
+    const used = new Set<string>([...(subs ?? []), ...(holdings ?? []), ...(certs ?? []), ...(debts ?? [])].map((r) => r.currency))
+    const list = (data ?? []).filter((c) => c.is_active || used.has(c.code)).map((c) => ({ code: c.code, symbol: c.symbol, decimals: c.decimals }))
+    return [...list.filter((c) => c.code === DEFAULT_CURRENCY), ...list.filter((c) => c.code !== DEFAULT_CURRENCY)]
+  }, [data, subs, holdings, certs, debts])
 }
 
 export function useActiveCurrencies(): CurrencyMeta[] {

@@ -26,7 +26,8 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
   const setBalance = useSetBalance()
   const remove = useUndoableDelete('sub_accounts', { invalidate: ['transactions'], label: 'Cloud' })
   const platforms = (accounts ?? []).filter((a) => !a.is_archived && a.type === 'investment')
-  const others = (accounts ?? []).filter((a) => !a.is_archived && a.type !== 'investment')
+  // never a credit card: a Cloud there would be counted as card credit in net worth
+  const others = (accounts ?? []).filter((a) => !a.is_archived && a.type !== 'investment' && a.type !== 'credit_card')
 
   const [accountId, setAccountId] = useState('')
   const [name, setName] = useState('')
@@ -56,7 +57,9 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
   // a new Cloud may start empty; an existing one needs a number so it is never zeroed by accident
   const balance = opening.trim() === '' && !initial ? d(0) : parseAmount(opening)
   const rateOk = parseAmount(rate)?.gte(0) ?? false
-  const valid = Boolean(accountId && name.trim() && rateOk && balance)
+  // a monthly Cloud pays on the day of its first deposit each month: without that date it never pays
+  const sinceMissing = frequency === 'monthly' && !since
+  const valid = Boolean(accountId && name.trim() && rateOk && balance && !sinceMissing)
   const preview = balance?.gt(0) ? projectedMonthlyYield(balance, rate, frequency) : null
   const busy = upsert.isPending || update.isPending || setBalance.isPending
 
@@ -150,7 +153,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
           <Field
             label={frequency === 'monthly' ? 'First deposit date' : 'Start date'}
-            hint={frequency === 'monthly' ? 'Interest lands on this day each month' : 'Interest starts the next day'}
+            hint={sinceMissing ? 'Needed: interest is paid on this day each month' : frequency === 'monthly' ? 'Interest lands on this day each month' : 'Interest starts the next day'}
           >
             <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
           </Field>

@@ -25,7 +25,8 @@ describe('net worth', () => {
         { id: 'd2', direction: 'i_owe', amount: '100', currency: 'USD', status: 'open' }, // 5000
         { id: 'd3', direction: 'i_owe', amount: '999', currency: 'EGP', status: 'settled' },
       ],
-      paymentsByDebt: { d1: [{ amount: '1000', date: '2026-01-01' }] }, // remaining 2000
+      // d3 is fully paid (settled), so it no longer counts
+      paymentsByDebt: { d1: [{ amount: '1000', date: '2026-01-01' }], d3: [{ amount: '999', date: '2026-02-01' }] }, // d1: 2000 left
     })
     expect(r.byClass.accounts.toString()).toBe('15500')
     expect(r.byClass.certificates.toString()).toBe('20000')

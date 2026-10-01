@@ -3,7 +3,7 @@ import { HandCoins, Trash2 } from 'lucide-react'
 import { Button, ConfirmDialog, Field, Input, Segmented, Select, Sheet, Textarea } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useAccounts, useHoldingSales, useInvestmentCategories } from '@/api/queries'
-import { useUndoableDelete, useUpsert } from '@/api/mutations'
+import { useUndoableDelete, useUpdateRows, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
 import { cn } from '@/utils'
@@ -37,6 +37,7 @@ export function HoldingForm({
   const platforms = (accounts ?? []).filter((a) => !a.is_archived && a.type === 'investment')
   const anyAccounts = (accounts ?? []).filter((a) => !a.is_archived)
   const upsert = useUpsert('holdings')
+  const update = useUpdateRows('holdings')
   const remove = useUndoableDelete('holdings', { label: 'Holding', invalidate: ['holding_sales'] })
 
   const [accountId, setAccountId] = useState('')
@@ -103,9 +104,7 @@ export function HoldingForm({
     if (!valid) return
     const newPrice = unitPrice.toFixed(6)
     const priceChanged = !initial || d(initial.current_price).toFixed(6) !== newPrice
-    await upsert.mutateAsync([
-      {
-        id: initial?.id ?? newId(),
+    const row = {
         account_id: accountId,
         category_id: categoryId || null,
         name: name.trim(),
@@ -119,8 +118,28 @@ export function HoldingForm({
         closed_at: u.gt(0) ? null : (initial?.closed_at ?? null),
         notes: notes.trim() || null,
         ...(priceChanged ? { price_updated_at: new Date().toISOString() } : {}),
-      },
-    ])
+      }
+    if (!initial) {
+      await upsert.mutateAsync([{ id: newId(), ...row }])
+    } else {
+      // only the fields that were changed: a sale waiting in the offline queue (or made on another
+      // device) must not have its units overwritten by an edit of, say, the price
+      const before: Record<string, unknown> = {
+        account_id: initial.account_id,
+        category_id: initial.category_id,
+        name: initial.name,
+        ticker: initial.ticker,
+        units: d(initial.units).toFixed(6),
+        avg_cost: d(initial.avg_cost).toFixed(6),
+        current_price: d(initial.current_price).toFixed(6),
+        currency: initial.currency,
+        bought_at: initial.bought_at,
+        closed_at: initial.closed_at,
+        notes: initial.notes,
+      }
+      const patch = Object.fromEntries(Object.entries(row).filter(([k, v]) => k === 'price_updated_at' || before[k] !== v))
+      if (Object.keys(patch).length) await update.mutateAsync([{ id: initial.id, ...patch }])
+    }
     onClose()
   }
 
@@ -143,7 +162,7 @@ export function HoldingForm({
               <HandCoins className="h-4 w-4" /> Sell
             </Button>
           ) : null}
-          <Button full size="lg" onClick={save} loading={upsert.isPending} disabled={!valid}>
+          <Button full size="lg" onClick={save} loading={upsert.isPending || update.isPending} disabled={!valid}>
             Save
           </Button>
         </div>

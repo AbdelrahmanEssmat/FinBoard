@@ -41,3 +41,15 @@ describe('installment plan', () => {
     expect(installmentPlan({ amount: '500' }, [], '2026-09-26')).toHaveLength(0)
   })
 })
+
+describe('a debt edited down after its plan was set', () => {
+  it('never schedules more than is owed, and drops installments with nothing left', () => {
+    // 10,000 as 5 x 2,000, then the debt is lowered to 7,000
+    const plan = installmentPlan({ amount: '7000', plan_count: 5, plan_amount: '2000', plan_frequency: 'monthly', plan_start_date: '2026-01-01' }, [], '2026-01-01')
+    expect(plan.map((p) => p.amount.toString())).toEqual(['2000', '2000', '2000', '1000'])
+  })
+  it('a fully paid debt shows no overdue installment', () => {
+    const plan = installmentPlan({ amount: '7000', plan_count: 5, plan_amount: '2000', plan_frequency: 'monthly', plan_start_date: '2026-01-01' }, [{ amount: '7000', date: '2026-02-01' }], '2026-09-01')
+    expect(plan.every((p) => p.status === 'paid')).toBe(true)
+  })
+})

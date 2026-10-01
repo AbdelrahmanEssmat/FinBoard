@@ -32,6 +32,12 @@ export function nextStatementDate(statementDate: string, statementDay: number): 
   return onDay(y, m + 1, statementDay)
 }
 
+/** The statement before `statementDate`. */
+export function previousStatementDate(statementDate: string, statementDay: number): string {
+  const [y, m] = parts(statementDate)
+  return onDay(y, m - 1, statementDay)
+}
+
 /** The first `dueDay` after the statement date (the same month if it comes later, else the next). */
 export function dueDateAfter(statementDate: string, dueDay: number): string {
   const [y, m] = parts(statementDate)
@@ -103,10 +109,14 @@ export function cardStatement(input: {
   let newSpending = d(0)
   let delta = d(0)
   for (const t of input.activity) {
-    if (t.date <= statementDate || t.date > input.today) continue
+    if (t.date <= statementDate) continue
     const e = effectOn(t, input.subId)
     if (e.isZero()) continue
+    // the stored balance already includes everything dated after the statement, future-dated items
+    // too: take them all out to find what was owed at the statement
     delta = delta.plus(e)
+    // but a payment or purchase dated in the future hasn't happened yet
+    if (t.date > input.today) continue
     if (e.gt(0)) paid = paid.plus(e)
     else newSpending = newSpending.plus(e.neg())
   }
@@ -181,7 +191,9 @@ export function installmentSchedule(plan: InstallmentPlanLike, statementDay: num
   const total = d(plan.principal).plus(d(plan.fees))
   const each = total.div(plan.months).toDecimalPlaces(2, Decimal.ROUND_DOWN)
   const out: Installment[] = []
-  let date = plan.first_billing_date
+  // worked out from the card's current statement day, so changing that day moves the whole schedule
+  // instead of billing one installment on the old day and the next on the new one
+  let date = statementDay ? firstBillingDate(plan.purchase_date, statementDay) : plan.first_billing_date
   for (let n = 1; n <= plan.months; n++) {
     out.push({ n, date, amount: n < plan.months ? each : total.minus(each.times(plan.months - 1)) })
     date = nextStatementDate(date, statementDay)
@@ -223,7 +235,12 @@ export function unbilledInstallments(plans: InstallmentPlanLike[], statementDay:
 /** Installments billed exactly on a statement (what the plans added to it). */
 export function installmentsOnStatement(plans: InstallmentPlanLike[], statementDay: number, statementDate: string): Decimal {
   return plans.reduce((a, p) => {
-    if (p.closed_at && p.closed_at <= statementDate) return a
+    if (p.closed_at && p.closed_at <= statementDate) {
+      // settled early since the previous statement: everything still owed lands on this one
+      const prev = previousStatementDate(statementDate, statementDay)
+      if (p.closed_at <= prev) return a
+      return a.plus(p.purchase_date > prev ? d(p.principal).plus(d(p.fees)) : planProgress({ ...p, closed_at: null }, statementDay, prev).unbilled)
+    }
     const item = installmentSchedule(p, statementDay).find((i) => i.date === statementDate)
     return item ? a.plus(item.amount) : a
   }, d(0))

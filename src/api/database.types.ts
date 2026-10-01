@@ -4,7 +4,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type AccountType = 'bank' | 'cash' | 'investment' | 'wallet' | 'credit_card' | 'other'
 export type TransactionType = 'income' | 'expense' | 'transfer'
-export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment' | 'detached_transfer'
+export type TransactionSource = 'manual' | 'recurring' | 'certificate' | 'debt' | 'yield' | 'investment' | 'detached_transfer' | 'adjustment'
 export type CategoryKind = 'income' | 'expense'
 export type PayoutFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual' | 'at_maturity'
 export type PayoutStatus = 'pending' | 'logged' | 'skipped'

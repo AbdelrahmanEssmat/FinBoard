@@ -36,9 +36,10 @@ const inRange = (t: TxLike, r: DateRange) => t.date >= r.from && t.date <= r.to
  * Real income / spending. Money borrowed or lent (and repayments) and money coming back from
  * selling an investment move cash but are not earned or spent, so they are excluded, as are
  * transfers between own accounts, including the side of a transfer that is left after the other
- * balance was deleted ('detached_transfer'). (Investment profit is reported with the investments.)
+ * balance was deleted ('detached_transfer') and balance corrections ('adjustment'). (Investment profit is
+ * reported with the investments.)
  */
-const NOT_FLOW = new Set(['debt', 'investment', 'detached_transfer'])
+const NOT_FLOW = new Set(['debt', 'investment', 'detached_transfer', 'adjustment'])
 export function isIncome(t: Pick<TxLike, 'type' | 'source'>): boolean {
   return t.type === 'income' && !NOT_FLOW.has(t.source ?? '')
 }
@@ -92,6 +93,9 @@ export interface PeriodTotals {
   avgDailySpend: Decimal
   expenseCount: number
   incomeCount: number
+  /** income and spending dated up to `today` (= income / expense without a `today`): future-dated entries haven't happened yet */
+  incomeToDate: Decimal
+  expenseToDate: Decimal
 }
 
 /** Totals over a range. With `today`, per-day figures count only the days that have happened. */
@@ -100,20 +104,27 @@ export function periodTotals(txs: TxLike[], range: DateRange, toBase: ToBase, to
   let expense = ZERO()
   let expenseCount = 0
   let incomeCount = 0
+  let incomeToDate = ZERO()
+  let expenseToDate = ZERO()
   for (const t of txs) {
     if (!inRange(t, range)) continue
+    const happened = !today || t.date <= today
     if (isIncome(t)) {
-      income = income.plus(toBase(t.amount, t.currency, t.date))
+      const v = toBase(t.amount, t.currency, t.date)
+      income = income.plus(v)
+      if (happened) incomeToDate = incomeToDate.plus(v)
       incomeCount++
     } else if (isExpense(t)) {
-      expense = expense.plus(toBase(t.amount, t.currency, t.date))
+      const v = toBase(t.amount, t.currency, t.date)
+      expense = expense.plus(v)
+      if (happened) expenseToDate = expenseToDate.plus(v)
       expenseCount++
     }
   }
   const end = today && today < range.to ? today : range.to
   const days = Math.max(1, daysBetween(range.from, end) + 1)
   const net = income.minus(expense)
-  return { income, expense, net, savingsRate: income.isZero() ? null : net.div(income).times(100), days, avgDailySpend: expense.div(days), expenseCount, incomeCount }
+  return { income, expense, net, savingsRate: income.isZero() ? null : net.div(income).times(100), days, avgDailySpend: expenseToDate.div(days), expenseCount, incomeCount, incomeToDate, expenseToDate }
 }
 
 export interface CategoryTotal {
@@ -347,10 +358,12 @@ export function generateInsights(ctx: InsightContext): Insight[] {
   if (ctx.isCurrentMonth && cur.expense.gt(0)) {
     const proj = spendingProjection(txs, range, ctx.today, toBase)
     if (proj.daysElapsed >= 5 && proj.daysElapsed < proj.daysInPeriod) {
-      const vsPrev = prev.expense.gt(0) ? proj.projected.minus(prev.expense) : null
+      // a whole-month projection is compared with the whole of last month, not with its first few days
+      const lastMonth = periodTotals(txs, previousRange(range), toBase).expense
+      const vsPrev = lastMonth.gt(0) ? proj.projected.minus(lastMonth) : null
       out.push({
         id: 'projection',
-        tone: vsPrev && vsPrev.gt(prev.expense.times(0.1)) ? 'warn' : 'info',
+        tone: vsPrev && vsPrev.gt(lastMonth.times(0.1)) ? 'warn' : 'info',
         title: `On track to spend about ${money(proj.projected)} this month`,
         detail: `${money(proj.avgDaily)} a day so far` + (vsPrev ? `, ${vsPrev.gte(0) ? money(vsPrev) + ' more' : money(vsPrev.abs()) + ' less'} than last month.` : '.'),
       })

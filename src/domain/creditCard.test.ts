@@ -170,3 +170,36 @@ describe('usage', () => {
     expect(u.utilization).toBeNull()
   })
 })
+
+describe('future-dated card entries', () => {
+  // statement on the 25th; on 25 Sep the card owed 5,000; today is 2 Oct
+  it('a purchase dated next week is not on the current statement', () => {
+    const s = cardStatement({ balance: '-8000', subId: CARD, statementDay: 25, dueDay: 15, minPct: 5, activity: [tx({ date: '2026-10-10', amount: '3000' })], today: '2026-10-02' })
+    expect(s.statementBalance.toString()).toBe('5000')
+    expect(s.minimum.toString()).toBe('250')
+    expect(s.newSpending.toString()).toBe('0')
+  })
+  it('a payment dated next week does not count as paid yet', () => {
+    const pay = tx({ type: 'transfer', sub_account_id: 'bank', to_sub_account_id: CARD, date: '2026-10-14', amount: '5000', to_amount: '5000' })
+    const s = cardStatement({ balance: '0', subId: CARD, statementDay: 25, dueDay: 15, minPct: 5, activity: [pay], today: '2026-10-02' })
+    expect(s.statementBalance.toString()).toBe('5000')
+    expect(s.paid.toString()).toBe('0')
+    expect(s.status).toBe('due')
+  })
+})
+
+describe('changing the statement day', () => {
+  it('moves the whole installment schedule (no double billing)', () => {
+    // bought 20 Sep while the statement day was 25 (stored first billing 25 Sep); the day is now 10
+    const plan = { principal: '12000', fees: '0', months: 12, purchase_date: '2026-09-20', first_billing_date: '2026-09-25' }
+    const dates = installmentSchedule(plan, 10).map((i) => i.date)
+    expect(dates.slice(0, 3)).toEqual(['2026-10-10', '2026-11-10', '2026-12-10'])
+    expect(installmentsOnStatement([plan], 10, '2026-10-10').toString()).toBe('1000')
+  })
+  it('a plan settled early puts everything left on that statement', () => {
+    const plan = { principal: '12000', fees: '0', months: 12, purchase_date: '2026-06-01', first_billing_date: '2026-06-25', closed_at: '2026-09-20' }
+    // billed 25 Jun, Jul, Aug = 3,000; settled 20 Sep, so 9,000 lands on the 25 Sep statement
+    expect(installmentsOnStatement([plan], 25, '2026-09-25').toString()).toBe('9000')
+    expect(installmentsOnStatement([plan], 25, '2026-10-25').toString()).toBe('0')
+  })
+})

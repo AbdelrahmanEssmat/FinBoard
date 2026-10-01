@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Calendar, CloudSun, CreditCard, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
-import { useCertificates, usePayouts, useRecurring, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCertificates, usePayouts, useRecurring, useSubAccounts } from '@/api/queries'
 import { useDebtViews } from '@/features/debts/useDebtViews'
 import { d, type Decimal } from '@/domain/money'
 import { daysUntil } from '@/domain/certificates'
@@ -29,6 +29,7 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
   const { data: certs } = useCertificates()
   const { data: recurring } = useRecurring()
   const { data: subs } = useSubAccounts()
+  const { data: accounts } = useAccounts()
   const { open: openDebts } = useDebtViews()
   const { cards } = useCreditCards()
   const today = todayIso()
@@ -37,6 +38,7 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
     const until = addDaysIso(today, days)
     const items: UpcomingItem[] = []
     const certMap = new Map((certs ?? []).map((c) => [c.id, c]))
+    const archivedAccounts = new Set((accounts ?? []).filter((a) => a.is_archived).map((a) => a.id))
 
     for (const p of payouts ?? []) {
       if (p.status !== 'pending' || p.due_date > until) continue
@@ -50,7 +52,7 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       }
     }
     for (const s of subs ?? []) {
-      if (s.yield_rate === null || s.yield_frequency !== 'monthly' || s.is_archived) continue
+      if (s.yield_rate === null || s.yield_frequency !== 'monthly' || s.is_archived || archivedAccounts.has(s.account_id)) continue
       const next = nextYieldDate(s.yield_since, 'monthly', today)
       if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly'), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments' })
     }
@@ -71,5 +73,5 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       }
     }
     return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit)
-  }, [payouts, certs, subs, openDebts, cards, recurring, today, days, limit])
+  }, [payouts, certs, subs, accounts, openDebts, cards, recurring, today, days, limit])
 }

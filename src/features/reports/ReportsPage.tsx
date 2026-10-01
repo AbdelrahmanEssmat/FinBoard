@@ -62,14 +62,14 @@ export default function ReportsPage() {
               icon={ArrowDownLeft}
               iconClass="text-positive"
               value={<Amount value={r.totals.income} currency={r.display} compact fit />}
-              foot={r.prevTotals.income.gt(0) ? <PrevDelta cur={r.totals.income} prev={r.prevTotals.income} good="up" label={r.prevCompareLabel} /> : undefined}
+              foot={r.prevTotals.income.gt(0) ? <PrevDelta cur={r.totals.incomeToDate} prev={r.prevTotals.income} good="up" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Spending"
               icon={ArrowUpRight}
               iconClass="text-negative"
               value={<Amount value={r.totals.expense} currency={r.display} compact fit />}
-              foot={r.prevTotals.expense.gt(0) ? <PrevDelta cur={r.totals.expense} prev={r.prevTotals.expense} good="down" label={r.prevCompareLabel} /> : undefined}
+              foot={r.prevTotals.expense.gt(0) ? <PrevDelta cur={r.totals.expenseToDate} prev={r.prevTotals.expense} good="down" label={r.prevCompareLabel} /> : undefined}
             />
             <StatCard
               label="Saved"

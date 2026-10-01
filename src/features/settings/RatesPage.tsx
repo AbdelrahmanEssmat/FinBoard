@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Pencil, RefreshCw } from 'lucide-react'
 import { Button, Card, Divider, Field, Input, Pill, Sheet } from '@/components/ui'
 import { ListRow, PageHeader } from '@/components/shared'
-import { useActiveCurrencies, useBaseCurrency, useRateTable } from '@/hooks/useMoney'
+import { useBaseCurrency, useCurrenciesInUse, useRateTable } from '@/hooks/useMoney'
 import { useUpsert } from '@/api/mutations'
 import { useRates } from '@/api/queries'
 import { useUserId } from '@/app/providers/AuthProvider'
@@ -16,7 +16,7 @@ import { toast } from '@/store/toasts'
 
 export default function RatesPage() {
   const base = useBaseCurrency()
-  const currencies = useActiveCurrencies()
+  const currencies = useCurrenciesInUse()
   const { rates, updatedAt, provider } = useRateTable()
   const { data: rows } = useRates()
   const upsert = useUpsert('exchange_rates')
