@@ -54,16 +54,20 @@ It walks you through it:
    FinBoard.
 2. **Linking the folder** to the Vercel project (only the first time): pick the project that serves
    finboard-alpha-beryl.vercel.app, and answer No if it offers to pull environment variables.
-3. **Your Supabase secret key.** In the Supabase dashboard: Project Settings -> **API Keys** ->
-   Secret keys, copy the key that starts with `sb_secret_` (or, on the Legacy API keys tab, the
-   `service_role` key). You paste it hidden; the script checks it works before saving.
+3. **Your Supabase secret key.** Usually nothing to do: the Supabase connection on Vercel already
+   added it, and the script uses that one. Only when there is none (or with `-ReplaceSupabaseKey`)
+   does it ask: in the Supabase dashboard, Project Settings -> **API Keys** -> Secret keys, copy the
+   key that starts with `sb_secret_` (or, on the Legacy API keys tab, the `service_role` key). You
+   paste it hidden; the script checks it works before saving.
 
-It then makes the reminder keys and a password for the daily run, saves everything in Vercel
-(Production, as values nobody can read back), and redeploys the live app (the same version
-that is live now). Nothing secret is written to your computer or shown on screen.
+It then makes the reminder keys and a password for the daily run, saves them in Vercel
+(Production, as values nobody can read back), redeploys the live app (the same version that is
+live now) and checks it: the app hands out the reminder key and the daily run can read the
+database. Nothing secret is written to your computer or shown on screen.
 
 You can run it again any time; it keeps what is already set unless you say otherwise. Replacing
-the **reminder keys** means every device has to turn reminders on again.
+the **reminder keys** means every device has to turn reminders on again. To see what is set up
+without changing anything, add `-CheckOnly`.
 
 The reminders tables come with database migration **0015**; it has to be applied to the live
 database too (the script warns you if it isn't yet).
