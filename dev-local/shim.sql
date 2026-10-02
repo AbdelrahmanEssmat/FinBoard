@@ -19,17 +19,35 @@ create table if not exists auth.users (
   created_at timestamptz default now()
 );
 
+-- same as Supabase's own definitions: an empty setting means nobody is signed in
 create or replace function auth.uid() returns uuid language sql stable as $$
-  select nullif(coalesce(
-    current_setting('request.jwt.claim.sub', true),
-    (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')
-  ), '')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
 $$;
+-- all claims of the caller's token (Supabase: auth.jwt())
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$$;
+
+-- second sign-in steps (Supabase Auth keeps these; dev-local/server.mjs mirrors its own here)
+create table if not exists auth.mfa_factors (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  friendly_name text,
+  factor_type text not null default 'totp',
+  status text not null default 'unverified',
+  secret text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function auth.role() returns text language sql stable as $$
-  select nullif(coalesce(
-    current_setting('request.jwt.claim.role', true),
-    (current_setting('request.jwt.claims', true)::jsonb ->> 'role')
-  ), '')::text
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
 $$;
 
 grant usage on schema public to anon, authenticated, service_role;

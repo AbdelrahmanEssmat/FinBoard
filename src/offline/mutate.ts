@@ -2,6 +2,7 @@ import { supabase } from '@/api/supabase'
 import { queryClient } from '@/api/queryClient'
 import { enqueue, myEntries, notify, offlineDb, type OutboxOp } from '@/offline/outbox'
 import { classifyError } from '@/offline/errors'
+import { isSendingPaused } from '@/offline/session'
 import { toast } from '@/store/toasts'
 
 /** Execute one operation against Supabase. Throws on failure. */
@@ -91,6 +92,7 @@ export function flushOutbox(): Promise<{ sent: number; remaining: number }> {
   flushing = (async () => {
     let sent = 0
     let dropped = false
+    if (isSendingPaused()) return { sent: 0, remaining: (await myEntries()).length }
     try {
       // only the signed-in person's changes, in the order they were made
       const entries = await myEntries()

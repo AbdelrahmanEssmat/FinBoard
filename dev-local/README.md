@@ -11,6 +11,9 @@ Lets you run the whole app on your laptop **without** a Supabase project or Dock
   - `test@local.test` always signs in with any password (tests and quick local use rely on that)
   - emails aren't sent: they're rendered from `supabase/templates` (exactly what Supabase sends)
     and listed at **http://127.0.0.1:54321/__mail**; open one and click its button to follow the link
+  - two-step sign-in (authenticator codes, with a real QR code), email change, and accounts deleted
+    from the database (Settings → Delete account) behave like Supabase; factors are mirrored into
+    `auth.mfa_factors`. A second instance for tests: `LOCAL_AUTH_PORT`, `LOCAL_AUTH_USERS_FILE`, `LOCAL_AUTH_DB`.
 
 Realtime is not available locally; everything else (RLS, triggers, RPCs) is the real Postgres code.
 
@@ -36,6 +39,8 @@ Email links point at `http://localhost:5174` (set `LOCAL_SITE_URL` before starti
 
 ```powershell
 powershell -File dev-local\test-migrations.ps1                         # every migration + all smoke-*.sql (incl. the security checks in smoke-0011.sql)
+bash dev-local/test-migrations.sh                                      # the same in bash (what GitHub runs; env PSQL, PGHOST, PGPORT, TEST_DB)
+bash dev-local/fuzz.sh 1000 0.11 0.22                                  # randomised brute-force money test, exit 1 on any broken rule
 npx vitest run --config dev-local/vitest.integration.config.ts        # backup/restore against the local stack
 ```
 

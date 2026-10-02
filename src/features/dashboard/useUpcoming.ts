@@ -21,6 +21,14 @@ export interface UpcomingItem {
   color: string
   overdue?: boolean
   to: string
+  /** what it is, for reminders on the phone */
+  kind: 'payout' | 'maturity' | 'cloud' | 'debt' | 'card' | 'recurring'
+  /** recurring: posts by itself; payout: logged by itself */
+  auto?: boolean
+  /** recurring: money coming in; debt: they pay you */
+  incoming?: boolean
+  /** the person, card or certificate it is about (no amounts: reminders show on the lock screen) */
+  name?: string
 }
 
 /** Certificate payouts and maturities, Cloud payouts, card payments, debt installments and recurring bills in the next `days` days. */
@@ -44,32 +52,32 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       if (p.status !== 'pending' || p.due_date > until) continue
       const c = certMap.get(p.certificate_id)
       if (!c || c.is_closed) continue
-      items.push({ key: 'p' + p.id, date: p.due_date, title: `${c.name} payout`, subtitle: p.due_date < today ? 'Not logged yet' : 'Certificate interest', amount: d(p.amount), currency: c.currency, icon: Percent, color: '#eab308', overdue: p.due_date < today, to: `/certificates/${c.id}` })
+      items.push({ key: 'p' + p.id, date: p.due_date, title: `${c.name} payout`, subtitle: p.due_date < today ? 'Not logged yet' : 'Certificate interest', amount: d(p.amount), currency: c.currency, icon: Percent, color: '#eab308', overdue: p.due_date < today, to: `/certificates/${c.id}`, kind: 'payout', auto: c.auto_log_income && Boolean(c.payout_sub_account_id), name: c.name })
     }
     for (const c of certs ?? []) {
       if (!c.is_closed && c.maturity_date >= today && c.maturity_date <= until) {
-        items.push({ key: 'm' + c.id, date: c.maturity_date, title: `${c.name} matures`, subtitle: `in ${daysUntil(c.maturity_date, today)} days`, amount: d(c.principal), currency: c.currency, icon: Calendar, color: '#0ea5e9', to: `/certificates/${c.id}` })
+        items.push({ key: 'm' + c.id, date: c.maturity_date, title: `${c.name} matures`, subtitle: `in ${daysUntil(c.maturity_date, today)} days`, amount: d(c.principal), currency: c.currency, icon: Calendar, color: '#0ea5e9', to: `/certificates/${c.id}`, kind: 'maturity', name: c.name })
       }
     }
     for (const s of subs ?? []) {
       if (s.yield_rate === null || s.yield_frequency !== 'monthly' || s.is_archived || archivedAccounts.has(s.account_id)) continue
       const next = nextYieldDate(s.yield_since, 'monthly', today)
-      if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly'), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments' })
+      if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly'), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments', kind: 'cloud', auto: true, name: s.name ?? 'Cloud' })
     }
     for (const x of openDebts) {
       const nxt = x.next
       if (!nxt || nxt.dueDate > until) continue
-      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}` })
+      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}`, kind: 'debt', incoming: x.direction === 'owed_to_me', name: x.contact?.name ?? '' })
     }
     // credit card statements with money left to pay (overdue ones stay until paid)
     for (const c of cards) {
       const s = c.statement
       if (!s || !(s.status === 'due' || s.status === 'overdue') || s.dueDate > until) continue
-      items.push({ key: 'cc' + c.account.id, date: s.dueDate, title: `Pay ${c.account.name}`, subtitle: s.minimumLeft.gt(0) ? 'Card statement · minimum not paid yet' : 'Card statement', amount: s.remaining, currency: c.currency, icon: CreditCard, color: '#dc2626', overdue: s.status === 'overdue', to: `/accounts/${c.account.id}` })
+      items.push({ key: 'cc' + c.account.id, date: s.dueDate, title: `Pay ${c.account.name}`, subtitle: s.minimumLeft.gt(0) ? 'Card statement · minimum not paid yet' : 'Card statement', amount: s.remaining, currency: c.currency, icon: CreditCard, color: '#dc2626', overdue: s.status === 'overdue', to: `/accounts/${c.account.id}`, kind: 'card', name: c.account.name })
     }
     for (const r of recurring ?? []) {
       for (const dt of upcomingOccurrences(r, today, days).slice(0, 2)) {
-        items.push({ key: 'r' + r.id + dt, date: dt, title: r.name, subtitle: r.auto_post ? 'Recurring · auto' : 'Recurring · reminder', amount: d(r.amount), currency: r.currency, icon: Repeat, color: r.type === 'income' ? '#16a34a' : '#f97316', to: '/recurring' })
+        items.push({ key: 'r' + r.id + dt, date: dt, title: r.name, subtitle: r.auto_post ? 'Recurring · auto' : 'Recurring · reminder', amount: d(r.amount), currency: r.currency, icon: Repeat, color: r.type === 'income' ? '#16a34a' : '#f97316', to: '/recurring', kind: 'recurring', auto: r.auto_post, incoming: r.type === 'income', name: r.name })
       }
     }
     return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit)

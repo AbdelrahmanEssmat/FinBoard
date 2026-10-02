@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts","./vitest.config.ts","./api/gold.ts"],"version":"5.9.3"}
+{"root":["./vite.config.ts","./vitest.config.ts","./api/gold.ts","./api/push-key.ts","./api/push-test.ts","./api/reminders.ts"],"version":"5.9.3"}

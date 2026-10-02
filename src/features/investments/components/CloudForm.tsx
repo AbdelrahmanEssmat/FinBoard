@@ -127,7 +127,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monthly Cloud" />
         </Field>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
-          <Field label="Yearly rate (%)">
+          <Field label="Yearly rate (%)" hint={initial && initial.yield_rate != null && parseAmount(rate)?.eq(initial.yield_rate) === false ? "The new rate counts from today" : undefined}>
             <Input inputMode="decimal" className="tnum" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="20.29" />
           </Field>
           <Field label="Currency">

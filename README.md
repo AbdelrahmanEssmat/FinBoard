@@ -22,7 +22,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the design and data model.
    - **anon public** key → `SUPABASE_ANON_KEY`
    - **service_role** key → keep secret; used only by the scheduled jobs (never in the app)
 3. **Authentication → Providers → Email**: keep Email enabled. If you want to sign in without confirming an email, turn **Confirm email** off (it is only you). Under **Authentication → URL Configuration**, set *Site URL* to your future app URL (e.g. `https://finance-yourname.vercel.app`) and add it to *Redirect URLs* — needed for magic links.
-4. **SQL Editor → New query**: paste the whole of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and **Run**. This creates all tables, triggers, functions and Row Level Security policies. It also creates your starter categories, currencies and a Cash + Thndr account the first time you sign in. Then run [`supabase/migrations/0003_clouds.sql`](supabase/migrations/0003_clouds.sql) , [`supabase/migrations/0004_integrity.sql`](supabase/migrations/0004_integrity.sql) , [`supabase/migrations/0005_networth_classes.sql`](supabase/migrations/0005_networth_classes.sql) , [`supabase/migrations/0006_investment_sales.sql`](supabase/migrations/0006_investment_sales.sql) , [`supabase/migrations/0007_concert_category.sql`](supabase/migrations/0007_concert_category.sql) , [`supabase/migrations/0008_credit_cards.sql`](supabase/migrations/0008_credit_cards.sql) , [`supabase/migrations/0009_card_installments.sql`](supabase/migrations/0009_card_installments.sql) , [`supabase/migrations/0010_card_bank_link.sql`](supabase/migrations/0010_card_bank_link.sql) , [`supabase/migrations/0011_security_hardening.sql`](supabase/migrations/0011_security_hardening.sql) , [`supabase/migrations/0012_locks_and_triggers.sql`](supabase/migrations/0012_locks_and_triggers.sql), [`supabase/migrations/0013_safe_deletes_and_balance_edits.sql`](supabase/migrations/0013_safe_deletes_and_balance_edits.sql) and [`supabase/migrations/0014_edit_guards.sql`](supabase/migrations/0014_edit_guards.sql) the same way, in that order. Each is safe to run as one transaction and safe to re-run.
+4. **SQL Editor → New query**: paste the whole of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and **Run**. This creates all tables, triggers, functions and Row Level Security policies. It also creates your starter categories, currencies and a Cash + Thndr account the first time you sign in. Then run [`supabase/migrations/0003_clouds.sql`](supabase/migrations/0003_clouds.sql) , [`supabase/migrations/0004_integrity.sql`](supabase/migrations/0004_integrity.sql) , [`supabase/migrations/0005_networth_classes.sql`](supabase/migrations/0005_networth_classes.sql) , [`supabase/migrations/0006_investment_sales.sql`](supabase/migrations/0006_investment_sales.sql) , [`supabase/migrations/0007_concert_category.sql`](supabase/migrations/0007_concert_category.sql) , [`supabase/migrations/0008_credit_cards.sql`](supabase/migrations/0008_credit_cards.sql) , [`supabase/migrations/0009_card_installments.sql`](supabase/migrations/0009_card_installments.sql) , [`supabase/migrations/0010_card_bank_link.sql`](supabase/migrations/0010_card_bank_link.sql) , [`supabase/migrations/0011_security_hardening.sql`](supabase/migrations/0011_security_hardening.sql) , [`supabase/migrations/0012_locks_and_triggers.sql`](supabase/migrations/0012_locks_and_triggers.sql), [`supabase/migrations/0013_safe_deletes_and_balance_edits.sql`](supabase/migrations/0013_safe_deletes_and_balance_edits.sql), [`supabase/migrations/0014_edit_guards.sql`](supabase/migrations/0014_edit_guards.sql) and [`supabase/migrations/0015_server_jobs_security_and_gaps.sql`](supabase/migrations/0015_server_jobs_security_and_gaps.sql) the same way, in that order. Each is safe to run as one transaction and safe to re-run.
 
 ## 3. Run locally
 
@@ -57,8 +57,12 @@ Egyptian price sites server-side (browsers can't read them directly) and is cach
 It deploys with the site, so nothing needs installing. A manual gold price or rate always wins for
 its day (gold: 24 hours), and automatic fetching pauses while it's active.
 
-The optional scheduled jobs below only add: rates and gold arriving on days you don't open the app,
-and recurring transactions / certificate payouts posted overnight instead of on the next open.
+Migration 0015 runs the daily jobs on the server by itself: on Supabase it turns on `pg_cron` and runs
+`run_daily_jobs()` every hour (recurring transactions, certificate payouts, Cloud interest and today's
+net worth, each person in their own time zone). Nothing else is needed for that.
+
+The optional edge functions below only add rates and gold prices arriving on days nobody opens the app.
+(0002 also schedules an old nightly job; 0015 replaces it, so if you run 0002 later, run 0015 again after it.)
 
 1. Install the Supabase CLI (`npm i -g supabase` or `winget install Supabase.CLI`) and log in: `supabase login`.
 2. Link the project: `supabase link --project-ref YOUR-REF` (the ref is the first part of your project URL).
@@ -134,11 +138,22 @@ Both installs cache the app shell and your recent data. Changes made offline are
 
 ## 8. Security notes
 
+- **Two-step sign-in:** Settings → Security → Two-step sign-in adds a code from an authenticator app. Once on, the database itself refuses every table to a session that hasn't entered the code (a restrictive policy on each table). If someone loses their authenticator, the owner can switch it off for them in the SQL Editor: `delete from auth.mfa_factors where user_id = (select id from auth.users where email = 'their@email');`
+- **App lock:** Face ID / fingerprint / Windows Hello or a PIN when the app opens on that device (stored only on the device).
+- **Crash reports:** unexpected errors are sent to the `app_errors` table (message, page, app version; never amounts). People can only send, not read, them; the owner reads them in Supabase → Table Editor → app_errors. Older than 90 days are deleted automatically.
+- **Deleting an account:** Settings → Account → Delete account removes the person and every row of their data (after their password, and code if on).
+
 - Only the anon key ships with the app. Every table has Row Level Security so a signed-in user can only read/write rows where `user_id = auth.uid()`.
 - Global rate/gold rows (user_id NULL) are readable by any signed-in user and writable only by the service role (edge functions).
 - Never commit `.env`; it is git-ignored. Rotate the service-role key if it ever leaks.
 
-## 9. Tests
+## 9. Extras: reminders, backups, your own domain
+
+- **Phone reminders** (card payments, instalments, bills, certificate payouts and maturities): one-time server setup with `scripts/configure-push.ps1`, then Settings → Reminders on each device. See [docs/reminders.md](docs/reminders.md).
+- **Automatic weekly backups** (encrypted, kept 90 days on GitHub): one-time setup with `scripts/configure-backups.ps1`. See [docs/backups.md](docs/backups.md).
+- **Your own web address and a proper email service:** see [docs/custom-domain-and-email.md](docs/custom-domain-and-email.md).
+
+## 10. Tests
 
 ```bash
 npm test

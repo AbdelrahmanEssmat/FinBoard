@@ -54,7 +54,8 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
   const effectivePayoutSubId = payoutSubs.some((s) => s.id === payoutSubId) ? payoutSubId : ''
   // real numbers only: "27%" used to save 0% and "27,5" saved 275%
   const principalOk = parseAmount(principal)?.gt(0) ?? false
-  const rateOk = !rate.includes(',') && (parseAmount(rate)?.gte(0) ?? false)
+  const parsedRate = parseAmount(rate)
+  const rateOk = Boolean(parsedRate && parsedRate.gte(0) && parsedRate.lte(100))
   const valid = accountId && name.trim() && principalOk && rateOk && start && maturity && maturity > start && (!autoLog || effectivePayoutSubId)
   const preview = valid
     ? {
@@ -116,7 +117,7 @@ export function CertificateForm({ open, onClose, initial }: { open: boolean; onC
           <AmountInput value={principal} onChange={setPrincipal} currency={currency} currencies={currencies} onCurrencyChange={setCurrency} />
         </Field>
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
-          <Field label="Interest rate (% / year)" hint={rate.trim() && !rateOk ? "A number like 27 or 27.5" : undefined}>
+          <Field label="Interest rate (% / year)" hint={rate.trim() && !rateOk ? "A yearly rate like 27 or 27.5" : undefined}>
             <Input inputMode="decimal" className="tnum" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="27" />
           </Field>
           <Field label="Payout">

@@ -25,8 +25,12 @@ select pg_temp.ok('every table has at least one policy',
     and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname)));
 select pg_temp.ok('policies only apply to signed-in users',
   not exists (select 1 from pg_policies where schemaname = 'public' and not (roles <@ array['authenticated']::name[])));
-select pg_temp.ok('every policy is scoped to the signed-in user',
-  not exists (select 1 from pg_policies where schemaname = 'public' and coalesce(qual, '') || coalesce(with_check, '') not like '%auth.uid()%'));
+-- (restrictive policies, like the second sign-in step from 0015, can only narrow access further)
+select pg_temp.ok('every policy that grants access is scoped to the signed-in user',
+  not exists (select 1 from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and coalesce(qual, '') || coalesce(with_check, '') not like '%auth.uid()%'));
+select pg_temp.ok('every table requires the second sign-in step when it is on',
+  not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+    and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname and p.permissive = 'RESTRICTIVE' and p.qual like '%mfa_satisfied%')));
 select pg_temp.ok('every security definer function pins its search_path',
   not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef
     and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')));

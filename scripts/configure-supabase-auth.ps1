@@ -17,12 +17,15 @@
 #     so friends would never get their confirmation or reset emails
 #
 # -DryRun writes the settings (without any secret) to scripts\auth-config.preview.json instead.
-param([switch]$DryRun)
+# -SiteUrl https://your-domain points sign-in links and email buttons at a new web address (after
+#   moving FinBoard to your own domain, see docs/custom-domain-and-email.md); the old one keeps working.
+param([switch]$DryRun, [string]$SiteUrl = 'https://finboard-alpha-beryl.vercel.app')
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $ProjectRef = 'qddbhmiqsolhnzduvswt'
-$SiteUrl = 'https://finboard-alpha-beryl.vercel.app'
+$SiteUrl = $SiteUrl.TrimEnd('/')
+$OldUrl = 'https://finboard-alpha-beryl.vercel.app'
 $root = Split-Path -Parent $PSScriptRoot
 $templates = Join-Path $root 'supabase\templates'
 $api = "https://api.supabase.com/v1/projects/$ProjectRef/config/auth"
@@ -44,11 +47,12 @@ function YesNo([string]$q, [bool]$default) {
 
 # ---------------------------------------------------------------- settings
 $subjects = Get-Content (Join-Path $templates 'subjects.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-function Tpl([string]$name) { [IO.File]::ReadAllText((Join-Path $templates "$name.html"), [Text.Encoding]::UTF8) }
+# the templates are built for the original address: their buttons and logo follow -SiteUrl
+function Tpl([string]$name) { [IO.File]::ReadAllText((Join-Path $templates "$name.html"), [Text.Encoding]::UTF8).Replace($OldUrl, $SiteUrl) }
 
 $body = [ordered]@{
   site_url                                        = $SiteUrl
-  uri_allow_list                                  = "$SiteUrl/**"
+  uri_allow_list                                  = $(if ($SiteUrl -eq $OldUrl) { "$SiteUrl/**" } else { "$SiteUrl/**,$OldUrl/**" })
   external_email_enabled                          = $true
   disable_signup                                  = $false
   external_anonymous_users_enabled                = $false
@@ -58,6 +62,10 @@ $body = [ordered]@{
   password_required_characters                    = 'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789'
   security_update_password_require_reauthentication = $true
   refresh_token_rotation_enabled                  = $true
+  # two-step sign-in with an authenticator app (the app's Settings -> Security)
+  mfa_totp_enroll_enabled                         = $true
+  mfa_totp_verify_enabled                         = $true
+  mfa_max_enrolled_factors                        = 10
   security_refresh_token_reuse_interval           = 10
   mailer_notifications_password_changed_enabled   = $true
   mailer_notifications_email_changed_enabled      = $true

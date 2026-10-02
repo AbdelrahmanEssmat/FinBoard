@@ -86,6 +86,12 @@ begin
   for r in select c.id from public.categories c join public.categories p on p.id = c.parent_id where p.parent_id is not null or p.kind <> c.kind loop
     return format('category %s is three levels deep or under the other kind', r.id);
   end loop;
+  for r in select p.id, p.amount, p.period_start, p.due_date from public.certificate_payouts p where p.period_start is null or p.period_start >= p.due_date or p.amount <= 0 loop
+    return format('payout %s has a bad period (%s to %s) or amount %s', r.id, r.period_start, r.due_date, r.amount);
+  end loop;
+  for r in select s.id from public.sub_accounts s where s.yield_rate is not null and not exists (select 1 from public.yield_rates y where y.sub_account_id = s.id) loop
+    return format('Cloud %s has no rate history', r.id);
+  end loop;
   for r in select sub_account_id, date from public.transactions where source = 'yield' group by 1, 2 having count(*) > 1 loop
     return format('Cloud %s got interest twice on %s', r.sub_account_id, r.date);
   end loop;
@@ -317,6 +323,38 @@ begin
     update public.categories set parent_id = (select id from public.categories order by random() limit 1)
      where id = (select id from public.categories order by random() limit 1);
     return 'move a category';
+  when 'debt_rpc' then
+    c1 := case when random() < 0.7 then 'EGP' else 'USD' end;
+    s1 := case when random() < 0.7 then pg_temp.sub(c1) end;
+    select id into id2 from public.contacts order by random() limit 1;
+    a := pg_temp.amt();
+    if id2 is null or random() < 0.4 then
+      perform public.create_debt(id3, id1, 'Q' || pg_temp.ri(1, 999), (array['i_owe','owed_to_me'])[pg_temp.ri(1, 2)]::debt_direction, a, c1, pg_temp.dt(),
+        null, null, null, null, null, null, null, s1, gen_random_uuid());
+    else
+      perform public.create_debt(id3, id2, null, (array['i_owe','owed_to_me'])[pg_temp.ri(1, 2)]::debt_direction, a, c1, pg_temp.dt(),
+        null, null, null, case when random() < 0.3 then pg_temp.ri(2, 6) end, null, 'monthly', current_date + 30, s1, id1);
+    end if;
+    return 'one-step debt' || case when s1 is null then '' else ' moving money' end;
+  when 'plan_rpc' then
+    select s.id into s1 from public.sub_accounts s join public.accounts a2 on a2.id = s.account_id where a2.type = 'credit_card' order by random() limit 1;
+    if s1 is null then return 'no card'; end if;
+    a := pg_temp.amt() + 100;
+    perform public.create_installment_purchase(id1, id2, id3, s1, 'P', null, null, a, case when random() < 0.6 then round(a * 0.1, 2) else 0 end,
+      pg_temp.ri(2, 24), current_date - pg_temp.ri(0, 20), current_date + 5, null);
+    return 'one-step installment purchase';
+  when 'cloud_rate' then
+    update public.sub_accounts set yield_rate = round((random() * 30)::numeric, 2)
+     where id = (select id from public.sub_accounts where yield_rate is not null order by random() limit 1);
+    return 'change a Cloud rate';
+  when 'cert_freq' then
+    update public.certificates set payout_frequency = (array['monthly','quarterly','semi_annual','annual','at_maturity'])[pg_temp.ri(1, 5)]::payout_frequency
+     where id = (select id from public.certificates order by random() limit 1);
+    return 'change a certificate payout frequency';
+  when 'tz' then
+    update public.settings set timezone = (array['Africa/Cairo','Europe/London','Asia/Dubai','America/New_York','Pacific/Kiritimati'])[pg_temp.ri(1, 5)]
+     where user_id = u;
+    return 'change time zone';
   when 'net_worth' then
     perform public.snapshot_net_worth(u, current_date); perform public.compute_net_worth(u, 'EGP', current_date); return 'net worth';
   end case;
@@ -329,7 +367,8 @@ declare
     'debt','debt','edit_debt','repay','repay','repay','delete_payment','delete_debt','delete_contact','holding','holding','edit_holding','sell','sell','delete_sale','delete_holding',
     'certificate','log_payouts','log_payouts','edit_certificate','skip_payout','delete_certificate','set_balance','set_balance','archive','delete_sub','delete_account','account','account',
     'recurring','edit_recurring','delete_recurring','post_recurring','accrue','plan','close_plan','delete_plan','currency_change','delete_category','net_worth',
-    'pause_recurring','cloud_switch','cloud_balance','reparent','accrue'];
+    'pause_recurring','cloud_switch','cloud_balance','reparent','accrue',
+    'debt_rpc','debt_rpc','plan_rpc','cloud_rate','cert_freq','cert_freq','log_payouts','tz'];
   op text; d text; bad text; i int; ctx text;
 begin
   for i in 1..steps loop

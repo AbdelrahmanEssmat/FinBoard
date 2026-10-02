@@ -35,7 +35,8 @@ export function AmountInput({
         placeholder={placeholder}
         enterKeyHint="done"
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d.,-]/g, ''))}
+        // digits (Arabic-Indic and Persian too), separators and a minus; the amount parser reads the rest
+        onChange={(e) => onChange(e.target.value.replace(/[^\d٠-٩۰-۹.,٫٬-]/g, ''))}
         className="tnum min-w-0 flex-1 bg-transparent px-4 text-xl font-semibold text-text placeholder:text-faint focus:outline-none"
       />
       {onCurrencyChange ? (

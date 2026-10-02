@@ -47,6 +47,8 @@ type Opts<T> = Omit<UseQueryOptions<T[], Error>, 'queryKey' | 'queryFn'>
 
 export const useAccounts = (o?: Opts<Row<'accounts'>>) =>
   useQuery({ ...tableQuery('accounts', [{ column: 'sort_order' }, { column: 'created_at' }]), ...o })
+/** The devices that receive reminders (this person's). */
+export const usePushSubscriptions = (o?: Opts<Row<'push_subscriptions'>>) => useQuery({ ...tableQuery('push_subscriptions', [{ column: 'created_at' }]), ...o })
 export const useSubAccounts = (o?: Opts<Row<'sub_accounts'>>) =>
   useQuery({ ...tableQuery('sub_accounts', [{ column: 'sort_order' }, { column: 'created_at' }]), ...o })
 export const useCategories = (o?: Opts<Row<'categories'>>) =>
@@ -170,5 +172,5 @@ export function useYieldTransactions() {
 export const ALL_TABLES: TableName[] = [
   'currencies', 'settings', 'exchange_rates', 'accounts', 'sub_accounts', 'categories', 'tags', 'transactions',
   'recurring_transactions', 'budgets', 'certificates', 'certificate_payouts', 'investment_categories', 'holdings', 'holding_sales', 'card_installment_plans',
-  'gold_items', 'gold_prices', 'contacts', 'debts', 'debt_payments', 'net_worth_snapshots',
+  'gold_items', 'gold_prices', 'contacts', 'debts', 'debt_payments', 'net_worth_snapshots', 'yield_rates',
 ]

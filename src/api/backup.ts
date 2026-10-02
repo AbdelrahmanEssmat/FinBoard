@@ -21,6 +21,8 @@ const ON_CONFLICT: Partial<Record<TableName, string>> = {
   certificate_payouts: 'certificate_id,due_date',
   net_worth_snapshots: 'user_id,snapshot_date',
   budgets: 'user_id,category_id',
+  // a Cloud gets its first rate from a trigger when it is restored
+  yield_rates: 'sub_account_id,effective_from',
 }
 
 /** Append-only history: rows already present are skipped, never updated. */

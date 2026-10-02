@@ -47,6 +47,13 @@ export async function stampUnowned(userId: string): Promise<void> {
   await offlineDb.outbox.filter((e) => !e.userId).modify({ userId })
 }
 
+/** Drop the signed-in user's queued changes (their account was deleted: nothing is left to send them to). */
+export async function clearMyEntries(): Promise<void> {
+  const ids = (await myEntries()).map((e) => e.id!).filter((id) => id !== undefined)
+  await offlineDb.outbox.bulkDelete(ids)
+  notify()
+}
+
 export async function pendingCount(): Promise<number> {
   return (await myEntries()).length
 }

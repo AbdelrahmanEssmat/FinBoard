@@ -13,8 +13,10 @@ const PRODUCTION = {
 }
 
 const env = import.meta.env as Record<string, string | undefined>
-const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL || PRODUCTION.url
-const anonKey = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || PRODUCTION.anonKey
+export const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || PRODUCTION.url
+export const supabaseAnonKey = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || PRODUCTION.anonKey
+const url = supabaseUrl
+const anonKey = supabaseAnonKey
 
 export const isConfigured = Boolean(url && anonKey && !/PASTE|your-anon|YOUR-PROJECT/i.test(url + anonKey))
 export const isLocalStack = /127\.0\.0\.1|localhost/.test(url)

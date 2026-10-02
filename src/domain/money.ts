@@ -7,15 +7,30 @@ Decimal.set({ precision: 30, rounding: Decimal.ROUND_HALF_UP })
 export type NumericInput = Decimal | number | string | null | undefined
 
 /**
- * Normalise what a person types: Arabic-Indic and Persian digits become 0-9, the Arabic decimal
- * separator becomes a dot, and grouping (commas, the Arabic thousands separator, spaces, underscores) goes.
+ * Normalise what a person types: Arabic-Indic and Persian digits become 0-9 and the Arabic decimal
+ * separator a dot; spaces, underscores and the Arabic thousands separator go. Commas and dots are read
+ * the way people write them:
+ *   12,500 · 1,234,567 · 1,234.50  → grouping commas (dot = decimals)
+ *   1,5 · 12,50 · 1.234,56         → comma = decimals (the separator that comes last wins)
+ *   1.234.567                      → grouping dots
  */
 function cleanNumber(value: string): string {
-  return value
+  let s = value
     .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
     .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
     .replace(/٫/g, '.')
-    .replace(/[,٬\s_]/g, '')
+    .replace(/[٬\s_]/g, '')
+  const hasDot = s.includes('.')
+  const hasComma = s.includes(',')
+  if (hasDot && hasComma) {
+    s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '')
+  } else if (hasComma) {
+    if (/^[-+]?\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, '')
+    else if ((s.match(/,/g) ?? []).length === 1) s = s.replace(',', '.')
+  } else if (/^[-+]?\d{1,3}(\.\d{3}){2,}$/.test(s)) {
+    s = s.replace(/\./g, '')
+  }
+  return s
 }
 
 /**

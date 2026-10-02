@@ -623,6 +623,279 @@ export function useSellHolding() {
   })
 }
 
+/** The server answered that a database function doesn't exist (its migration hasn't been run yet). */
+function missingFunction(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === 'PGRST202'
+}
+
+/**
+ * A new debt in one step (create_debt): the person if new, the money movement when an account is
+ * given, and the debt itself, saved together by the server. Shown at once (also offline); pass the
+ * same ids when retrying.
+ */
+export function useCreateDebt() {
+  const qc = useQueryClient()
+  const tables: TableName[] = ['contacts', 'debts', 'transactions', 'sub_accounts']
+  return useMutation({
+    mutationFn: async (d: {
+      id: string
+      contactId: string
+      newContactName: string | null
+      contactName: string
+      direction: 'i_owe' | 'owed_to_me'
+      amount: string
+      currency: string
+      date: string
+      dueDate: string | null
+      reason: string | null
+      notes: string | null
+      planCount: number | null
+      planAmount: string | null
+      planFrequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | null
+      planStartDate: string | null
+      subAccountId: string | null
+      transactionId: string
+    }) => {
+      try {
+        return await submit({
+          kind: 'rpc',
+          fn: 'create_debt',
+          args: {
+            p_id: d.id,
+            p_contact_id: d.contactId,
+            p_new_contact_name: d.newContactName,
+            p_direction: d.direction,
+            p_amount: d.amount,
+            p_currency: d.currency,
+            p_date: d.date,
+            p_due_date: d.dueDate,
+            p_reason: d.reason,
+            p_notes: d.notes,
+            p_plan_count: d.planCount,
+            p_plan_amount: d.planAmount,
+            p_plan_frequency: d.planFrequency,
+            p_plan_start_date: d.planStartDate,
+            p_sub_account_id: d.subAccountId,
+            p_transaction_id: d.subAccountId ? d.transactionId : null,
+          },
+        })
+      } catch (err) {
+        if (!missingFunction(err)) throw err
+        // the database doesn't have the one-step save yet (migration 0015): save it the older way, step by step
+        let queued = false
+        if (d.newContactName) queued = (await submit({ kind: 'upsert', table: 'contacts', rows: [{ id: d.contactId, name: d.newContactName }] })).queued || queued
+        if (d.subAccountId) {
+          const tx = {
+            id: d.transactionId,
+            type: d.direction === 'i_owe' ? 'income' : 'expense',
+            date: d.date,
+            amount: d.amount,
+            currency: d.currency,
+            sub_account_id: d.subAccountId,
+            notes: `${d.direction === 'i_owe' ? 'Borrowed from' : 'Lent to'} ${d.contactName}`,
+            payee: d.contactName,
+            source: 'debt',
+            source_id: d.id,
+          }
+          queued = (await submit({ kind: 'upsert', table: 'transactions', rows: [tx as Insert<'transactions'>] })).queued || queued
+        }
+        const debt = {
+          id: d.id,
+          contact_id: d.contactId,
+          direction: d.direction,
+          amount: d.amount,
+          currency: d.currency,
+          date: d.date,
+          due_date: d.dueDate,
+          reason: d.reason,
+          notes: d.notes,
+          plan_count: d.planCount,
+          plan_amount: d.planAmount,
+          plan_frequency: d.planFrequency,
+          plan_start_date: d.planStartDate,
+          sub_account_id: d.subAccountId,
+          transaction_id: d.subAccountId ? d.transactionId : null,
+        }
+        queued = (await submit({ kind: 'upsert', table: 'debts', rows: [debt as Insert<'debts'>] })).queued || queued
+        return { queued }
+      }
+    },
+    onMutate: async (d) => {
+      await Promise.all(tables.map((t) => qc.cancelQueries({ queryKey: [t] })))
+      const prev = snapshot(qc, tables)
+      if (d.newContactName) cacheUpsert(qc, 'contacts', [{ id: d.contactId, name: d.newContactName }])
+      if (d.subAccountId) {
+        const tx = {
+          id: d.transactionId,
+          type: d.direction === 'i_owe' ? 'income' : 'expense',
+          date: d.date,
+          amount: d.amount,
+          currency: d.currency,
+          sub_account_id: d.subAccountId,
+          category_id: null,
+          tags: [],
+          notes: `${d.direction === 'i_owe' ? 'Borrowed from' : 'Lent to'} ${d.contactName}`,
+          payee: d.contactName,
+          to_sub_account_id: null,
+          to_amount: null,
+          to_currency: null,
+          source: 'debt',
+          source_id: d.id,
+        } as const
+        cacheApplyBalance(qc, tx as unknown as Partial<Transaction>, 1)
+        cacheUpsert(qc, 'transactions', [tx as unknown as AnyRow])
+      }
+      cacheUpsert(qc, 'debts', [
+        {
+          id: d.id,
+          contact_id: d.contactId,
+          direction: d.direction,
+          amount: d.amount,
+          currency: d.currency,
+          date: d.date,
+          due_date: d.dueDate,
+          reason: d.reason,
+          notes: d.notes,
+          plan_count: d.planCount,
+          plan_amount: d.planAmount,
+          plan_frequency: d.planFrequency,
+          plan_start_date: d.planStartDate,
+          sub_account_id: d.subAccountId,
+          transaction_id: d.subAccountId ? d.transactionId : null,
+          status: 'open',
+        },
+      ])
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => [...tables, 'debt_payments' as TableName].forEach((t) => void qc.invalidateQueries({ queryKey: [t] })),
+  })
+}
+
+/**
+ * An installment purchase on a card in one step (create_installment_purchase): the purchase, its
+ * interest / fees and the plan, saved together. Shown at once (also offline); same ids on retry.
+ */
+export function useCreateInstallmentPurchase() {
+  const qc = useQueryClient()
+  const tables: TableName[] = ['transactions', 'sub_accounts', 'card_installment_plans']
+  return useMutation({
+    mutationFn: async (p: {
+      planId: string
+      purchaseTxId: string
+      feeTxId: string
+      subAccountId: string
+      accountId: string
+      currency: string
+      description: string
+      categoryId: string | null
+      feeCategoryId: string | null
+      principal: string
+      fees: string
+      months: number
+      purchaseDate: string
+      firstBillingDate: string
+      purchaseNotes: string | null
+    }) => {
+      const hasFee = d(p.fees).gt(0)
+      try {
+        return await submit({
+          kind: 'rpc',
+          fn: 'create_installment_purchase',
+          args: {
+            p_plan_id: p.planId,
+            p_purchase_tx_id: p.purchaseTxId,
+            p_fee_tx_id: hasFee ? p.feeTxId : null,
+            p_sub_account_id: p.subAccountId,
+            p_description: p.description,
+            p_category_id: p.categoryId,
+            p_fee_category_id: p.feeCategoryId,
+            p_principal: p.principal,
+            p_fees: p.fees,
+            p_months: p.months,
+            p_purchase_date: p.purchaseDate,
+            p_first_billing_date: p.firstBillingDate,
+            p_purchase_notes: p.purchaseNotes,
+          },
+        })
+      } catch (err) {
+        if (!missingFunction(err)) throw err
+        // the database doesn't have the one-step save yet (migration 0015): save it the older way, step by step
+        const base = { type: 'expense', date: p.purchaseDate, currency: p.currency, sub_account_id: p.subAccountId, source: 'manual' }
+        let queued = (
+          await submit({
+            kind: 'upsert',
+            table: 'transactions',
+            rows: [{ ...base, id: p.purchaseTxId, amount: p.principal, category_id: p.categoryId, payee: p.description, notes: p.purchaseNotes } as Insert<'transactions'>],
+          })
+        ).queued
+        if (hasFee)
+          queued =
+            (
+              await submit({
+                kind: 'upsert',
+                table: 'transactions',
+                rows: [{ ...base, id: p.feeTxId, amount: p.fees, category_id: p.feeCategoryId, payee: `${p.description} · installment interest & fees` } as Insert<'transactions'>],
+              })
+            ).queued || queued
+        const plan = {
+          id: p.planId,
+          account_id: p.accountId,
+          sub_account_id: p.subAccountId,
+          transaction_id: p.purchaseTxId,
+          fees_transaction_id: hasFee ? p.feeTxId : null,
+          description: p.description,
+          currency: p.currency,
+          principal: p.principal,
+          fees: p.fees,
+          months: p.months,
+          purchase_date: p.purchaseDate,
+          first_billing_date: p.firstBillingDate,
+        }
+        queued = (await submit({ kind: 'upsert', table: 'card_installment_plans', rows: [plan as Insert<'card_installment_plans'>] })).queued || queued
+        return { queued }
+      }
+    },
+    onMutate: async (p) => {
+      await Promise.all(tables.map((t) => qc.cancelQueries({ queryKey: [t] })))
+      const prev = snapshot(qc, tables)
+      const base = { type: 'expense', date: p.purchaseDate, currency: p.currency, sub_account_id: p.subAccountId, tags: [], to_sub_account_id: null, to_amount: null, to_currency: null, source: 'manual', source_id: null }
+      const rows: AnyRow[] = [{ ...base, id: p.purchaseTxId, amount: p.principal, category_id: p.categoryId, payee: p.description, notes: p.purchaseNotes } as unknown as AnyRow]
+      if (d(p.fees).gt(0)) rows.push({ ...base, id: p.feeTxId, amount: p.fees, category_id: p.feeCategoryId, payee: `${p.description} · installment interest & fees`, notes: null } as unknown as AnyRow)
+      for (const r of rows) cacheApplyBalance(qc, r as unknown as Partial<Transaction>, 1)
+      cacheUpsert(qc, 'transactions', rows)
+      cacheUpsert(qc, 'card_installment_plans', [
+        {
+          id: p.planId,
+          account_id: p.accountId,
+          sub_account_id: p.subAccountId,
+          transaction_id: p.purchaseTxId,
+          fees_transaction_id: d(p.fees).gt(0) ? p.feeTxId : null,
+          description: p.description,
+          currency: p.currency,
+          principal: p.principal,
+          fees: p.fees,
+          months: p.months,
+          purchase_date: p.purchaseDate,
+          first_billing_date: p.firstBillingDate,
+          closed_at: null,
+        },
+      ])
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => tables.forEach((t) => void qc.invalidateQueries({ queryKey: [t] })),
+  })
+}
+
 /** Call a Postgres function; queued offline if needed. */
 export function useRpc(fn: string, invalidate: TableName[] = []) {
   const qc = useQueryClient()

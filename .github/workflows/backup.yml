@@ -1,0 +1,124 @@
+# Weekly encrypted backup of the whole FinBoard database (every user's data), kept for 90 days as a
+# downloadable file on this repository's Actions page.
+# This repository is PUBLIC: anyone can read these logs and download the files, so only the encrypted
+# file is ever uploaded and nothing secret is printed.
+# One-time setup: scripts/configure-backups.ps1. Downloading, opening and restoring: docs/backups.md
+name: Weekly database backup
+
+on:
+  schedule:
+    - cron: '30 23 * * 0' # Sundays 23:30 UTC = early Monday in Cairo (01:30 in winter, 02:30 in summer)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up the database (encrypted)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # secrets are handed only to the steps that need them, never to the third-party actions
+      - name: Check the backup secrets are set
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          missing=''
+          [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          if [ -n "$missing" ]; then
+            echo "::error title=Backups are not set up::Missing repository secret(s):$missing. Run scripts/configure-backups.ps1 once (see docs/backups.md)."
+            exit 1
+          fi
+          case "$SUPABASE_DB_URL" in
+            postgres://*@* | postgresql://*@*) ;;
+            *)
+              echo "::error title=Bad connection string::SUPABASE_DB_URL is not a postgresql://... connection string. Set it again with scripts/configure-backups.ps1."
+              exit 1
+              ;;
+          esac
+          # The whole connection string is already hidden in logs (it is a secret). Also hide the bare
+          # database password, plain and URL-decoded, in case a tool ever prints it on its own.
+          userinfo="${SUPABASE_DB_URL#*://}"; userinfo="${userinfo%@*}"
+          case "$userinfo" in
+            *:?*)
+              pw="${userinfo#*:}"
+              echo "::add-mask::${pw//%/%25}"
+              decoded="$(printf '%b' "${pw//%/\\x}")"
+              if [ "$decoded" != "$pw" ]; then echo "::add-mask::${decoded//%/%25}"; fi
+              ;;
+          esac
+          hostpart="${SUPABASE_DB_URL##*@}"
+          case "${hostpart%%[:/?]*}" in
+            db.*.supabase.co)
+              echo "::warning title=Direct connection::SUPABASE_DB_URL uses the direct connection (db.<project>.supabase.co), which GitHub's servers usually can't reach. Use the Session pooler connection string (scripts/configure-backups.ps1)."
+              ;;
+          esac
+          echo "BACKUP_NAME=finboard-backup-$(TZ=Africa/Cairo date +%Y-%m-%d)" >> "$GITHUB_ENV"
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      # Supabase's documented backup commands:
+      # https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore
+      - name: Dump the database (roles, schema, data)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p "backup/$BACKUP_NAME"
+          cd "backup/$BACKUP_NAME"
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f data.sql --data-only --use-copy -x storage.buckets_vectors -x storage.vector_indexes
+          # never keep an empty or half-made dump
+          for f in roles.sql schema.sql data.sql; do
+            [ -s "$f" ] || { echo "::error::$f is empty: the dump didn't work"; exit 1; }
+          done
+          grep -q '^CREATE TABLE' schema.sql || { echo "::error::schema.sql has no tables"; exit 1; }
+          grep -q '^COPY "public"\.' data.sql || { echo "::error::data.sql has no app data"; exit 1; }
+          ls -l
+
+      - name: Pack and encrypt the backup
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          cd backup
+          tar -czf "$BACKUP_NAME.tar.gz" "$BACKUP_NAME"
+          rm -rf "$BACKUP_NAME"
+          # the passphrase reaches gpg through its input, never on the command line
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --quiet --no-symkey-cache --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --output "$BACKUP_NAME.tar.gz.gpg" "$BACKUP_NAME.tar.gz"
+          rm -f "$BACKUP_NAME.tar.gz"
+          # before uploading, prove the encrypted file opens with the passphrase and holds the three dumps
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --quiet --no-symkey-cache --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt "$BACKUP_NAME.tar.gz.gpg" | tar -tzf - | sort > ../contents.txt
+          printf '%s\n' "$BACKUP_NAME/" "$BACKUP_NAME/data.sql" "$BACKUP_NAME/roles.sql" "$BACKUP_NAME/schema.sql" | sort | diff - ../contents.txt
+          rm -f ../contents.txt
+          ls -l
+
+      # only the encrypted .gpg file is uploaded
+      - name: Upload the encrypted backup (kept 90 days)
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: backup/${{ env.BACKUP_NAME }}.tar.gz.gpg
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Write the run summary
+        run: |
+          size="$(du -h "backup/$BACKUP_NAME.tar.gz.gpg" | cut -f1)"
+          {
+            echo "### Backup $BACKUP_NAME"
+            echo "Encrypted file \`$BACKUP_NAME.tar.gz.gpg\` ($size), kept for 90 days under **Artifacts** below."
+            echo "It opens only with the backup passphrase. How to download, open and restore it: docs/backups.md"
+          } >> "$GITHUB_STEP_SUMMARY"

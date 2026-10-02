@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AmountInput, Button, Field, Input, Select, Sheet } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useAccounts, useCategories } from '@/api/queries'
 import { cardName } from '@/features/accounts/accountLabels'
 import { byId } from '@/utils'
-import { useSaveTransaction, useUpsert } from '@/api/mutations'
+import { useCreateInstallmentPurchase } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { d, toDb } from '@/domain/money'
@@ -35,8 +35,8 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
   const { data: accounts } = useAccounts()
   const accMap = useMemo(() => byId(accounts), [accounts])
   const currencies = useActiveCurrencies()
-  const saveTx = useSaveTransaction()
-  const savePlan = useUpsert('card_installment_plans')
+  const createPurchase = useCreateInstallmentPurchase()
+  const ids = useRef({ plan: '', purchase: '', fee: '' })
   // plans need the statement day to know when each installment is billed
   const usable = cards.filter((c) => c.primary && c.account.statement_day)
 
@@ -52,6 +52,7 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
 
   useEffect(() => {
     if (!open) return
+    ids.current = { plan: newId(), purchase: newId(), fee: newId() }
     setCardId(preset?.cardAccountId && usable.some((c) => c.account.id === preset.cardAccountId) ? preset.cardAccountId : (usable[0]?.account.id ?? ''))
     setDescription(preset?.description ?? '')
     setCategoryId(preset?.categoryId ?? null)
@@ -81,61 +82,26 @@ export function InstallmentPurchaseSheet({ open, onClose, preset }: { open: bool
     if (!valid || !card || !plan || !card.primary) return
     setSaving(true)
     try {
-      const purchaseId = newId()
-      const base = {
-        type: 'expense' as const,
-        date,
+      const feeCategory = categories?.find((c) => c.kind === 'expense' && /fee|charge/i.test(c.name) && !c.parent_id)
+      // the purchase, its interest / fees and the plan are saved together, or not at all; the ids are
+      // fixed for this opening, so tapping Save again after a failure never saves it twice
+      await createPurchase.mutateAsync({
+        planId: ids.current.plan,
+        purchaseTxId: ids.current.purchase,
+        feeTxId: ids.current.fee,
+        subAccountId: card.primary.id,
+        accountId: card.account.id,
         currency: card.currency,
-        sub_account_id: card.primary.id,
-        tags: [],
-        to_sub_account_id: null,
-        to_amount: null,
-        to_currency: null,
-        rate_used: null,
-        source: 'manual' as const,
-        source_id: null,
-      }
-      await saveTx.mutateAsync({
-        row: {
-          ...base,
-          id: purchaseId,
-          amount: toDb(principal),
-          category_id: categoryId,
-          payee: description.trim(),
-          notes: `${n} installments of ${plan.monthly.toFixed(2)} ${card.currency}`,
-        },
+        description: description.trim(),
+        categoryId,
+        feeCategoryId: feeCategory?.id ?? null,
+        principal: toDb(principal),
+        fees: toDb(feeAmount),
+        months: n,
+        purchaseDate: date,
+        firstBillingDate: plan.first,
+        purchaseNotes: `${n} installments of ${plan.monthly.toFixed(2)} ${card.currency}`,
       })
-      let feesId: string | null = null
-      if (feeAmount.gt(0)) {
-        feesId = newId()
-        const feeCategory = categories?.find((c) => c.kind === 'expense' && /fee|charge/i.test(c.name) && !c.parent_id)
-        await saveTx.mutateAsync({
-          row: {
-            ...base,
-            id: feesId,
-            amount: toDb(feeAmount),
-            category_id: feeCategory?.id ?? null,
-            payee: `${description.trim()} · installment interest & fees`,
-            notes: null,
-          },
-        })
-      }
-      await savePlan.mutateAsync([
-        {
-          id: newId(),
-          account_id: card.account.id,
-          sub_account_id: card.primary.id,
-          transaction_id: purchaseId,
-          fees_transaction_id: feesId,
-          description: description.trim(),
-          currency: card.currency,
-          principal: toDb(principal),
-          fees: toDb(feeAmount),
-          months: n,
-          purchase_date: date,
-          first_billing_date: plan.first,
-        },
-      ])
       onClose()
     } finally {
       setSaving(false)

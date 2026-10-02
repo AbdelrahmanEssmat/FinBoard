@@ -31,6 +31,8 @@ export type Settings = {
   user_id: string
   base_currency: string
   defaults: Json
+  /** IANA time zone; the app keeps it in step with the device so dates follow where you are */
+  timezone: string
   created_at: string
   updated_at: string
 }
@@ -198,6 +200,8 @@ export type CertificatePayout = {
   amount: number
   status: PayoutStatus
   transaction_id: string | null
+  /** the day after the previous payout date: the payout covers period_start (exclusive) to due_date */
+  period_start: string | null
   created_at: string
   updated_at: string
 }
@@ -275,6 +279,10 @@ export type HoldingSale = {
   sub_account_id: string | null
   transaction_id: string | null
   notes: string | null
+  /** the price the sale replaced, so undoing it can put it back */
+  prev_price: number | null
+  prev_price_at: string | null
+  set_price_at: string | null
   created_at: string
 }
 
@@ -361,6 +369,50 @@ export type NetWorthSnapshot = {
   created_at: string
 }
 
+export type YieldRate = {
+  id: string
+  user_id: string
+  sub_account_id: string
+  effective_from: string
+  rate: number
+  created_at: string
+}
+
+export type PushSubscriptionRow = {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  created_at: string
+  last_success_at: string | null
+}
+
+export type Reminder = {
+  id: string
+  user_id: string
+  key: string
+  remind_on: string
+  title: string
+  body: string
+  url: string
+  sent_at: string | null
+  created_at: string
+}
+
+export type AppError = {
+  id: string
+  user_id: string
+  created_at: string
+  kind: string
+  message: string
+  stack: string | null
+  url: string | null
+  app_version: string | null
+  user_agent: string | null
+}
+
 /** Numeric columns may be sent as strings (exact decimals). */
 type Writable<T> = {
   [K in keyof T]: T[K] extends number ? number | string : T[K] extends number | null ? number | string | null : T[K]
@@ -392,6 +444,10 @@ export type Database = {
       debts: TableDef<Debt>
       debt_payments: TableDef<DebtPayment>
       net_worth_snapshots: TableDef<NetWorthSnapshot>
+      yield_rates: TableDef<YieldRate>
+      push_subscriptions: TableDef<PushSubscriptionRow>
+      reminders: TableDef<Reminder>
+      app_errors: TableDef<AppError>
     }
     Views: { [_ in never]: never }
     Functions: {
@@ -431,6 +487,49 @@ export type Database = {
       recompute_sub_account_balance: { Args: { p_sub_account_id: string }; Returns: undefined }
       set_sub_account_balance: { Args: { p_sub_account_id: string; p_balance: string }; Returns: number }
       convert_amount: { Args: { p_user: string; p_amount: number | string; p_from: string; p_to: string; p_date: string }; Returns: number }
+      create_debt: {
+        Args: {
+          p_id: string
+          p_contact_id: string
+          p_new_contact_name: string | null
+          p_direction: DebtDirection
+          p_amount: string
+          p_currency: string
+          p_date: string
+          p_due_date: string | null
+          p_reason: string | null
+          p_notes: string | null
+          p_plan_count: number | null
+          p_plan_amount: string | null
+          p_plan_frequency: Recurrence | null
+          p_plan_start_date: string | null
+          p_sub_account_id: string | null
+          p_transaction_id: string | null
+        }
+        Returns: string
+      }
+      create_installment_purchase: {
+        Args: {
+          p_plan_id: string
+          p_purchase_tx_id: string
+          p_fee_tx_id: string | null
+          p_sub_account_id: string
+          p_description: string
+          p_category_id: string | null
+          p_fee_category_id: string | null
+          p_principal: string
+          p_fees: string
+          p_months: number
+          p_purchase_date: string
+          p_first_billing_date: string
+          p_purchase_notes: string | null
+        }
+        Returns: string
+      }
+      save_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string | null }; Returns: undefined }
+      replace_reminders: { Args: { p_items: Json }; Returns: number }
+      delete_my_account: { Args: Record<string, never>; Returns: undefined }
+      mfa_satisfied: { Args: Record<string, never>; Returns: boolean }
     }
     Enums: {
       account_type: AccountType

@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { AppShell } from '@/layout/AppShell'
 import { AuthGate } from '@/app/AuthGate'
 import { Skeleton } from '@/components/ui'
+import { RouteError } from '@/app/RouteError'
 
 const load = (factory: () => Promise<{ default: React.ComponentType }>) => {
   const C = lazy(factory)
@@ -22,11 +23,12 @@ const load = (factory: () => Promise<{ default: React.ComponentType }>) => {
 }
 
 export const router = createBrowserRouter([
-  { path: '/login', element: load(() => import('@/features/auth/LoginPage')) },
-  { path: '/reset-password', element: load(() => import('@/features/auth/ResetPasswordPage')) },
-  { path: '/auth/confirm', element: load(() => import('@/features/auth/ConfirmPage')) },
+  { path: '/login', element: load(() => import('@/features/auth/LoginPage')), errorElement: <RouteError /> },
+  { path: '/reset-password', element: load(() => import('@/features/auth/ResetPasswordPage')), errorElement: <RouteError /> },
+  { path: '/auth/confirm', element: load(() => import('@/features/auth/ConfirmPage')), errorElement: <RouteError /> },
   {
     path: '/',
+    errorElement: <RouteError />,
     element: (
       <AuthGate>
         <AppShell>

@@ -9,6 +9,7 @@ import { toast } from '@/store/toasts'
 import { authMessage } from './authErrors'
 import { isStrongPassword, newPasswordProblem } from './password'
 import { PasswordChecklist, PasswordInput } from './PasswordFields'
+import { markUnlocked } from '@/features/security/appLock'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -75,6 +76,8 @@ export default function LoginPage() {
           setUnconfirmed(error.code === 'email_not_confirmed' || /email not confirmed/i.test(error.message))
           throw error
         }
+        // the password was just typed: the app lock doesn't need to ask again right away
+        markUnlocked()
         // accounts made before the stronger password rules: suggest an update
         if (data.weakPassword || !isStrongPassword(password)) toast.info('Tip: your password is weaker than the current rules. Change it in Settings.')
       } else if (mode === 'signup') {

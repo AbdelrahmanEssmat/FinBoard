@@ -1,0 +1,99 @@
+# Runs every check on each push to main and on every pull request. When a run fails, GitHub emails the
+# person who pushed (github.com > Settings > Notifications > Actions decides how).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# a newer push to the same branch or pull request cancels the older run that is still going
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App - types, lint, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      # the four checks run even when an earlier one fails, so a single run shows every problem
+      - name: Check types
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run typecheck
+
+      - name: Check code quality (lint)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm test
+
+      - name: Build the app
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run build
+
+  database:
+    name: Database - migrations, SQL checks, randomised test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # a throwaway PostgreSQL 17 server (the same major version as Supabase and dev-local)
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PSQL: psql
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # the runner image ships a psql client; its version doesn't matter for these scripts
+      - name: Check the PostgreSQL client (psql) is installed
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          psql --version
+
+      - name: Apply every migration (twice) and run the SQL checks
+        run: bash dev-local/test-migrations.sh
+
+      - name: Run the randomised money test (2 seeds x 500 steps)
+        if: ${{ !cancelled() }}
+        run: bash dev-local/fuzz.sh 500 0.11 0.22

@@ -11,6 +11,8 @@ import { useAuth, useUserId } from '@/app/providers/AuthProvider'
 import { exportAll, exportTransactionsCsv, importAll } from '@/api/backup'
 import { toast } from '@/store/toasts'
 import { AccountSection } from './AccountSection'
+import { SecuritySection } from './SecuritySection'
+import { RemindersSection } from './RemindersSection'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -79,6 +81,7 @@ export default function SettingsPage() {
               ))}
             </Select>
           </Field>
+          <p className="-mt-2 text-xs text-muted">Dates follow your time zone: {settings?.timezone ?? 'Africa/Cairo'} (from this device)</p>
           <Divider />
           {/* rows run edge to edge of the card; their own padding lines the icons up with the field above */}
           <ListRow icon={Coins} color="#eab308" title="Currencies" subtitle="Add or enable EUR, SAR, AED…" chevron onClick={() => navigate('/settings/currencies')} className="-mx-5 w-[calc(100%+2.5rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] sm:px-6" />
@@ -125,10 +128,14 @@ export default function SettingsPage() {
         </Card>
       </section>
 
+      <RemindersSection />
+
+      <SecuritySection />
+
       <AccountSection />
 
       <Card className="overflow-hidden">
-        <ListRow icon={Eye} color="#64748b" title="Privacy" subtitle="Only you can see your data" />
+        <ListRow icon={Eye} color="#64748b" title="Privacy" subtitle="Only you can see your data. If FinBoard crashes, a short error report (never amounts) is sent so it can be fixed." />
       </Card>
       <p className="text-center text-xs text-faint">FinBoard · v{__APP_VERSION__}</p>
 

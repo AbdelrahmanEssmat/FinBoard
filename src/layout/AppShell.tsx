@@ -5,6 +5,8 @@ import { useConnectivity } from '@/hooks/useConnectivity'
 import { useDailyJobs } from '@/hooks/useDailyJobs'
 import { useMarketData } from '@/hooks/useMarketData'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
+import { useReminderSync } from '@/hooks/useReminderSync'
+import { useTimezoneSync } from '@/hooks/useTimezoneSync'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { Sidebar } from '@/layout/Sidebar'
 import { TopBar } from '@/layout/TopBar'
@@ -32,6 +34,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   useRealtimeSync()
   useDailyJobs()
   useMarketData()
+  useReminderSync()
+  useTimezoneSync()
 
   // a new page starts at its top (switching tabs used to keep the previous page's scroll position)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -6,21 +6,44 @@ import { fileURLToPath, URL } from 'node:url'
 
 import pkg from './package.json' with { type: 'json' }
 
+/** Request headers that describe the connection rather than the request; not passed on to the functions. */
+const HOP_BY_HOP_HEADERS = new Set(['connection', 'content-length', 'expect', 'host', 'keep-alive', 'proxy-connection', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
+
 /**
  * In development, answer /api/<name> with the same Vercel function file (api/<name>.ts) that runs in
- * production, so features that need a server (e.g. gold prices) work with `npm run dev` too.
+ * production, so features that need a server (e.g. gold prices, reminders) work with `npm run dev` too.
+ * GET and POST reach the module's exported GET / POST handler with their headers and body. Like on
+ * Vercel, the functions see the project's environment variables: here the .env files Vite reads for
+ * the current mode (e.g. .env.localstack with `npm run dev:local`); variables set in the shell win.
  */
 function vercelFunctionsInDev(): Plugin {
   return {
     name: 'vercel-functions-in-dev',
     configureServer(server) {
+      for (const [key, value] of Object.entries(loadEnv(server.config.mode, server.config.envDir, ''))) process.env[key] ??= value
       server.middlewares.use(async (req, res, next) => {
         const match = req.url?.match(/^\/api\/([a-z0-9-]+)(?:\?|$)/)
-        if (!match || req.method !== 'GET') return next()
+        const method = req.method === 'POST' ? 'POST' : req.method === 'GET' ? 'GET' : undefined
+        if (!match || !method) return next()
         try {
           const mod = await server.ssrLoadModule(`/api/${match[1]}.ts`)
-          if (typeof mod.GET !== 'function') return next()
-          const response: Response = await mod.GET(new Request(`http://localhost${req.url}`))
+          if (typeof mod[method] !== 'function') {
+            if (method === 'GET') return next()
+            res.statusCode = 405
+            res.setHeader('Allow', ['GET', 'POST'].filter((m) => typeof mod[m] === 'function').join(', '))
+            return res.end()
+          }
+          const headers = new Headers()
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (value !== undefined && !HOP_BY_HOP_HEADERS.has(key)) headers.set(key, Array.isArray(value) ? value.join(', ') : value)
+          }
+          let body: Uint8Array | undefined
+          if (method === 'POST') {
+            const chunks: Buffer[] = []
+            for await (const chunk of req) chunks.push(Buffer.from(chunk))
+            body = new Uint8Array(Buffer.concat(chunks))
+          }
+          const response: Response = await mod[method](new Request(`http://localhost${req.url}`, { method, headers, body }))
           res.statusCode = response.status
           response.headers.forEach((value, key) => res.setHeader(key, value))
           res.end(await response.text())
@@ -63,6 +86,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // reminders: shows pushed notifications and opens the app when one is tapped (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/~/, /^\/api\//],

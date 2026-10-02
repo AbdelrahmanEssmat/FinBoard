@@ -37,10 +37,15 @@ export default function ConfirmPage() {
     if (!tokenHash || !type) return
     setBusy(true)
     setErr(null)
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
     setBusy(false)
     if (error) return setErr(authMessage(error))
     if (type === 'recovery' || type === 'invite') return navigate('/reset-password', { replace: true, state: { fromEmail: true } })
+    // a secure email change needs both links: the first one only counts half
+    if (type === 'email_change' && !data.session) {
+      toast.info('Half way there: now open the link we sent to your other email address too.')
+      return navigate('/', { replace: true })
+    }
     toast.success(type === 'email_change' ? 'Your new email is confirmed.' : type === 'magiclink' ? 'Signed in.' : 'Email confirmed. Welcome to FinBoard!')
     navigate('/', { replace: true })
   }

@@ -6,6 +6,14 @@
  */
 
 let currentUserId: string | null = null
+/** while the signed-in person still owes their second sign-in step, nothing queued is sent (it would be refused and lost) */
+let sendingPaused = false
+export function setSendingPaused(paused: boolean) {
+  sendingPaused = paused
+}
+export function isSendingPaused(): boolean {
+  return sendingPaused
+}
 const OWNER_KEY = 'finboard-device-data-owner'
 
 export function setCurrentUserId(id: string | null) {

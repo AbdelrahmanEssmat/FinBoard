@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
-import { useUpsert, useSaveTransaction, useUpdateRows } from '@/api/mutations'
+import { useCreateDebt, useUpdateRows, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { format, isValid, parseISO } from 'date-fns'
@@ -22,12 +22,11 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const currencies = useActiveCurrencies()
   const prefs = usePrefs()
   const upsertContact = useUpsert('contacts', { silent: true })
-  const upsertDebt = useUpsert('debts', { invalidate: ['debt_payments'] })
   const updateDebt = useUpdateRows('debts', { invalidate: ['debt_payments'] })
   // fixed per opening, so tapping Save again after a failed step updates the same rows instead of
   // creating a second contact, a second money movement or a second debt
   const ids = useRef({ contact: '', debt: '', tx: '' })
-  const saveTx = useSaveTransaction()
+  const createDebt = useCreateDebt()
 
   const [dir, setDir] = useState<DebtDirection>(direction)
   const [contactId, setContactId] = useState('')
@@ -93,63 +92,56 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const save = async () => {
     if (!valid) return
     // a picked person wins over a name typed earlier under "New person…"
-    let cid = contactId
-    if (!contactId && newContact.trim()) {
-      cid = ids.current.contact
-      await upsertContact.mutateAsync([{ id: cid, name: newContact.trim() }])
-    }
+    const isNewPerson = !contactId && Boolean(newContact.trim())
+    const cid = isNewPerson ? ids.current.contact : contactId
     const id = initial?.id ?? ids.current.debt
-    const contactName = !contactId && newContact.trim() ? newContact.trim() : (contacts?.find((c) => c.id === cid)?.name ?? '')
-    const fields = {
-      contact_id: cid,
-      amount: toDb(amount),
-      currency,
-      date,
-      due_date: dueDate || null,
-      reason: reason.trim() || null,
-      notes: notes.trim() || null,
-      plan_count: plan ? parseInt(planCount) || null : null,
-      plan_amount: plan && planAmount ? toDb(planAmount) : null,
-      plan_frequency: plan ? planFreq : null,
-      plan_start_date: plan ? planStart || defaultPlanStart : null,
-    }
+    const contactName = isNewPerson ? newContact.trim() : (contacts?.find((c) => c.id === cid)?.name ?? '')
+    const plan_count = plan ? parseInt(planCount) || null : null
+    const plan_amount = plan && planAmount ? toDb(planAmount) : null
+    const plan_frequency = plan ? planFreq : null
+    const plan_start_date = plan ? planStart || defaultPlanStart : null
     if (initial) {
+      if (isNewPerson) await upsertContact.mutateAsync([{ id: cid, name: newContact.trim() }])
       // only what this form edits: the linked money movement, its account and the direction are kept by
       // the database, and a stale copy of them must never be sent back
-      await updateDebt.mutateAsync([{ id, ...fields }])
-      prefs.remember({ lastCurrency: currency })
-      onClose()
-      return
-    }
-    let txId: string | null = null
-    if (moveMoney && effectiveSubId) {
-      txId = ids.current.tx
-      await saveTx.mutateAsync({
-        row: {
-          id: txId,
-          type: dir === 'i_owe' ? 'income' : 'expense',
-          date,
+      await updateDebt.mutateAsync([
+        {
+          id,
+          contact_id: cid,
           amount: toDb(amount),
           currency,
-          sub_account_id: effectiveSubId,
-          category_id: null,
-          tags: [],
-          notes: `${dir === 'i_owe' ? 'Borrowed from' : 'Lent to'} ${contactName}`,
-          source: 'debt',
-          source_id: id,
+          date,
+          due_date: dueDate || null,
+          reason: reason.trim() || null,
+          notes: notes.trim() || null,
+          plan_count,
+          plan_amount,
+          plan_frequency,
+          plan_start_date,
         },
+      ])
+    } else {
+      // the person, the money movement and the debt are saved together, or not at all
+      await createDebt.mutateAsync({
+        id,
+        contactId: cid,
+        newContactName: isNewPerson ? newContact.trim() : null,
+        contactName,
+        direction: dir,
+        amount: toDb(amount),
+        currency,
+        date,
+        dueDate: dueDate || null,
+        reason: reason.trim() || null,
+        notes: notes.trim() || null,
+        planCount: plan_count,
+        planAmount: plan_amount,
+        planFrequency: plan_frequency,
+        planStartDate: plan_start_date,
+        subAccountId: moveMoney && effectiveSubId ? effectiveSubId : null,
+        transactionId: ids.current.tx,
       })
     }
-    await upsertDebt.mutateAsync([
-      {
-        id,
-        ...fields,
-        direction: dir,
-        sub_account_id: txId ? effectiveSubId : null,
-        transaction_id: txId,
-        status: 'open',
-      },
-    ])
     prefs.remember({ lastCurrency: currency })
     onClose()
   }
@@ -160,7 +152,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
       onClose={onClose}
       title={initial ? 'Edit debt' : dir === 'i_owe' ? 'Money I owe' : 'Money owed to me'}
       footer={
-        <Button full size="lg" onClick={save} loading={upsertDebt.isPending || updateDebt.isPending || saveTx.isPending || upsertContact.isPending} disabled={!valid}>
+        <Button full size="lg" onClick={save} loading={createDebt.isPending || updateDebt.isPending || upsertContact.isPending} disabled={!valid}>
           Save
         </Button>
       }
