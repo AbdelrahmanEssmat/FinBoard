@@ -1,0 +1,51 @@
+import { describe, expect, it } from 'vitest'
+import { d, type NumericInput } from '@/domain/money'
+import { debtActivity } from '@/domain/debts'
+
+const toBase = (amount: NumericInput, currency: string) => (currency === 'USD' ? d(amount).times(50) : d(amount))
+const oct = { from: '2026-10-01', to: '2026-10-31' }
+
+describe('debt activity', () => {
+  const debts = [
+    // lent from the bank this month: the balance went down by what is now owed, net worth unchanged
+    { id: 'lent', direction: 'owed_to_me' as const, amount: '10000', currency: 'EGP', date: '2026-10-02', transaction_id: 'tx1' },
+    // someone owes you 500 for their share of a dinner you paid: nothing left an account for it
+    { id: 'share', direction: 'owed_to_me' as const, amount: '500', currency: 'EGP', date: '2026-10-05', transaction_id: null },
+    // borrowed 100 USD in cash, not tracked in any account
+    { id: 'borrowed', direction: 'i_owe' as const, amount: '100', currency: 'USD', date: '2026-10-07', transaction_id: null },
+    // an old loan from August
+    { id: 'old', direction: 'i_owe' as const, amount: '3000', currency: 'EGP', date: '2026-08-15', transaction_id: 'tx2' },
+  ]
+  const payments = [
+    { debt_id: 'lent', amount: '4000', date: '2026-10-20', transaction_id: 'tx3' }, // back into the bank
+    { debt_id: 'share', amount: '500', date: '2026-10-21', transaction_id: null }, // paid in cash you don't track
+    { debt_id: 'old', amount: '1000', date: '2026-10-25', transaction_id: 'tx4' }, // paid back from the bank
+    { debt_id: 'old', amount: '1000', date: '2026-09-25', transaction_id: 'tx5' }, // last month: not counted
+  ]
+
+  it('adds up what was lent, borrowed and repaid in the period, at each day’s rate', () => {
+    const a = debtActivity(debts, payments, oct, toBase)
+    expect(a.lent.toString()).toBe('10500')
+    expect(a.borrowed.toString()).toBe('5000')
+    expect(a.receivedBack.toString()).toBe('4500')
+    expect(a.paidBack.toString()).toBe('1000')
+    expect(a.any).toBe(true)
+  })
+
+  it('counts only what changed net worth without moving money', () => {
+    const a = debtActivity(debts, payments, oct, toBase)
+    // +500 now owed to you, -5,000 you now owe, -500 for the share repaid in untracked cash
+    expect(a.withoutMoney.toString()).toBe('-5000')
+  })
+
+  it('is empty for a period with nothing in it', () => {
+    const a = debtActivity(debts, payments, { from: '2026-11-01', to: '2026-11-30' }, toBase)
+    expect(a.any).toBe(false)
+    expect(a.withoutMoney.isZero()).toBe(true)
+  })
+
+  it('ignores repayments of a debt it doesn’t know', () => {
+    const a = debtActivity([], [{ debt_id: 'gone', amount: '50', date: '2026-10-03', transaction_id: null }], oct, toBase)
+    expect(a.any).toBe(false)
+  })
+})

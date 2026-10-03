@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useBudgets, useCategories, useRecurring, useSnapshots, useSubAccounts, useTransactions } from '@/api/queries'
+import { useBudgets, useCategories, useDebtPayments, useDebts, useRecurring, useSnapshots, useSubAccounts, useTransactions } from '@/api/queries'
 import { useConvert, useHistoricalConvert, useMoneyFormatter } from '@/hooks/useMoney'
 import { convert } from '@/domain/currency'
 import { d, type NumericInput } from '@/domain/money'
@@ -9,6 +9,7 @@ import {
   spendingProjection, topPayees, weekPattern, type DateRange,
 } from '@/domain/insights'
 import { partyTotals } from '@/domain/categoryStats'
+import { debtActivity } from '@/domain/debts'
 import { addDaysIso, byId, daysBetween, endOfMonthIso, startOfMonthIso } from '@/utils'
 
 const minIso = (a: string, b: string) => (a < b ? a : b)
@@ -47,6 +48,8 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
   const { data: recurring } = useRecurring()
   const { data: budgets } = useBudgets()
   const { data: snapshots } = useSnapshots()
+  const { data: debts } = useDebts()
+  const { data: debtPayments } = useDebtPayments()
   const { between } = useConvert()
   const { toDisplayAt, tableAt, display } = useHistoricalConvert()
   const fmt = useMoneyFormatter()
@@ -95,15 +98,18 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     // Net worth change over the period, split into savings vs valuation. Snapshots are taken at
     // the end of a day, so the starting point is the last snapshot *before* the period, and
     // savings are counted only for the days after the start snapshot up to the end snapshot.
-    let netWorthChange: { total: ReturnType<typeof d>; fromSavings: ReturnType<typeof d>; start: string; end: string } | null = null
+    let netWorthChange: { total: ReturnType<typeof d>; fromSavings: ReturnType<typeof d>; fromDebts: ReturnType<typeof d>; start: string; end: string } | null = null
     const snaps = (snapshots ?? []).filter((s) => s.snapshot_date <= range.to)
     const startSnap = [...snaps].reverse().find((s) => s.snapshot_date < range.from) ?? snaps.find((s) => s.snapshot_date >= range.from)
     const endSnap = snaps[snaps.length - 1]
     if (startSnap && endSnap && startSnap.snapshot_date < endSnap.snapshot_date && !filters.accountId && !filters.tag) {
       const a = convert(startSnap.total, startSnap.base_currency, display, tableAt(startSnap.snapshot_date)) ?? d(startSnap.total)
       const b = convert(endSnap.total, endSnap.base_currency, display, tableAt(endSnap.snapshot_date)) ?? d(endSnap.total)
-      const saved = periodTotals(filtered, { from: addDaysIso(startSnap.snapshot_date, 1), to: endSnap.snapshot_date }, toBase).net
-      netWorthChange = { total: b.minus(a), fromSavings: saved, start: startSnap.snapshot_date, end: endSnap.snapshot_date }
+      const span = { from: addDaysIso(startSnap.snapshot_date, 1), to: endSnap.snapshot_date }
+      const saved = periodTotals(filtered, span, toBase).net
+      // debts saved without moving money change net worth too, and aren't a change in asset values
+      const fromDebts = debtActivity(debts ?? [], debtPayments ?? [], span, toBase).withoutMoney
+      netWorthChange = { total: b.minus(a), fromSavings: saved, fromDebts, start: startSnap.snapshot_date, end: endSnap.snapshot_date }
     }
 
     // budgets over limit (this month only)
@@ -119,8 +125,11 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
 
     const insights = generateInsights({ txs: filtered, range, today, toBase, categories: catMap, fixedCategoryIds, money, isCurrentMonth, prevRange: prevCmp, netWorthChange, budgetsOver })
     const allTags = Array.from(new Set((txs ?? []).flatMap((t) => t.tags))).sort()
+    // money lent, borrowed and repaid: not income or spending, shown on its own (only without filters:
+    // debts have no tags, and one debt's money can move through several accounts)
+    const debtsInPeriod = filters.accountId || filters.tag ? null : debtActivity(debts ?? [], debtPayments ?? [], range, toBase)
     const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency, t.date)), d(0))
 
-    return { range, prev, prevCompareTo, prevCompareLabel, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth, partial }
-  }, [txs, categories, subs, recurring, budgets, snapshots, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
+    return { range, prev, prevCompareTo, prevCompareLabel, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth, partial, debts: debtsInPeriod }
+  }, [txs, categories, subs, recurring, budgets, snapshots, debts, debtPayments, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
 }

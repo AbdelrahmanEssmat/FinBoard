@@ -67,7 +67,8 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
     for (const x of openDebts) {
       const nxt = x.next
       if (!nxt || nxt.dueDate > until) continue
-      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${x.contact?.name ?? ''}` : `${x.contact?.name ?? ''} pays you`, subtitle: 'Installment', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}`, kind: 'debt', incoming: x.direction === 'owed_to_me', name: x.contact?.name ?? '' })
+      const who = x.contact?.name ?? 'Someone'
+      items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${who}` : `${who} pays you`, subtitle: x.plan.length > 1 ? `Installment ${nxt.index + 1} of ${x.plan.length}` : nxt.paid.gt(0) ? 'Debt due · rest of it' : 'Debt due', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}`, kind: 'debt', incoming: x.direction === 'owed_to_me', name: who })
     }
     // credit card statements with money left to pay (overdue ones stay until paid)
     for (const c of cards) {

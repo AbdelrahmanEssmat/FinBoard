@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Pill, ProgressBar } from '@/components/ui'
 import { useUndoableDelete } from '@/api/mutations'
+import { useAccounts, useSubAccounts } from '@/api/queries'
+import { balanceLabel } from '@/features/accounts/accountLabels'
+import { byId } from '@/utils'
 import { formatDate } from '@/domain/format'
 import { DebtForm } from '@/features/debts/components/DebtForm'
 import { DebtPaymentForm } from '@/features/debts/components/DebtPaymentForm'
@@ -21,6 +24,15 @@ export default function DebtDetailPage() {
   const [confirmPayment, setConfirmPayment] = useState<DebtPayment | null>(null)
   const deleteDebt = useUndoableDelete('debts', { invalidate: ['debt_payments', 'transactions', 'sub_accounts'], label: 'Debt' })
   const deletePayment = useUndoableDelete('debt_payments', { invalidate: ['debts', 'transactions', 'sub_accounts'], label: 'Payment' })
+  const { data: accounts } = useAccounts()
+  const { data: subs } = useSubAccounts()
+  const accMap = useMemo(() => byId(accounts), [accounts])
+  const subMap = useMemo(() => byId(subs), [subs])
+  /** "NBE · EGP" for the balance some money moved in, if it's known */
+  const balanceName = (subId: string | null) => {
+    const sub = subId ? subMap.get(subId) : undefined
+    return sub ? balanceLabel(sub, accMap) : null
+  }
 
   if (!debt) return isLoading && !list.length ? <PageSkeleton back /> : <NotFound title="Debt not found" />
   const positive = debt.direction === 'owed_to_me'
@@ -69,6 +81,20 @@ export default function DebtDetailPage() {
         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <dt className="text-muted">Date</dt>
           <dd>{formatDate(debt.date)}</dd>
+          <dt className="text-muted">Money</dt>
+          <dd className="min-w-0">
+            {debt.transaction_id ? (
+              <span className="break-words">
+                {positive ? 'Left ' : 'Came into '}
+                {balanceName(debt.sub_account_id) ?? 'an account'}
+              </span>
+            ) : (
+              // saved without its money movement: it counts in net worth, but no balance changed
+              <button onClick={() => setEdit(true)} className="-my-1 text-left text-accent">
+                Not linked to an account · Link
+              </button>
+            )}
+          </dd>
           {debt.due_date ? (
             <>
               <dt className="text-muted">Due</dt>
@@ -125,7 +151,7 @@ export default function DebtDetailPage() {
         {debt.payments.map((p, i) => (
           <div key={p.id}>
             {i > 0 ? <Divider /> : null}
-            <ListRow title={formatDate(p.date)} subtitle={p.notes ?? (p.sub_account_id ? 'Recorded in account' : 'No account')} trailing={<Amount value={p.amount} currency={debt.currency} className="font-medium" />} onClick={() => setConfirmPayment(p)} />
+            <ListRow title={formatDate(p.date)} subtitle={p.notes ?? (p.transaction_id ? `${positive ? 'Into' : 'From'} ${balanceName(p.sub_account_id) ?? 'an account'}` : 'No account')} trailing={<Amount value={p.amount} currency={debt.currency} className="font-medium" />} onClick={() => setConfirmPayment(p)} />
           </div>
         ))}
         {!debt.payments.length ? <p className="p-5 text-sm text-muted">No payments yet.</p> : null}

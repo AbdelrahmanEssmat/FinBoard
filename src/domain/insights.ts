@@ -329,7 +329,11 @@ export interface InsightContext {
   /** what to compare against (default: the whole previous period; pass a trimmed one for a period in progress) */
   prevRange?: DateRange
   /** previous-month spending, for the projection comparison */
-  netWorthChange?: { total: Decimal; fromSavings: Decimal } | null
+  /**
+   * Net worth change over the period: what was saved (income minus spending), and what debts saved
+   * without moving any money did (see debtActivity). The rest is put down to asset values and rates.
+   */
+  netWorthChange?: { total: Decimal; fromSavings: Decimal; fromDebts?: Decimal } | null
   budgetsOver?: string[]
 }
 
@@ -404,9 +408,15 @@ export function generateInsights(ctx: InsightContext): Insight[] {
   if (incomeCats.rows.length >= 2 && incomeCats.rows[0]!.pct >= 85) out.push({ id: 'income-concentration', tone: 'info', title: `${incomeCats.rows[0]!.pct.toFixed(0)}% of income comes from ${incomeCats.rows[0]!.name}`, detail: 'A single source; worth keeping an eye on.' })
 
   if (ctx.netWorthChange) {
-    const { total, fromSavings } = ctx.netWorthChange
-    const valuation = total.minus(fromSavings)
-    if (!total.isZero()) out.push({ id: 'networth', tone: total.gt(0) ? 'good' : 'warn', title: `Net worth ${total.gt(0) ? 'grew' : 'fell'} by ${money(total.abs())}`, detail: `${money(fromSavings)} from saving, ${valuation.gte(0) ? '+' : '-'}${money(valuation.abs())} from changes in asset values and rates.` })
+    const { total, fromSavings, fromDebts = d(0) } = ctx.netWorthChange
+    // money lent or borrowed through an account doesn't change net worth (the balance and what is owed
+    // move together); a debt saved without moving money does, and that is not a change in asset values
+    const valuation = total.minus(fromSavings).minus(fromDebts)
+    const signed = (v: Decimal) => `${v.gte(0) ? '+' : '-'}${money(v.abs())}`
+    const parts = [`${money(fromSavings)} from saving`]
+    if (!fromDebts.isZero()) parts.push(`${signed(fromDebts)} from debts saved without moving money`)
+    parts.push(`${signed(valuation)} from changes in asset values and rates`)
+    if (!total.isZero()) out.push({ id: 'networth', tone: total.gt(0) ? 'good' : 'warn', title: `Net worth ${total.gt(0) ? 'grew' : 'fell'} by ${money(total.abs())}`, detail: `${parts.join(', ')}.` })
   }
 
   if (ctx.budgetsOver?.length) out.push({ id: 'budgets', tone: 'warn', title: `${ctx.budgetsOver.length} budget${ctx.budgetsOver.length === 1 ? '' : 's'} over the limit`, detail: ctx.budgetsOver.join(', ') })

@@ -530,6 +530,7 @@ export type Database = {
       replace_reminders: { Args: { p_items: Json }; Returns: number }
       delete_my_account: { Args: Record<string, never>; Returns: undefined }
       mfa_satisfied: { Args: Record<string, never>; Returns: boolean }
+      set_debt_account: { Args: { p_debt_id: string; p_sub_account_id: string | null; p_transaction_id?: string | null }; Returns: string | null }
     }
     Enums: {
       account_type: AccountType

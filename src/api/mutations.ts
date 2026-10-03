@@ -777,6 +777,103 @@ export function useCreateDebt() {
 }
 
 /**
+ * Link a debt's money movement to a balance, move it to another balance, or take it off
+ * (set_debt_account, one step). Without it a debt counts in net worth while no balance moved, so net
+ * worth jumps by the whole amount. The balance change shows at once (also offline); pass the same
+ * transaction id when retrying.
+ */
+export function useSetDebtAccount() {
+  const qc = useQueryClient()
+  const tables: TableName[] = ['debts', 'transactions', 'sub_accounts']
+  return useMutation({
+    mutationFn: async (input: {
+      debt: { id: string; direction: 'i_owe' | 'owed_to_me'; amount: NumericInput; currency: string; date: string; transaction_id: string | null; sub_account_id: string | null }
+      /** what the existing money movement moves now, if the amount was just edited (default: the debt's amount) */
+      linkedAmount?: NumericInput
+      contactName: string
+      /** the balance the money moved in, or null to take the money movement off */
+      subAccountId: string | null
+      /** id for a new money movement (ignored when the debt already has one) */
+      transactionId: string
+    }) => {
+      const { debt } = input
+      try {
+        return await submit({ kind: 'rpc', fn: 'set_debt_account', args: { p_debt_id: debt.id, p_sub_account_id: input.subAccountId, p_transaction_id: input.transactionId } })
+      } catch (err) {
+        if (!missingFunction(err)) throw err
+        // the database doesn't have the one-step change yet (migration 0016): the older way, step by step
+        let queued = false
+        if (!input.subAccountId) {
+          if (debt.transaction_id) queued = (await submit({ kind: 'delete', table: 'transactions', ids: [debt.transaction_id] })).queued || queued
+          queued = (await submit({ kind: 'update', table: 'debts', id: debt.id, patch: { sub_account_id: null, transaction_id: null } as Insert<'debts'> })).queued || queued
+        } else if (debt.transaction_id) {
+          queued = (await submit({ kind: 'update', table: 'transactions', id: debt.transaction_id, patch: { sub_account_id: input.subAccountId } as Insert<'transactions'> })).queued || queued
+          queued = (await submit({ kind: 'update', table: 'debts', id: debt.id, patch: { sub_account_id: input.subAccountId } as Insert<'debts'> })).queued || queued
+        } else {
+          const tx = debtMovement(input)
+          queued = (await submit({ kind: 'upsert', table: 'transactions', rows: [tx as unknown as Insert<'transactions'>] })).queued || queued
+          queued = (await submit({ kind: 'update', table: 'debts', id: debt.id, patch: { sub_account_id: input.subAccountId, transaction_id: input.transactionId } as Insert<'debts'> })).queued || queued
+        }
+        return { queued }
+      }
+    },
+    onMutate: async (input) => {
+      await Promise.all(tables.map((t) => qc.cancelQueries({ queryKey: [t] })))
+      const prev = snapshot(qc, tables)
+      const { debt } = input
+      const type = debt.direction === 'i_owe' ? 'income' : 'expense'
+      // the old movement's effect on its balance goes ...
+      if (debt.transaction_id && debt.sub_account_id) cacheApplyBalance(qc, { type, amount: (input.linkedAmount ?? debt.amount) as number, sub_account_id: debt.sub_account_id }, -1)
+      if (input.subAccountId) {
+        // ... and lands on the chosen balance
+        const tx = debtMovement({ ...input, transactionId: debt.transaction_id ?? input.transactionId })
+        cacheApplyBalance(qc, tx as unknown as Partial<Transaction>, 1)
+        const cached = cachedRows(qc, 'transactions').find((t) => t.id === tx.id)
+        cacheUpsert(qc, 'transactions', [cached ? { ...cached, sub_account_id: input.subAccountId } : (tx as unknown as AnyRow)])
+        cacheUpsert(qc, 'debts', [{ id: debt.id, sub_account_id: input.subAccountId, transaction_id: tx.id }])
+      } else {
+        if (debt.transaction_id) cacheRemove(qc, 'transactions', [debt.transaction_id])
+        cacheUpsert(qc, 'debts', [{ id: debt.id, sub_account_id: null, transaction_id: null }])
+      }
+      return { prev }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.prev.forEach(([key, data]) => qc.setQueryData(key, data))
+      reportError(err)
+    },
+    onSuccess: (res) => notifyQueued(res.queued),
+    onSettled: () => tables.forEach((t) => void qc.invalidateQueries({ queryKey: [t] })),
+  })
+}
+
+/** The money movement of a debt (what create_debt and set_debt_account record), as a transaction row. */
+function debtMovement(input: {
+  debt: { id: string; direction: 'i_owe' | 'owed_to_me'; amount: NumericInput; currency: string; date: string }
+  contactName: string
+  subAccountId: string | null
+  transactionId: string
+}) {
+  const { debt } = input
+  return {
+    id: input.transactionId,
+    type: debt.direction === 'i_owe' ? 'income' : 'expense',
+    date: debt.date,
+    amount: debt.amount,
+    currency: debt.currency,
+    sub_account_id: input.subAccountId,
+    category_id: null,
+    tags: [],
+    notes: `${debt.direction === 'i_owe' ? 'Borrowed from' : 'Lent to'} ${input.contactName}`.trim(),
+    payee: input.contactName || null,
+    to_sub_account_id: null,
+    to_amount: null,
+    to_currency: null,
+    source: 'debt',
+    source_id: debt.id,
+  } as const
+}
+
+/**
  * An installment purchase on a card in one step (create_installment_purchase): the purchase, its
  * interest / fees and the plan, saved together. Shown at once (also offline); same ids on retry.
  */

@@ -59,6 +59,12 @@ begin
       return format('debt %s (%s %s %s on %s, %s) and its transaction (%s %s %s on %s, %s) disagree', r.id, r.direction, r.amount, r.currency, r.date, r.sub_account_id, r.type, r.tamt, r.tcur, r.tdate, r.tsub);
     end if;
   end loop;
+  -- (0016 on) a debt names a balance only while its money movement exists
+  if to_regprocedure('public.set_debt_account(uuid,uuid,uuid)') is not null then
+    for r in select d.id, d.sub_account_id from public.debts d where d.transaction_id is null and d.sub_account_id is not null loop
+      return format('debt %s names balance %s but moved no money', r.id, r.sub_account_id);
+    end loop;
+  end if;
   for r in select p.id, d.direction, p.amount, p.sub_account_id, t.type, t.amount as tamt, t.sub_account_id as tsub
            from public.debt_payments p join public.debts d on d.id = p.debt_id join public.transactions t on t.id = p.transaction_id loop
     if r.type::text <> (case when r.direction = 'owed_to_me' then 'income' else 'expense' end) or r.tamt <> r.amount or r.tsub is distinct from r.sub_account_id then
@@ -355,6 +361,14 @@ begin
     update public.settings set timezone = (array['Africa/Cairo','Europe/London','Asia/Dubai','America/New_York','Pacific/Kiritimati'])[pg_temp.ri(1, 5)]
      where user_id = u;
     return 'change time zone';
+  when 'debt_link' then
+    if to_regprocedure('public.set_debt_account(uuid,uuid,uuid)') is null then return 'no set_debt_account (before 0016)'; end if;
+    select * into r from public.debts order by random() limit 1;
+    if not found then return 'no debt'; end if;
+    -- link (or move) to a balance in the debt's currency, now and then one in another currency, or unlink
+    s1 := case when random() < 0.3 then null when random() < 0.9 then pg_temp.sub(r.currency) else pg_temp.sub() end;
+    perform public.set_debt_account(r.id, s1, case when random() < 0.5 then id1 end);
+    return case when s1 is null then 'unlink debt money' when r.transaction_id is null then 'link debt money' else 'move debt money' end;
   when 'net_worth' then
     perform public.snapshot_net_worth(u, current_date); perform public.compute_net_worth(u, 'EGP', current_date); return 'net worth';
   end case;
@@ -368,7 +382,8 @@ declare
     'certificate','log_payouts','log_payouts','edit_certificate','skip_payout','delete_certificate','set_balance','set_balance','archive','delete_sub','delete_account','account','account',
     'recurring','edit_recurring','delete_recurring','post_recurring','accrue','plan','close_plan','delete_plan','currency_change','delete_category','net_worth',
     'pause_recurring','cloud_switch','cloud_balance','reparent','accrue',
-    'debt_rpc','debt_rpc','plan_rpc','cloud_rate','cert_freq','cert_freq','log_payouts','tz'];
+    'debt_rpc','debt_rpc','plan_rpc','cloud_rate','cert_freq','cert_freq','log_payouts','tz',
+    'debt_link','debt_link','debt_link'];
   op text; d text; bad text; i int; ctx text;
 begin
   for i in 1..steps loop

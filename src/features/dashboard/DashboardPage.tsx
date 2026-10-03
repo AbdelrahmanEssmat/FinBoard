@@ -24,7 +24,8 @@ export default function DashboardPage() {
     )
   }
 
-  const empty = nw.assets.isZero() && nw.byClass.liabilities.isZero()
+  // nothing at all yet (what you owe on cards or to people counts as something to show)
+  const empty = nw.assets.isZero() && nw.byClass.liabilities.isZero() && nw.byClass.cards.isZero()
 
   return (
     <div className="anim-fade-up space-y-8">

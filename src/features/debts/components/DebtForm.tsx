@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
-import { useCreateDebt, useUpdateRows, useUpsert } from '@/api/mutations'
+import { useCreateDebt, useSetDebtAccount, useUpdateRows, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { format, isValid, parseISO } from 'date-fns'
@@ -27,6 +27,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   // creating a second contact, a second money movement or a second debt
   const ids = useRef({ contact: '', debt: '', tx: '' })
   const createDebt = useCreateDebt()
+  const setDebtAccount = useSetDebtAccount()
 
   const [dir, setDir] = useState<DebtDirection>(direction)
   const [contactId, setContactId] = useState('')
@@ -62,12 +63,15 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     setPlanAmount(initial?.plan_amount ? String(initial.plan_amount) : '')
     setPlanFreq(initial?.plan_frequency ?? 'monthly')
     setPlanStart(initial?.plan_start_date ?? '')
-    setMoveMoney(false)
-    setSubId(prefs.lastSubAccountId ?? '')
+    // a new debt moves its money by default (lending takes it out of an account, borrowing puts it in), the
+    // same as a repayment; an edited debt starts as it was saved
+    setMoveMoney(initial ? Boolean(initial.transaction_id) : true)
+    setSubId(initial?.transaction_id ? (initial.sub_account_id ?? '') : (prefs.lastSubAccountId ?? ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id, direction])
 
-  const subsForCurrency = (subs ?? []).filter((s) => !s.is_archived && s.currency === currency)
+  // (the balance a saved debt's money moved in stays on the list even if it was archived since)
+  const subsForCurrency = (subs ?? []).filter((s) => s.currency === currency && (!s.is_archived || (Boolean(initial?.transaction_id) && s.id === initial?.sub_account_id)))
   // keep the chosen balance in the debt's currency whenever the currency or the balances change
   useEffect(() => {
     if (!open) return
@@ -82,8 +86,13 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const paidSoFar = (payments ?? []).filter((p) => p.debt_id === initial?.id).reduce((a, p) => a.plus(d(p.amount)), d(0))
   const currencyLocked = Boolean(initial && (initial.transaction_id || paidSoFar.gt(0)))
   const belowPaid = Boolean(initial) && d(amount).lt(paidSoFar)
-  // moving money needs an account to move it in or out of
-  const accountMissing = !initial && moveMoney && !effectiveSubId
+  // moving money needs an account to move it in or out of (with no balance in this currency, only the debt is saved)
+  const canMove = subsForCurrency.length > 0
+  const effectiveMove = moveMoney && canMove
+  const accountMissing = effectiveMove && !effectiveSubId
+  // an edited debt: is its money movement being added, moved to another balance or taken off?
+  const linkedBefore = Boolean(initial?.transaction_id)
+  const linkChanged = Boolean(initial) && (effectiveMove !== linkedBefore || (effectiveMove && effectiveSubId !== (initial?.sub_account_id ?? '')))
   const valid = d(amount).gt(0) && !belowPaid && (contactId || newContact.trim()) && (!plan || parseInt(planCount) >= 1) && !accountMissing
   // the first installment falls one period after the money changed hands, not the same day
   const parsedDate = parseISO(date)
@@ -120,6 +129,16 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
           plan_start_date,
         },
       ])
+      // after the edit, so a new money movement takes the new amount, date and currency
+      if (linkChanged) {
+        await setDebtAccount.mutateAsync({
+          debt: { id, direction: initial.direction, amount: toDb(amount), currency, date, transaction_id: initial.transaction_id, sub_account_id: initial.sub_account_id },
+          linkedAmount: initial.amount,
+          contactName,
+          subAccountId: effectiveMove ? effectiveSubId : null,
+          transactionId: ids.current.tx,
+        })
+      }
     } else {
       // the person, the money movement and the debt are saved together, or not at all
       await createDebt.mutateAsync({
@@ -138,11 +157,11 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
         planAmount: plan_amount,
         planFrequency: plan_frequency,
         planStartDate: plan_start_date,
-        subAccountId: moveMoney && effectiveSubId ? effectiveSubId : null,
+        subAccountId: effectiveMove && effectiveSubId ? effectiveSubId : null,
         transactionId: ids.current.tx,
       })
     }
-    prefs.remember({ lastCurrency: currency })
+    prefs.remember({ lastCurrency: currency, ...(effectiveMove && effectiveSubId ? { lastSubAccountId: effectiveSubId } : {}) })
     onClose()
   }
 
@@ -152,7 +171,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
       onClose={onClose}
       title={initial ? 'Edit debt' : dir === 'i_owe' ? 'Money I owe' : 'Money owed to me'}
       footer={
-        <Button full size="lg" onClick={save} loading={createDebt.isPending || updateDebt.isPending || upsertContact.isPending} disabled={!valid}>
+        <Button full size="lg" onClick={save} loading={createDebt.isPending || updateDebt.isPending || upsertContact.isPending || setDebtAccount.isPending} disabled={!valid}>
           Save
         </Button>
       }
@@ -234,19 +253,22 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
           </div>
         ) : null}
 
-        {!initial ? (
+        {canMove ? (
           <>
             <Toggle
               checked={moveMoney}
               onChange={setMoveMoney}
               label={dir === 'i_owe' ? 'Money came into an account' : 'Money left an account'}
-              description="Records the matching transaction"
+              description={
+                moveMoney
+                  ? 'That balance changes by this amount. It isn’t counted as income or spending.'
+                  : linkedBefore
+                    ? 'Saving takes the money movement off, so that balance goes back.'
+                    : 'Only the debt is saved, no balance changes. Use this for an old debt your balances already include.'
+              }
             />
             {moveMoney ? (
-              <Field
-                label="Account"
-                hint={accountMissing ? (subsForCurrency.length ? 'Choose the account, or turn this off' : `You have no ${currency} balance: add one, or turn this off`) : undefined}
-              >
+              <Field label="Account" hint={accountMissing ? 'Choose the account, or turn this off' : undefined}>
                 <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                   <option value="">Choose…</option>
                   <BalanceOptions subs={subsForCurrency} />
@@ -254,7 +276,9 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
               </Field>
             ) : null}
           </>
-        ) : null}
+        ) : (
+          <p className="text-muted text-xs">You have no {currency} balance, so only the debt is saved and no balance changes.</p>
+        )}
       </div>
     </Sheet>
   )

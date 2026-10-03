@@ -12,6 +12,7 @@ import { CategoryBreakdownCard } from '@/features/reports/components/CategoryBre
 import { SpendingStructureCard } from '@/features/reports/components/SpendingStructureCard'
 import { LargestTransactionsCard, TopPayeesCard } from '@/features/reports/components/TopListsCard'
 import { IncomeSourcesCard } from '@/features/reports/components/IncomeSourcesCard'
+import { DebtsCard } from '@/features/reports/components/DebtsCard'
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('this')
@@ -91,6 +92,7 @@ export default function ReportsPage() {
           <SpendingStructureCard fixed={r.fixed} projection={r.projection} week={r.week} display={r.display} rangeTo={r.range.to} />
           <CategoryBreakdownCard kind={kind} onKind={setKind} expense={r.changes} income={r.incomeChanges} display={r.display} />
           <IncomeSourcesCard sources={r.incomeSources.rows} unnamed={r.incomeSources.unnamed} interest={r.interestEarned} display={r.display} />
+          <DebtsCard activity={r.debts} display={r.display} />
           <TopPayeesCard payees={r.payees} display={r.display} />
           <LargestTransactionsCard items={r.largest} display={r.display} categories={r.catMap} />
         </div>

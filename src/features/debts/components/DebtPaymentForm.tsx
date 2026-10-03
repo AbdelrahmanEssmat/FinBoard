@@ -128,7 +128,14 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
             <Field label="Date">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
-            <Field label={debt.direction === 'i_owe' ? 'Paid from' : 'Received into'} hint="Leave empty if no account was involved">
+            <Field
+              label={debt.direction === 'i_owe' ? 'Paid from' : 'Received into'}
+              hint={
+                effectiveSubId
+                  ? 'That balance changes. It isn’t counted as income or spending.'
+                  : 'Only what’s owed goes down, no balance changes (cash you don’t track, or letting them off the rest).'
+              }
+            >
               <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
                 <option value="">No account</option>
                 <BalanceOptions subs={subsForCurrency} />
