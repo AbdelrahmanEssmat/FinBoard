@@ -227,9 +227,9 @@ select pg_temp.ok('with no holdings, investments is zero even though a platform 
 select pg_temp.ok('Clouds are their own class',
   (compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') -> 'by_class' ->> 'clouds')::numeric
   = (select sum(balance) from sub_accounts where user_id = 'aaaaaaaa-0000-0000-0000-000000000001' and yield_rate is not null));
-select pg_temp.ok('the classes add up to the total',
+select pg_temp.ok('the classes add up to the total (debts with people are shown, not counted: 0017)',
   (select (b->>'accounts')::numeric + (b->>'clouds')::numeric + (b->>'certificates')::numeric + (b->>'investments')::numeric
-          + (b->>'gold')::numeric + (b->>'receivables')::numeric - (b->>'liabilities')::numeric
+          + (b->>'gold')::numeric - (b->>'cards')::numeric
    from (select compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') -> 'by_class' as b) x)
   = (compute_net_worth('aaaaaaaa-0000-0000-0000-000000000001', 'EGP') ->> 'total')::numeric);
 

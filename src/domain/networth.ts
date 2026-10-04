@@ -47,11 +47,14 @@ export interface NetWorthResult {
   /**
    * accounts = cash and bank balances (including uninvested cash on a platform such as Thndr),
    * clouds = yield-bearing balances, investments = holdings only,
-   * cards = what you owe on credit cards (positive; subtracted from the total).
+   * cards = what you owe on credit cards (positive; subtracted from the total),
+   * receivables / liabilities = what people owe you / what you owe them: shown, but NOT in the total
+   * (a debt counts when it is repaid and the money moves in or out of an account).
    */
   byClass: { accounts: Decimal; certificates: Decimal; clouds: Decimal; investments: Decimal; gold: Decimal; receivables: Decimal; liabilities: Decimal; cards: Decimal }
   /** value held in each original currency, expressed in base */
   byCurrency: Record<string, Decimal>
+  /** what you own (debts people owe you are not included until they are repaid) */
   assets: Decimal
 }
 
@@ -104,6 +107,7 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
     add('EGP', v)
   }
 
+  // debts between people are records: reported here, but left out of the total until they are repaid
   let receivables = new Decimal(0)
   let liabilities = new Decimal(0)
   for (const debt of input.debts) {
@@ -115,10 +119,10 @@ export function computeNetWorth(input: NetWorthInput): NetWorthResult {
     else liabilities = liabilities.plus(v)
   }
 
-  const assets = accounts.plus(certificates).plus(clouds).plus(investments).plus(gold).plus(receivables)
+  const assets = accounts.plus(certificates).plus(clouds).plus(investments).plus(gold)
   const cards = cardBalances.neg()
   return {
-    total: assets.minus(liabilities).minus(cards),
+    total: assets.minus(cards),
     assets,
     byClass: { accounts, certificates, clouds, investments, gold, receivables, liabilities, cards },
     byCurrency,

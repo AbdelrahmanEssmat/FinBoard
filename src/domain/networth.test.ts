@@ -5,7 +5,7 @@ import { goldSummary, pricesFromSpot } from '@/domain/gold'
 const rates = { USD: 1, EGP: '50' }
 
 describe('net worth', () => {
-  it('adds every asset class, converts to base and subtracts what I owe', () => {
+  it('adds every asset class and converts to base; debts with people are shown but not counted', () => {
     const r = computeNetWorth({
       base: 'EGP',
       rates,
@@ -33,9 +33,11 @@ describe('net worth', () => {
     expect(r.byClass.clouds.toString()).toBe('1000')
     expect(r.byClass.investments.toString()).toBe('1500') // holdings only
     expect(r.byClass.gold.toString()).toBe('60000')
+    // reported (what is still owed each way), but left out until repaid
     expect(r.byClass.receivables.toString()).toBe('2000')
     expect(r.byClass.liabilities.toString()).toBe('5000')
-    expect(r.total.toString()).toBe('95000')
+    expect(r.assets.toString()).toBe('98000')
+    expect(r.total.toString()).toBe('98000')
     expect(r.byCurrency.EGP!.toString()).toBe('93000')
     expect(r.byCurrency.USD!.toString()).toBe('5000')
   })

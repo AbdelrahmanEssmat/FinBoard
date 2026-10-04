@@ -87,12 +87,11 @@ export default function DebtDetailPage() {
               <span className="break-words">
                 {positive ? 'Left ' : 'Came into '}
                 {balanceName(debt.sub_account_id) ?? 'an account'}
+                {positive ? ' when you lent it' : ' when you borrowed it'}
               </span>
             ) : (
-              // saved without its money movement: it counts in net worth, but no balance changed
-              <button onClick={() => setEdit(true)} className="-my-1 text-left text-accent">
-                Not linked to an account · Link
-              </button>
+              // the usual case: the debt is a record, and the accounts change when it is repaid
+              <span className="text-muted">Recorded only. Your accounts change when it’s repaid.</span>
             )}
           </dd>
           {debt.due_date ? (

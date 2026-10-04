@@ -1,7 +1,8 @@
 /**
  * Money lent, borrowed and repaid over a period. None of it is income or spending (it is excluded
- * from those totals everywhere), but it moves balances and changes what people owe, so the home page
- * and Reports show it on its own.
+ * from those totals everywhere). A debt is a record: it changes your accounts, and so net worth, only
+ * when it is repaid into or out of an account (or when the money was recorded moving as it was lent or
+ * borrowed). The home page and Reports show this activity on its own.
  */
 import { d, type Decimal, type NumericInput } from '@/domain/money'
 import type { DateRange, ToBase } from '@/domain/insights'
@@ -35,12 +36,11 @@ export interface DebtActivity {
   /** repayments you made */
   paidBack: Decimal
   /**
-   * How much these records changed net worth without any money moving in your accounts: a debt saved
-   * without its money movement, or a repayment saved with "No account". Positive = net worth went up
-   * (someone now owes you, or you were let off). With the money movement recorded the two sides
-   * cancel out (the balance goes down by what you lent, what you are owed goes up by the same).
+   * How much these debts changed your accounts, and so net worth: repayments recorded in an account,
+   * and money recorded as leaving or coming in when a debt was saved. Positive = more money in your
+   * accounts. (Open debts themselves aren't part of net worth.)
    */
-  withoutMoney: Decimal
+  balanceEffect: Decimal
   /** anything lent, borrowed or repaid in the period */
   any: boolean
 }
@@ -51,7 +51,7 @@ export function debtActivity(debts: DebtRecordLike[], payments: DebtPaymentRecor
   let receivedBack = d(0)
   let borrowed = d(0)
   let paidBack = d(0)
-  let withoutMoney = d(0)
+  let balanceEffect = d(0)
   const inRange = (date: string) => date >= range.from && date <= range.to
   const byId = new Map(debts.map((x) => [x.id, x]))
   for (const x of debts) {
@@ -59,8 +59,8 @@ export function debtActivity(debts: DebtRecordLike[], payments: DebtPaymentRecor
     const v = toBase(x.amount, x.currency, x.date)
     if (x.direction === 'owed_to_me') lent = lent.plus(v)
     else borrowed = borrowed.plus(v)
-    // no money left (or came in): only what is owed changed
-    if (!x.transaction_id) withoutMoney = x.direction === 'owed_to_me' ? withoutMoney.plus(v) : withoutMoney.minus(v)
+    // the money left an account as it was lent (or came in as it was borrowed)
+    if (x.transaction_id) balanceEffect = x.direction === 'owed_to_me' ? balanceEffect.minus(v) : balanceEffect.plus(v)
   }
   for (const p of payments) {
     const x = byId.get(p.debt_id)
@@ -68,8 +68,9 @@ export function debtActivity(debts: DebtRecordLike[], payments: DebtPaymentRecor
     const v = toBase(p.amount, x.currency, p.date)
     if (x.direction === 'owed_to_me') receivedBack = receivedBack.plus(v)
     else paidBack = paidBack.plus(v)
-    if (!p.transaction_id) withoutMoney = x.direction === 'owed_to_me' ? withoutMoney.minus(v) : withoutMoney.plus(v)
+    // a repayment recorded in an account: money in when they repay you, out when you repay them
+    if (p.transaction_id) balanceEffect = x.direction === 'owed_to_me' ? balanceEffect.plus(v) : balanceEffect.minus(v)
   }
   const any = [lent, receivedBack, borrowed, paidBack].some((v) => !v.isZero())
-  return { lent, receivedBack, borrowed, paidBack, withoutMoney, any }
+  return { lent, receivedBack, borrowed, paidBack, balanceEffect, any }
 }

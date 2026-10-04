@@ -8,13 +8,15 @@ import { usePrefs } from '@/store/prefs'
 import { d, type Decimal } from '@/domain/money'
 import type { NetWorthResult } from '@/domain/networth'
 
-/** Each asset class and the page that lists what is inside it. Investments = stocks and funds plus Clouds, as on the Investments page. */
+/**
+ * Each asset class and the page that lists what is inside it. Investments = stocks and funds plus Clouds,
+ * as on the Investments page. What people owe you is not an asset here until it is repaid (shown below).
+ */
 const CLASS_META = [
   { key: 'accounts', label: 'Accounts', color: '#2f6bff', to: '/accounts' },
   { key: 'certificates', label: 'Certificates', color: '#eab308', to: '/certificates' },
   { key: 'investments', label: 'Investments', color: '#8b5cf6', to: '/investments' },
   { key: 'gold', label: 'Gold', color: '#c08a06', to: '/gold' },
-  { key: 'receivables', label: 'Owed to me', color: '#16a34a', to: '/debts' },
 ] as const
 const CURRENCY_COLORS = ['#2f6bff', '#16a34a', '#f97316', '#8b5cf6', '#06b6d4', '#ec4899']
 
@@ -97,14 +99,26 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
               </button>
             </li>
           ) : null}
-          {nw.byClass.liabilities.gt(0) ? (
-            <li className={nw.byClass.cards.gt(0) ? '' : 'border-t border-border pt-1'}>
-              <button onClick={() => navigate('/debts?tab=i_owe')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-negative" />
-                <span className="min-w-0 flex-1 truncate text-left text-muted">I owe</span>
-                <Amount value={nw.byClass.liabilities.neg()} currency={display} className="text-sm font-medium text-negative" compact />
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" />
-              </button>
+          {nw.byClass.receivables.gt(0) || nw.byClass.liabilities.gt(0) ? (
+            // debts between people: shown, but not part of net worth until the money is repaid
+            <li className="border-t border-border pt-1">
+              <p className="px-2 pt-1.5 text-[11px] text-faint">Debts, not counted until repaid</p>
+              {nw.byClass.receivables.gt(0) ? (
+                <button onClick={() => navigate('/debts')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-positive" />
+                  <span className="min-w-0 flex-1 truncate text-left text-muted">Owed to me</span>
+                  <Amount value={nw.byClass.receivables} currency={display} className="text-sm font-medium text-muted" compact />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" />
+                </button>
+              ) : null}
+              {nw.byClass.liabilities.gt(0) ? (
+                <button onClick={() => navigate('/debts?tab=i_owe')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-negative" />
+                  <span className="min-w-0 flex-1 truncate text-left text-muted">I owe</span>
+                  <Amount value={nw.byClass.liabilities} currency={display} className="text-sm font-medium text-muted" compact />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-faint" />
+                </button>
+              ) : null}
             </li>
           ) : null}
         </ul>

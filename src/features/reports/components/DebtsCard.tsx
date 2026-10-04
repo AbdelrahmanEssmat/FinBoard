@@ -43,7 +43,7 @@ export function DebtsCard({ activity, display }: { activity: DebtActivity | null
           )
         })}
         <Divider />
-        <p className="px-5 py-3 text-xs text-muted">Lending, borrowing and repayments move your balances but aren’t income or spending, so they’re not in the totals above.</p>
+        <p className="px-5 py-3 text-xs text-muted">None of this is income or spending, so it’s not in the totals above. A debt changes your accounts (and net worth) when it’s repaid.</p>
       </Card>
     </Section>
   )

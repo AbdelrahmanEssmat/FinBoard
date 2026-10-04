@@ -32,16 +32,17 @@ describe('debt activity', () => {
     expect(a.any).toBe(true)
   })
 
-  it('counts only what changed net worth without moving money', () => {
+  it('changes the accounts (and net worth) only where money moved: open debts are just records', () => {
     const a = debtActivity(debts, payments, oct, toBase)
-    // +500 now owed to you, -5,000 you now owe, -500 for the share repaid in untracked cash
-    expect(a.withoutMoney.toString()).toBe('-5000')
+    // -10,000 lent out of the bank, +4,000 of it repaid into the bank, -1,000 paid back on the old loan;
+    // the dinner share, the cash borrowing and the cash repayment moved nothing in any account
+    expect(a.balanceEffect.toString()).toBe('-7000')
   })
 
   it('is empty for a period with nothing in it', () => {
     const a = debtActivity(debts, payments, { from: '2026-11-01', to: '2026-11-30' }, toBase)
     expect(a.any).toBe(false)
-    expect(a.withoutMoney.isZero()).toBe(true)
+    expect(a.balanceEffect.isZero()).toBe(true)
   })
 
   it('ignores repayments of a debt it doesn’t know', () => {

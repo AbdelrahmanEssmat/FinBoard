@@ -63,9 +63,9 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     setPlanAmount(initial?.plan_amount ? String(initial.plan_amount) : '')
     setPlanFreq(initial?.plan_frequency ?? 'monthly')
     setPlanStart(initial?.plan_start_date ?? '')
-    // a new debt moves its money by default (lending takes it out of an account, borrowing puts it in), the
-    // same as a repayment; an edited debt starts as it was saved
-    setMoveMoney(initial ? Boolean(initial.transaction_id) : true)
+    // a debt is a record: no account changes until it is repaid, unless the money is said to have moved
+    // when it was lent or borrowed; an edited debt starts as it was saved
+    setMoveMoney(initial ? Boolean(initial.transaction_id) : false)
     setSubId(initial?.transaction_id ? (initial.sub_account_id ?? '') : (prefs.lastSubAccountId ?? ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id, direction])
@@ -86,7 +86,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const paidSoFar = (payments ?? []).filter((p) => p.debt_id === initial?.id).reduce((a, p) => a.plus(d(p.amount)), d(0))
   const currencyLocked = Boolean(initial && (initial.transaction_id || paidSoFar.gt(0)))
   const belowPaid = Boolean(initial) && d(amount).lt(paidSoFar)
-  // moving money needs an account to move it in or out of (with no balance in this currency, only the debt is saved)
+  // moving money needs an account to move it in or out of (with no balance in this currency, it's only recorded)
   const canMove = subsForCurrency.length > 0
   const effectiveMove = moveMoney && canMove
   const accountMissing = effectiveMove && !effectiveSubId
@@ -261,10 +261,14 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
               label={dir === 'i_owe' ? 'Money came into an account' : 'Money left an account'}
               description={
                 moveMoney
-                  ? 'That balance changes by this amount. It isn’t counted as income or spending.'
+                  ? dir === 'i_owe'
+                    ? 'Puts the money into that account now (not as income). It goes out again when you repay.'
+                    : 'Takes the money out of that account now (not as spending). It comes back when they repay.'
                   : linkedBefore
-                    ? 'Saving takes the money movement off, so that balance goes back.'
-                    : 'Only the debt is saved, no balance changes. Use this for an old debt your balances already include.'
+                    ? 'Saving takes this money movement off, so that balance goes back.'
+                    : dir === 'i_owe'
+                      ? 'Off: only the debt is recorded. Your accounts change when you repay it.'
+                      : 'Off: only the debt is recorded. Your accounts change when it’s repaid to you.'
               }
             />
             {moveMoney ? (
@@ -277,7 +281,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
             ) : null}
           </>
         ) : (
-          <p className="text-muted text-xs">You have no {currency} balance, so only the debt is saved and no balance changes.</p>
+          <p className="text-muted text-xs">Only the debt is recorded. Your accounts change when it’s repaid.</p>
         )}
       </div>
     </Sheet>

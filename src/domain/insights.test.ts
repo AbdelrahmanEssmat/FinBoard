@@ -163,12 +163,12 @@ describe('insights', () => {
 
 describe('the net worth change', () => {
   const ctx = { txs, range: sep, today: '2026-09-30', toBase, categories, fixedCategoryIds: new Set(['rent']), money: (v: NumericInput) => `E£ ${d(v).toFixed(0)}`, isCurrentMonth: false }
-  it('debts saved without moving money are not put down to asset values', () => {
-    // 9,000 saved; someone now owes you 5,000 that never left an account; prices fell 2,000
+  it('money repaid on debts is not put down to asset values', () => {
+    // 9,000 saved; 5,000 repaid to you into an account; prices fell 2,000
     const ins = generateInsights({ ...ctx, netWorthChange: { total: d(12000), fromSavings: d(9000), fromDebts: d(5000) } })
-    expect(ins.find((i) => i.id === 'networth')!.detail).toBe('E£ 9000 from saving, +E£ 5000 from debts saved without moving money, -E£ 2000 from changes in asset values and rates.')
+    expect(ins.find((i) => i.id === 'networth')!.detail).toBe('E£ 9000 from saving, +E£ 5000 from money lent, borrowed or repaid, -E£ 2000 from changes in asset values and rates.')
   })
-  it('without such debts the explanation is unchanged', () => {
+  it('without debt money moving the explanation is unchanged', () => {
     const ins = generateInsights({ ...ctx, netWorthChange: { total: d(12000), fromSavings: d(9000), fromDebts: d(0) } })
     expect(ins.find((i) => i.id === 'networth')!.detail).toBe('E£ 9000 from saving, +E£ 3000 from changes in asset values and rates.')
   })

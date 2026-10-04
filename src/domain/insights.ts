@@ -330,8 +330,8 @@ export interface InsightContext {
   prevRange?: DateRange
   /** previous-month spending, for the projection comparison */
   /**
-   * Net worth change over the period: what was saved (income minus spending), and what debts saved
-   * without moving any money did (see debtActivity). The rest is put down to asset values and rates.
+   * Net worth change over the period: what was saved (income minus spending), and the money that
+   * moved for debts (repayments, see debtActivity). The rest is put down to asset values and rates.
    */
   netWorthChange?: { total: Decimal; fromSavings: Decimal; fromDebts?: Decimal } | null
   budgetsOver?: string[]
@@ -409,12 +409,12 @@ export function generateInsights(ctx: InsightContext): Insight[] {
 
   if (ctx.netWorthChange) {
     const { total, fromSavings, fromDebts = d(0) } = ctx.netWorthChange
-    // money lent or borrowed through an account doesn't change net worth (the balance and what is owed
-    // move together); a debt saved without moving money does, and that is not a change in asset values
+    // a debt counts in net worth when it is repaid: that money isn't saving (not income or spending)
+    // and isn't a change in asset values either
     const valuation = total.minus(fromSavings).minus(fromDebts)
     const signed = (v: Decimal) => `${v.gte(0) ? '+' : '-'}${money(v.abs())}`
     const parts = [`${money(fromSavings)} from saving`]
-    if (!fromDebts.isZero()) parts.push(`${signed(fromDebts)} from debts saved without moving money`)
+    if (!fromDebts.isZero()) parts.push(`${signed(fromDebts)} from money lent, borrowed or repaid`)
     parts.push(`${signed(valuation)} from changes in asset values and rates`)
     if (!total.isZero()) out.push({ id: 'networth', tone: total.gt(0) ? 'good' : 'warn', title: `Net worth ${total.gt(0) ? 'grew' : 'fell'} by ${money(total.abs())}`, detail: `${parts.join(', ')}.` })
   }

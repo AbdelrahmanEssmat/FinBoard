@@ -107,8 +107,8 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
       const b = convert(endSnap.total, endSnap.base_currency, display, tableAt(endSnap.snapshot_date)) ?? d(endSnap.total)
       const span = { from: addDaysIso(startSnap.snapshot_date, 1), to: endSnap.snapshot_date }
       const saved = periodTotals(filtered, span, toBase).net
-      // debts saved without moving money change net worth too, and aren't a change in asset values
-      const fromDebts = debtActivity(debts ?? [], debtPayments ?? [], span, toBase).withoutMoney
+      // repayments (money moving for a debt) change net worth too, and aren't a change in asset values
+      const fromDebts = debtActivity(debts ?? [], debtPayments ?? [], span, toBase).balanceEffect
       netWorthChange = { total: b.minus(a), fromSavings: saved, fromDebts, start: startSnap.snapshot_date, end: endSnap.snapshot_date }
     }
 
