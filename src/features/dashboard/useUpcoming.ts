@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Calendar, CloudSun, CreditCard, HandCoins, Percent, Repeat, type LucideIcon } from 'lucide-react'
-import { useAccounts, useCertificates, usePayouts, useRecurring, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCertificates, useContacts, usePayouts, useRecurring, useRecurringDebts, useSubAccounts } from '@/api/queries'
 import { useDebtViews } from '@/features/debts/useDebtViews'
 import { d, type Decimal } from '@/domain/money'
 import { daysUntil } from '@/domain/certificates'
@@ -40,6 +40,8 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
   const { data: accounts } = useAccounts()
   const { open: openDebts } = useDebtViews()
   const { cards } = useCreditCards()
+  const { data: monthlyDebts } = useRecurringDebts()
+  const { data: contacts } = useContacts()
   const today = todayIso()
 
   return useMemo(() => {
@@ -70,6 +72,13 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       const who = x.contact?.name ?? 'Someone'
       items.push({ key: 'd' + x.id, date: nxt.dueDate, title: x.direction === 'i_owe' ? `Pay ${who}` : `${who} pays you`, subtitle: x.plan.length > 1 ? `Installment ${nxt.index + 1} of ${x.plan.length}` : nxt.paid.gt(0) ? 'Debt due · rest of it' : 'Debt due', amount: nxt.amount.minus(nxt.paid), currency: x.currency, icon: HandCoins, color: x.direction === 'i_owe' ? '#dc2626' : '#16a34a', overdue: nxt.status === 'overdue', to: `/debts/${x.id}`, kind: 'debt', incoming: x.direction === 'owed_to_me', name: who })
     }
+    // monthly debts: on each date money comes in (you borrow) or goes out (you lend), adding a debt
+    for (const r of monthlyDebts ?? []) {
+      if (!r.is_active || r.next_date > until || r.next_date < today || (r.end_date && r.next_date > r.end_date)) continue
+      const who = contacts?.find((c) => c.id === r.contact_id)?.name ?? 'Someone'
+      const borrowing = r.direction === 'i_owe'
+      items.push({ key: 'md' + r.id + r.next_date, date: r.next_date, title: borrowing ? `Borrow from ${who}` : `Lend to ${who}`, subtitle: 'Monthly debt · added automatically', amount: d(r.amount), currency: r.currency, icon: HandCoins, color: borrowing ? '#dc2626' : '#16a34a', to: '/debts' + (borrowing ? '?tab=i_owe' : ''), kind: 'recurring', auto: true, incoming: borrowing, name: borrowing ? `Money from ${who}` : `Money for ${who}` })
+    }
     // credit card statements with money left to pay (overdue ones stay until paid)
     for (const c of cards) {
       const s = c.statement
@@ -82,5 +91,5 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
       }
     }
     return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, limit)
-  }, [payouts, certs, subs, accounts, openDebts, cards, recurring, today, days, limit])
+  }, [payouts, certs, subs, accounts, openDebts, cards, recurring, monthlyDebts, contacts, today, days, limit])
 }

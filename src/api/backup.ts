@@ -1,5 +1,5 @@
 import { supabase } from '@/api/supabase'
-import { ALL_TABLES, fetchAllRows, fetchPaged } from '@/api/queries'
+import { ALL_TABLES, fetchAllRows, fetchPaged, missingTable } from '@/api/queries'
 import { downloadFile, toCsv } from '@/utils'
 import type { TableName, Transaction } from '@/api/database.types'
 
@@ -9,7 +9,7 @@ import type { TableName, Transaction } from '@/api/database.types'
  */
 const IMPORT_ORDER: TableName[] = [
   'currencies', 'settings', 'accounts', 'sub_accounts', 'categories', 'tags', 'contacts', 'investment_categories',
-  'exchange_rates', 'gold_prices', 'certificates', 'holdings', 'gold_items', 'recurring_transactions', 'budgets',
+  'exchange_rates', 'gold_prices', 'certificates', 'holdings', 'gold_items', 'recurring_transactions', 'recurring_debts', 'budgets',
   'transactions', 'debts', 'debt_payments', 'holding_sales', 'card_installment_plans', 'certificate_payouts', 'net_worth_snapshots',
 ]
 
@@ -35,7 +35,14 @@ const SKIP_COLUMNS: Partial<Record<TableName, string[]>> = {
 
 export async function fetchAllTables(): Promise<Record<string, unknown[]>> {
   const out: Record<string, unknown[]> = {}
-  for (const table of ALL_TABLES) out[table] = await fetchAllRows(table)
+  for (const table of ALL_TABLES) {
+    try {
+      out[table] = await fetchAllRows(table)
+    } catch (err) {
+      // a table from a migration that hasn't been run yet has nothing to back up
+      if (!missingTable(err)) throw err
+    }
+  }
   return out
 }
 

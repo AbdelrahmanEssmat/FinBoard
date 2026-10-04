@@ -147,7 +147,8 @@ export const RELATED_ON_DELETE: Partial<Record<TableName, TableName[]>> = {
   transactions: ['sub_accounts', 'debt_payments', 'debts', 'certificate_payouts', 'holdings', 'holding_sales', 'card_installment_plans'],
   debts: ['transactions', 'sub_accounts', 'debt_payments'],
   debt_payments: ['debts', 'transactions', 'sub_accounts'],
-  contacts: ['debts', 'debt_payments', 'transactions', 'sub_accounts'],
+  contacts: ['debts', 'debt_payments', 'transactions', 'sub_accounts', 'recurring_debts'],
+  recurring_debts: ['debts'], // the debts it added stop pointing at it
   accounts: [
     'sub_accounts',
     'transactions',
@@ -157,6 +158,7 @@ export const RELATED_ON_DELETE: Partial<Record<TableName, TableName[]>> = {
     'holding_sales',
     'card_installment_plans',
     'recurring_transactions',
+    'recurring_debts',
     'debts',
     'debt_payments',
     'accounts',
@@ -168,6 +170,7 @@ export const RELATED_ON_DELETE: Partial<Record<TableName, TableName[]>> = {
     'holding_sales',
     'card_installment_plans',
     'recurring_transactions',
+    'recurring_debts',
     'debts',
     'debt_payments',
   ],

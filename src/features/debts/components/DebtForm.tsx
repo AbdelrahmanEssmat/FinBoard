@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AmountInput, Button, Field, Input, Segmented, Select, Sheet, Textarea, Toggle } from '@/components/ui'
 import { Amount } from '@/components/shared'
 import { useContacts, useDebtPayments, useSubAccounts } from '@/api/queries'
-import { useCreateDebt, useSetDebtAccount, useUpdateRows, useUpsert } from '@/api/mutations'
+import { useCreateDebt, useRpc, useSetDebtAccount, useUpdateRows, useUpsert } from '@/api/mutations'
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { format, isValid, parseISO } from 'date-fns'
@@ -25,9 +25,12 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const updateDebt = useUpdateRows('debts', { invalidate: ['debt_payments'] })
   // fixed per opening, so tapping Save again after a failed step updates the same rows instead of
   // creating a second contact, a second money movement or a second debt
-  const ids = useRef({ contact: '', debt: '', tx: '' })
+  const ids = useRef({ contact: '', debt: '', tx: '', rule: '' })
   const createDebt = useCreateDebt()
   const setDebtAccount = useSetDebtAccount()
+  // a monthly debt: the rule, then whatever is already due is added at once (the daily jobs add the rest)
+  const upsertRule = useUpsert('recurring_debts', { silent: true })
+  const postDue = useRpc('post_due_recurring_debts', ['debts', 'transactions', 'sub_accounts', 'recurring_debts'])
 
   const [dir, setDir] = useState<DebtDirection>(direction)
   const [contactId, setContactId] = useState('')
@@ -45,10 +48,14 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const [planStart, setPlanStart] = useState('')
   const [moveMoney, setMoveMoney] = useState(false)
   const [subId, setSubId] = useState('')
+  const [repeat, setRepeat] = useState(false)
+  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
     if (!open) return
-    ids.current = { contact: newId(), debt: newId(), tx: newId() }
+    ids.current = { contact: newId(), debt: newId(), tx: newId(), rule: newId() }
+    setRepeat(false)
+    setEndDate('')
     setDir(initial?.direction ?? direction)
     setContactId(initial?.contact_id ?? contacts?.[0]?.id ?? '')
     setNewContact('')
@@ -88,14 +95,20 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
   const belowPaid = Boolean(initial) && d(amount).lt(paidSoFar)
   // moving money needs an account to move it in or out of (with no balance in this currency, it's only recorded)
   const canMove = subsForCurrency.length > 0
-  const effectiveMove = moveMoney && canMove
+  // a monthly debt always moves its money (in when you borrow, out when you lend) on each date
+  const repeating = !initial && repeat
+  const effectiveMove = (moveMoney || repeating) && canMove
+  const endBeforeStart = repeating && Boolean(endDate) && endDate < date
   const accountMissing = effectiveMove && !effectiveSubId
   // an edited debt: is its money movement being added, moved to another balance or taken off?
   const linkedBefore = Boolean(initial?.transaction_id)
   const linkChanged = Boolean(initial) && (effectiveMove !== linkedBefore || (effectiveMove && effectiveSubId !== (initial?.sub_account_id ?? '')))
-  const valid = d(amount).gt(0) && !belowPaid && (contactId || newContact.trim()) && (!plan || parseInt(planCount) >= 1) && !accountMissing
+  const valid =
+    d(amount).gt(0) && !belowPaid && (contactId || newContact.trim()) && (repeating || !plan || parseInt(planCount) >= 1) && !accountMissing && (!repeating || canMove) && !endBeforeStart
   // the first installment falls one period after the money changed hands, not the same day
   const parsedDate = parseISO(date)
+  /** "5th": the day each monthly date falls on */
+  const dayOfMonth = isValid(parsedDate) ? format(parsedDate, 'do') : 'same day'
   const defaultPlanStart = isValid(parsedDate) ? format(addPeriod(parsedDate, planFreq), 'yyyy-MM-dd') : date
 
   const save = async () => {
@@ -109,6 +122,28 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
     const plan_amount = plan && planAmount ? toDb(planAmount) : null
     const plan_frequency = plan ? planFreq : null
     const plan_start_date = plan ? planStart || defaultPlanStart : null
+    if (repeating) {
+      if (isNewPerson) await upsertContact.mutateAsync([{ id: cid, name: newContact.trim() }])
+      await upsertRule.mutateAsync([
+        {
+          id: ids.current.rule,
+          contact_id: cid,
+          direction: dir,
+          amount: toDb(amount),
+          currency,
+          sub_account_id: effectiveSubId,
+          start_date: date,
+          next_date: date,
+          end_date: endDate || null,
+          reason: reason.trim() || null,
+          is_active: true,
+        },
+      ])
+      if (date <= todayIso()) await postDue.mutateAsync({})
+      prefs.remember({ lastCurrency: currency, lastSubAccountId: effectiveSubId })
+      onClose()
+      return
+    }
     if (initial) {
       if (isNewPerson) await upsertContact.mutateAsync([{ id: cid, name: newContact.trim() }])
       // only what this form edits: the linked money movement, its account and the direction are kept by
@@ -171,7 +206,7 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
       onClose={onClose}
       title={initial ? 'Edit debt' : dir === 'i_owe' ? 'Money I owe' : 'Money owed to me'}
       footer={
-        <Button full size="lg" onClick={save} loading={createDebt.isPending || updateDebt.isPending || upsertContact.isPending || setDebtAccount.isPending} disabled={!valid}>
+        <Button full size="lg" onClick={save} loading={createDebt.isPending || updateDebt.isPending || upsertContact.isPending || setDebtAccount.isPending || upsertRule.isPending || postDue.isPending} disabled={!valid}>
           Save
         </Button>
       }
@@ -214,13 +249,33 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
             <Amount value={paidSoFar} currency={currency} size="sm" /> has already been paid, so the amount can't be lower than that.
           </p>
         ) : null}
+        {!initial ? (
+          <Toggle
+            checked={repeat}
+            onChange={setRepeat}
+            label="Repeats every month"
+            description={
+              repeat
+                ? dir === 'i_owe'
+                  ? `On the ${dayOfMonth} of every month the money comes into the account below and a new debt to repay is recorded.`
+                  : `On the ${dayOfMonth} of every month the money leaves the account below and a new debt is recorded for them to repay.`
+                : 'Adds this debt again every month, on the same day'
+            }
+          />
+        ) : null}
         <div className="grid grid-cols-1 gap-5 min-[360px]:grid-cols-2 min-[360px]:gap-4">
-          <Field label="Date">
+          <Field label={repeating ? 'First date' : 'Date'}>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Due date">
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </Field>
+          {repeating ? (
+            <Field label="Last date" hint={endBeforeStart ? 'Before the first date' : 'Blank = until you stop it'}>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </Field>
+          ) : (
+            <Field label="Due date">
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </Field>
+          )}
         </div>
         <Field label="Reason">
           <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Car repair" />
@@ -229,8 +284,8 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
 
-        <Toggle checked={plan} onChange={setPlan} label="Installment plan" description="e.g. 5 × 2,000 monthly" />
-        {plan ? (
+        {!repeating ? <Toggle checked={plan} onChange={setPlan} label="Installment plan" description="e.g. 5 × 2,000 monthly" /> : null}
+        {plan && !repeating ? (
           <div className="bg-surface-2 grid grid-cols-1 gap-4 rounded-2xl p-4 min-[360px]:grid-cols-2">
             <Field label="Installments">
               <Input inputMode="numeric" value={planCount} onChange={(e) => setPlanCount(e.target.value)} placeholder="5" />
@@ -253,7 +308,18 @@ export function DebtForm({ open, onClose, direction, initial }: { open: boolean;
           </div>
         ) : null}
 
-        {canMove ? (
+        {repeating ? (
+          canMove ? (
+            <Field label={dir === 'i_owe' ? 'Comes into' : 'Leaves from'} hint={accountMissing ? 'Choose the account' : 'Not counted as income or spending'}>
+              <Select value={effectiveSubId} onChange={(e) => setSubId(e.target.value)}>
+                <option value="">Choose…</option>
+                <BalanceOptions subs={subsForCurrency} />
+              </Select>
+            </Field>
+          ) : (
+            <p className="text-negative text-xs">A monthly debt moves money each month: add a {currency} balance first.</p>
+          )
+        ) : canMove ? (
           <>
             <Toggle
               checked={moveMoney}

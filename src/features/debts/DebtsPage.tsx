@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowDownLeft, ArrowUpRight, HandCoins, Plus, Users } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, HandCoins, Plus, Repeat, Users } from 'lucide-react'
 import { Amount, EmptyState, ListRow, PageHeader, PageSkeleton, StatCard } from '@/components/shared'
 import { Button, Card, Divider, Pill, ProgressBar, Segmented } from '@/components/ui'
 import { formatDate } from '@/domain/format'
 import { DebtForm } from '@/features/debts/components/DebtForm'
 import { ContactForm } from '@/features/debts/components/ContactForm'
 import { useDebtViews, type DebtView } from '@/features/debts/useDebtViews'
-import type { Contact } from '@/api/database.types'
+import { RecurringDebtSheet } from '@/features/debts/components/RecurringDebtSheet'
+import { useContacts, useRecurringDebts } from '@/api/queries'
+import { format, parseISO } from 'date-fns'
+import type { Contact, RecurringDebt } from '@/api/database.types'
 
 type Tab = 'i_owe' | 'owed_to_me' | 'people'
 
@@ -18,6 +21,11 @@ export default function DebtsPage() {
   const { open, totals, byPerson, display, list, isLoading } = useDebtViews()
   const [form, setForm] = useState<{ open: boolean; direction: 'i_owe' | 'owed_to_me' }>({ open: false, direction: 'owed_to_me' })
   const [contactForm, setContactForm] = useState<{ open: boolean; item?: Contact | null }>({ open: false })
+  const { data: rules } = useRecurringDebts()
+  const { data: contacts } = useContacts()
+  const [rule, setRule] = useState<RecurringDebt | null>(null)
+  // monthly debts in this tab (each adds an ordinary debt on its date)
+  const monthly = (rules ?? []).filter((r) => r.direction === tab)
 
   const items = open.filter((x) => x.direction === tab).sort((a, b) => Number(b.overdue) - Number(a.overdue))
   const settled = list.filter((x) => x.status === 'settled' && x.direction === tab)
@@ -88,7 +96,7 @@ export default function DebtsPage() {
             ))}
           </Card>
         )
-      ) : !items.length && !settled.length ? (
+      ) : !items.length && !settled.length && !monthly.length ? (
         <EmptyState
           icon={HandCoins}
           title={tab === 'i_owe' ? 'You owe nobody' : 'Nobody owes you'}
@@ -97,6 +105,27 @@ export default function DebtsPage() {
         />
       ) : (
         <div className="space-y-8">
+          {monthly.length ? (
+            <div>
+              <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Every month</h2>
+              <Card className="overflow-hidden">
+                {monthly.map((r, i) => (
+                  <div key={r.id}>
+                    {i > 0 ? <Divider /> : null}
+                    <ListRow
+                      icon={Repeat}
+                      color={r.is_active ? (tab === 'i_owe' ? '#dc2626' : '#16a34a') : '#64748b'}
+                      title={contacts?.find((c) => c.id === r.contact_id)?.name ?? 'Someone'}
+                      subtitle={`On the ${format(parseISO(r.start_date), 'do')} · ${r.is_active ? `next ${formatDate(r.next_date)}` : 'paused'}`}
+                      trailing={<Amount value={r.amount} currency={r.currency} className="font-semibold" />}
+                      onClick={() => setRule(r)}
+                      chevron
+                    />
+                  </div>
+                ))}
+              </Card>
+            </div>
+          ) : null}
           <Card className="overflow-hidden">
             {items.map((x, i) => (
               <div key={x.id}>
@@ -124,6 +153,7 @@ export default function DebtsPage() {
 
       <DebtForm open={form.open} onClose={() => setForm({ ...form, open: false })} direction={form.direction} />
       <ContactForm open={contactForm.open} onClose={() => setContactForm({ open: false })} initial={contactForm.item ?? null} />
+      <RecurringDebtSheet open={Boolean(rule)} onClose={() => setRule(null)} rule={rule} />
     </div>
   )
 }

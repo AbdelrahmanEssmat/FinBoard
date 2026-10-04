@@ -342,6 +342,28 @@ export type Debt = {
   status: DebtStatus
   sub_account_id: string | null
   transaction_id: string | null
+  /** set when a monthly debt (recurring_debts) added it */
+  recurring_debt_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** A debt that repeats every month: on each date an ordinary debt is added, with its money moving in or out of sub_account_id. */
+export type RecurringDebt = {
+  id: string
+  user_id: string
+  contact_id: string
+  direction: DebtDirection
+  amount: number
+  currency: string
+  sub_account_id: string
+  /** the first date; the next ones fall on the same day of each month */
+  start_date: string
+  /** the next date not added yet */
+  next_date: string
+  end_date: string | null
+  reason: string | null
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -442,6 +464,7 @@ export type Database = {
       gold_prices: TableDef<GoldPrice>
       contacts: TableDef<Contact>
       debts: TableDef<Debt>
+      recurring_debts: TableDef<RecurringDebt>
       debt_payments: TableDef<DebtPayment>
       net_worth_snapshots: TableDef<NetWorthSnapshot>
       yield_rates: TableDef<YieldRate>
@@ -454,6 +477,7 @@ export type Database = {
       snapshot_net_worth: { Args: { p_user?: string; p_date?: string }; Returns: Json }
       compute_net_worth: { Args: { p_user: string; p_base: string; p_date?: string }; Returns: Json }
       post_due_recurring: { Args: { p_user?: string }; Returns: number }
+      post_due_recurring_debts: { Args: { p_user?: string }; Returns: number }
       accrue_yield: { Args: { p_user?: string }; Returns: number }
       sell_holding: {
         Args: {

@@ -4,6 +4,7 @@
  * when it is repaid into or out of an account (or when the money was recorded moving as it was lent or
  * borrowed). The home page and Reports show this activity on its own.
  */
+import { addMonths, format, parseISO } from 'date-fns'
 import { d, type Decimal, type NumericInput } from '@/domain/money'
 import type { DateRange, ToBase } from '@/domain/insights'
 
@@ -73,4 +74,17 @@ export function debtActivity(debts: DebtRecordLike[], payments: DebtPaymentRecor
   }
   const any = [lent, receivedBack, borrowed, paidBack].some((v) => !v.isZero())
   return { lent, receivedBack, borrowed, paidBack, balanceEffect, any }
+}
+
+/**
+ * The first date of a monthly debt on or after `from`: the same day of the month as `start`, counted
+ * from `start` the way the database does (31 Jan, 28 Feb, 31 Mar ...).
+ */
+export function nextMonthlyDate(start: string, from: string): string {
+  const first = parseISO(start)
+  for (let k = 0; k < 1200; k++) {
+    const dt = format(addMonths(first, k), 'yyyy-MM-dd')
+    if (dt >= from) return dt
+  }
+  return from
 }

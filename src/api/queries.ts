@@ -39,6 +39,12 @@ export function fetchAllRows<T extends TableName>(table: T): Promise<Row<T>[]> {
   return fetchPaged<Row<T>>(() => (supabase as any).from(table).select('*').order(STABLE_ORDER[table] ?? 'id', { ascending: true }))
 }
 
+/** The server answered that a table doesn't exist (the migration that adds it hasn't been run yet). */
+export function missingTable(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code
+  return code === 'PGRST205' || code === '42P01'
+}
+
 function tableQuery<T extends TableName>(table: T, order?: OrderSpec[], limit?: number) {
   return { queryKey: [table] as const, queryFn: () => fetchTable(table, order, limit) }
 }
@@ -82,6 +88,17 @@ export const useContacts = (o?: Opts<Row<'contacts'>>) => useQuery({ ...tableQue
 export const useDebts = (o?: Opts<Row<'debts'>>) => useQuery({ ...tableQuery('debts', [{ column: 'date', ascending: false }]), ...o })
 export const useDebtPayments = (o?: Opts<Row<'debt_payments'>>) =>
   useQuery({ ...tableQuery('debt_payments', [{ column: 'date', ascending: false }]), ...o })
+/** Monthly debts (migration 0018; an empty list until it has been run). */
+export const useRecurringDebts = (o?: Opts<Row<'recurring_debts'>>) =>
+  useQuery({
+    queryKey: ['recurring_debts'] as const,
+    queryFn: () =>
+      fetchTable('recurring_debts', [{ column: 'next_date' }]).catch((err: unknown) => {
+        if (missingTable(err)) return [] as Row<'recurring_debts'>[]
+        throw err
+      }),
+    ...o,
+  })
 export const useRecurring = (o?: Opts<Row<'recurring_transactions'>>) =>
   useQuery({ ...tableQuery('recurring_transactions', [{ column: 'next_date' }]), ...o })
 export const useBudgets = (o?: Opts<Row<'budgets'>>) => useQuery({ ...tableQuery('budgets'), ...o })
@@ -172,5 +189,5 @@ export function useYieldTransactions() {
 export const ALL_TABLES: TableName[] = [
   'currencies', 'settings', 'exchange_rates', 'accounts', 'sub_accounts', 'categories', 'tags', 'transactions',
   'recurring_transactions', 'budgets', 'certificates', 'certificate_payouts', 'investment_categories', 'holdings', 'holding_sales', 'card_installment_plans',
-  'gold_items', 'gold_prices', 'contacts', 'debts', 'debt_payments', 'net_worth_snapshots', 'yield_rates',
+  'gold_items', 'gold_prices', 'contacts', 'debts', 'debt_payments', 'net_worth_snapshots', 'yield_rates', 'recurring_debts',
 ]

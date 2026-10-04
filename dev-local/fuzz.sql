@@ -369,6 +369,25 @@ begin
     s1 := case when random() < 0.3 then null when random() < 0.9 then pg_temp.sub(r.currency) else pg_temp.sub() end;
     perform public.set_debt_account(r.id, s1, case when random() < 0.5 then id1 end);
     return case when s1 is null then 'unlink debt money' when r.transaction_id is null then 'link debt money' else 'move debt money' end;
+  when 'recurring_debt' then
+    if to_regclass('public.recurring_debts') is null then return 'no recurring_debts (before 0018)'; end if;
+    select id into id2 from public.contacts order by random() limit 1;
+    if id2 is null then return 'no contact'; end if;
+    c1 := case when random() < 0.8 then 'EGP' else 'USD' end;
+    s1 := case when random() < 0.9 then pg_temp.sub(c1) else pg_temp.sub() end;
+    if s1 is null then return 'no balance'; end if;
+    insert into public.recurring_debts (id, user_id, contact_id, direction, amount, currency, sub_account_id, start_date, next_date, end_date)
+    values (id1, u, id2, (array['i_owe','owed_to_me'])[pg_temp.ri(1, 2)]::debt_direction, pg_temp.amt(), c1, s1,
+            current_date - pg_temp.ri(0, 120), current_date - 200, case when random() < 0.3 then current_date + pg_temp.ri(-40, 60) end);
+    return 'new monthly debt';
+  when 'post_recurring_debts' then
+    if to_regclass('public.recurring_debts') is null then return 'no recurring_debts (before 0018)'; end if;
+    return 'monthly debts added: ' || public.post_due_recurring_debts(u);
+  when 'edit_recurring_debt' then
+    if to_regclass('public.recurring_debts') is null then return 'no recurring_debts (before 0018)'; end if;
+    update public.recurring_debts set amount = pg_temp.amt(), is_active = random() < 0.8
+     where id = (select id from public.recurring_debts order by random() limit 1);
+    return 'edit monthly debt';
   when 'net_worth' then
     perform public.snapshot_net_worth(u, current_date); perform public.compute_net_worth(u, 'EGP', current_date); return 'net worth';
   end case;
@@ -383,7 +402,8 @@ declare
     'recurring','edit_recurring','delete_recurring','post_recurring','accrue','plan','close_plan','delete_plan','currency_change','delete_category','net_worth',
     'pause_recurring','cloud_switch','cloud_balance','reparent','accrue',
     'debt_rpc','debt_rpc','plan_rpc','cloud_rate','cert_freq','cert_freq','log_payouts','tz',
-    'debt_link','debt_link','debt_link'];
+    'debt_link','debt_link','debt_link',
+    'recurring_debt','post_recurring_debts','post_recurring_debts','edit_recurring_debt'];
   op text; d text; bad text; i int; ctx text;
 begin
   for i in 1..steps loop

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { d, type NumericInput } from '@/domain/money'
-import { debtActivity } from '@/domain/debts'
+import { debtActivity, nextMonthlyDate } from '@/domain/debts'
 
 const toBase = (amount: NumericInput, currency: string) => (currency === 'USD' ? d(amount).times(50) : d(amount))
 const oct = { from: '2026-10-01', to: '2026-10-31' }
@@ -48,5 +48,17 @@ describe('debt activity', () => {
   it('ignores repayments of a debt it doesn’t know', () => {
     const a = debtActivity([], [{ debt_id: 'gone', amount: '50', date: '2026-10-03', transaction_id: null }], oct, toBase)
     expect(a.any).toBe(false)
+  })
+})
+
+describe('monthly debt dates', () => {
+  it('fall on the first date’s day of the month, counted from the first date', () => {
+    expect(nextMonthlyDate('2026-01-05', '2026-10-04')).toBe('2026-10-05')
+    expect(nextMonthlyDate('2026-01-05', '2026-10-05')).toBe('2026-10-05')
+    expect(nextMonthlyDate('2026-01-05', '2026-10-06')).toBe('2026-11-05')
+    // end of month: February takes its last day, March is back on the 31st (like the database)
+    expect(nextMonthlyDate('2026-01-31', '2026-02-01')).toBe('2026-02-28')
+    expect(nextMonthlyDate('2026-01-31', '2026-03-01')).toBe('2026-03-31')
+    expect(nextMonthlyDate('2026-12-20', '2026-10-01')).toBe('2026-12-20')
   })
 })

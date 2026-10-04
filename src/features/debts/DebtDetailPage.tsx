@@ -94,6 +94,12 @@ export default function DebtDetailPage() {
               <span className="text-muted">Recorded only. Your accounts change when it’s repaid.</span>
             )}
           </dd>
+          {debt.recurring_debt_id ? (
+            <>
+              <dt className="text-muted">Repeats</dt>
+              <dd>Added by a monthly debt</dd>
+            </>
+          ) : null}
           {debt.due_date ? (
             <>
               <dt className="text-muted">Due</dt>

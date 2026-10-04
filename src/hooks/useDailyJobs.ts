@@ -26,12 +26,19 @@ export function useDailyJobs() {
       if (running.current || !navigator.onLine) return
       running.current = true
       try {
-        const [rec, pay, yld] = await Promise.all([supabase.rpc('post_due_recurring'), supabase.rpc('process_certificate_payouts'), supabase.rpc('accrue_yield')])
+        const [rec, pay, yld, mdebts] = await Promise.all([
+          supabase.rpc('post_due_recurring'),
+          supabase.rpc('process_certificate_payouts'),
+          supabase.rpc('accrue_yield'),
+          supabase.rpc('post_due_recurring_debts'),
+        ])
         const { error } = await supabase.rpc('snapshot_net_worth')
-        if (rec.error || pay.error || yld.error || error) return
+        // monthly debts need migration 0018; until it runs the function is missing (PGRST202), which is fine
+        const debtsError = mdebts.error && mdebts.error.code !== 'PGRST202'
+        if (rec.error || pay.error || yld.error || debtsError || error) return
         lastRunDate.current = todayIso()
-        if ((rec.data ?? 0) > 0 || (pay.data ?? 0) > 0 || (yld.data ?? 0) > 0) {
-          for (const key of ['transactions', 'sub_accounts', 'recurring_transactions', 'certificate_payouts']) await qc.invalidateQueries({ queryKey: [key] })
+        if ((rec.data ?? 0) > 0 || (pay.data ?? 0) > 0 || (yld.data ?? 0) > 0 || (mdebts.data ?? 0) > 0) {
+          for (const key of ['transactions', 'sub_accounts', 'recurring_transactions', 'certificate_payouts', 'debts', 'recurring_debts']) await qc.invalidateQueries({ queryKey: [key] })
         }
         await qc.invalidateQueries({ queryKey: ['net_worth_snapshots'] })
       } catch {
