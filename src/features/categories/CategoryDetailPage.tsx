@@ -9,6 +9,7 @@ import { useConvert, useHistoricalConvert } from '@/hooks/useMoney'
 import { usePrefs } from '@/store/prefs'
 import { d } from '@/domain/money'
 import { formatMoney, formatPercent, todayIso } from '@/domain/format'
+import { HIDDEN } from '@/domain/privacy'
 import { isExpense, isIncome } from '@/domain/insights'
 import { categoryFamily, categoryMonthly, monthKeys, partyTotals, subcategorySplit, summarizeCategory } from '@/domain/categoryStats'
 import { iconFor } from '@/utils/icons'
@@ -145,7 +146,7 @@ export default function CategoryDetailPage() {
           {data.summary.count ? (
             <Section title="Month by month" action={<span className="text-xs text-muted">Tap a month</span>}>
               <Card padded>
-                <div className={cn('h-44', privacy && 'privacy-blur')}>
+                <div className="h-44">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.series.map((m) => ({ month: m.month, label: monthLabel(m.month), value: m.value.toNumber() }))} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
                       <XAxis dataKey="label" axisLine={false} tickLine={false} interval={Number(win) > 6 ? 1 : 0} tick={{ fontSize: 11, fill: 'var(--color-muted)' }} />
@@ -155,7 +156,7 @@ export default function CategoryDetailPage() {
                           active && payload?.length ? (
                             <div className="rounded-lg bg-text px-2.5 py-1.5 text-xs text-bg">
                               <div className="font-medium">{monthLabel(String(payload[0]!.payload.month), 'long')}</div>
-                              <div>{formatMoney(payload[0]!.value as number, display)}</div>
+                              <div>{privacy ? HIDDEN : formatMoney(payload[0]!.value as number, display)}</div>
                             </div>
                           ) : null
                         }

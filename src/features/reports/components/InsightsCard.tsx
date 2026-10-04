@@ -2,6 +2,7 @@ import { Lightbulb, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react
 import { Card } from '@/components/ui'
 import { Section } from '@/components/shared'
 import { usePrefs } from '@/store/prefs'
+import { maskNumbers } from '@/domain/privacy'
 import { cn } from '@/utils'
 import type { Insight } from '@/domain/insights'
 
@@ -24,9 +25,9 @@ export function InsightsCard({ insights }: { insights: Insight[] }) {
               <span className={cn('mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full', t.cls)}>
                 <Icon className="h-4 w-4" />
               </span>
-              <div className={cn('min-w-0', privacy && 'privacy-blur')}>
-                <div className="text-[15px] font-medium leading-snug">{i.title}</div>
-                {i.detail ? <div className="mt-0.5 text-[13px] leading-relaxed text-muted">{i.detail}</div> : null}
+              <div className="min-w-0">
+                <div className="text-[15px] font-medium leading-snug">{privacy ? maskNumbers(i.title) : i.title}</div>
+                {i.detail ? <div className="mt-0.5 text-[13px] leading-relaxed text-muted">{privacy ? maskNumbers(i.detail) : i.detail}</div> : null}
               </div>
             </div>
           )

@@ -4,7 +4,6 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { ChevronRight } from 'lucide-react'
 import { Card, Segmented } from '@/components/ui'
 import { Amount } from '@/components/shared'
-import { usePrefs } from '@/store/prefs'
 import { d, type Decimal } from '@/domain/money'
 import type { NetWorthResult } from '@/domain/networth'
 
@@ -30,7 +29,6 @@ interface Slice {
 
 export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: string }) {
   const [mode, setMode] = useState<'class' | 'currency'>('class')
-  const privacy = usePrefs((s) => s.privacy)
   const navigate = useNavigate()
 
   const byClass: Slice[] = CLASS_META.map((m) => ({ ...m, value: m.key === 'investments' ? nw.byClass.investments.plus(nw.byClass.clouds) : nw.byClass[m.key] })).filter((x) => x.value.gt(0))
@@ -48,7 +46,7 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
         <Segmented value={mode} onChange={setMode} options={[{ value: 'class', label: 'Type' }, { value: 'currency', label: 'Currency' }]} className="w-40 min-[360px]:w-44" />
       </div>
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
-        <div className={`relative h-40 w-40 shrink-0 ${privacy ? 'privacy-blur' : ''}`}>
+        <div className="relative h-40 w-40 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={slices.map((x) => ({ name: x.label, value: x.value.toNumber() }))} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>

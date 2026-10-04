@@ -108,7 +108,7 @@ export function DebtPaymentForm({ open, onClose, debtId }: { open: boolean; onCl
               {openDebts.map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.direction === 'i_owe' ? 'I owe' : 'Owed to me'} · {x.contact?.name}
-                  {privacy ? '' : ` · ${x.remaining.toFixed(0)} ${x.currency}`}
+                  {privacy ? ' · ****' : ` · ${x.remaining.toFixed(0)} ${x.currency}`}
                 </option>
               ))}
             </Select>

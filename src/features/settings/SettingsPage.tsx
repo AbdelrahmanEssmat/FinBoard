@@ -104,7 +104,7 @@ export default function SettingsPage() {
               ]}
             />
           </Field>
-          <Toggle checked={privacy} onChange={setPrivacy} label="Hide amounts" description="Blur every number until you tap the eye icon" />
+          <Toggle checked={privacy} onChange={setPrivacy} label="Hide amounts" description="Show **** instead of every amount until you tap the eye icon" />
         </Card>
       </section>
 

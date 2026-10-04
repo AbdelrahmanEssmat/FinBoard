@@ -154,7 +154,7 @@ export default function UpdatePricesPage() {
                         {h.ticker ? <span className="text-muted ml-1.5 text-xs font-normal">{h.ticker}</span> : null}
                       </span>
                       <span className="text-muted mt-1 block truncate text-xs">
-                        {mode === 'unit' ? <Amount value={was} currency={h.currency} size="sm" /> : privacy ? '••• units' : `${d(h.units).toString()} units`}
+                        {mode === 'unit' ? <Amount value={was} currency={h.currency} size="sm" /> : privacy ? '**** units' : `${d(h.units).toString()} units`}
                         {cat ? ` · ${cat}` : ''}
                       </span>
                       <span className={cn('mt-1 flex items-center gap-1 text-[11px]', fresh ? 'text-positive' : 'text-warning')}>

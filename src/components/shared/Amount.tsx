@@ -4,6 +4,7 @@ import { useMoneyFormatter } from '@/hooks/useMoney'
 import { d, type NumericInput } from '@/domain/money'
 import type { FormatMoneyOptions } from '@/domain/format'
 import { cn } from '@/utils'
+import { HIDDEN } from '@/domain/privacy'
 
 /**
  * Money display that respects the privacy toggle and colours by sign when asked.
@@ -25,7 +26,7 @@ export function Amount({
   const privacy = usePrefs((s) => s.privacy)
   const fmt = useMoneyFormatter()
   const n = d(value)
-  const text = privacy ? '•••••' : fmt(n, currency, opts)
+  const text = privacy ? HIDDEN : fmt(n, currency, opts)
   const headline = size === 'xl' || size === 'lg'
   const fit = headline || Boolean(fitProp)
   const ref = useFitText<HTMLSpanElement>(fit, text, headline ? 14 : 12)
@@ -33,7 +34,7 @@ export function Amount({
   const color = colored ? (n.gt(0) ? 'text-positive' : n.lt(0) ? 'text-negative' : 'text-muted') : ''
   return (
     // min-w-0: inside a flex row a span would otherwise refuse to shrink, and nothing would ever fit
-    <span ref={ref} className={cn('tnum whitespace-nowrap', fit && 'block min-w-0 max-w-full', sizeClass, color, privacy && 'privacy-blur', className)} aria-label={privacy ? 'hidden amount' : undefined}>
+    <span ref={ref} className={cn('tnum whitespace-nowrap', fit && 'block min-w-0 max-w-full', sizeClass, color, className)} aria-label={privacy ? 'hidden amount' : undefined}>
       {text}
     </span>
   )
@@ -59,8 +60,8 @@ function useFitText<T extends HTMLElement>(enabled: boolean, text: string, floor
   return ref
 }
 
-/** Blur arbitrary content when privacy mode is on. */
+/** Content with numbers in it (units, grams, prices): shown as **** when privacy mode is on. */
 export function Private({ children, className }: { children: ReactNode; className?: string }) {
   const privacy = usePrefs((s) => s.privacy)
-  return <span className={cn(privacy && 'privacy-blur', className)}>{children}</span>
+  return <span className={className} aria-label={privacy ? 'hidden' : undefined}>{privacy ? HIDDEN : children}</span>
 }

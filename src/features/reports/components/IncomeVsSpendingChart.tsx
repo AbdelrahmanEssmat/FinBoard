@@ -3,6 +3,7 @@ import { Card } from '@/components/ui'
 import { Section } from '@/components/shared'
 import { usePrefs } from '@/store/prefs'
 import { formatMoney } from '@/domain/format'
+import { HIDDEN } from '@/domain/privacy'
 import type { MonthPoint } from '@/domain/insights'
 
 export function IncomeVsSpendingChart({ months, display }: { months: MonthPoint[]; display: string }) {
@@ -12,7 +13,7 @@ export function IncomeVsSpendingChart({ months, display }: { months: MonthPoint[
   return (
     <Section title="Income vs spending">
       <Card padded>
-        <div className={`h-48 ${privacy ? 'privacy-blur' : ''}`}>
+        <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={3} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-muted)' }} />
@@ -22,8 +23,8 @@ export function IncomeVsSpendingChart({ months, display }: { months: MonthPoint[
                   active && payload?.length ? (
                     <div className="rounded-lg bg-text px-2.5 py-1.5 text-xs text-bg">
                       <div className="font-medium">{label}</div>
-                      <div>In {formatMoney(payload.find((p) => p.dataKey === 'income')?.value as number, display)}</div>
-                      <div>Out {formatMoney(payload.find((p) => p.dataKey === 'expense')?.value as number, display)}</div>
+                      <div>In {privacy ? HIDDEN : formatMoney(payload.find((p) => p.dataKey === 'income')?.value as number, display)}</div>
+                      <div>Out {privacy ? HIDDEN : formatMoney(payload.find((p) => p.dataKey === 'expense')?.value as number, display)}</div>
                     </div>
                   ) : null
                 }
