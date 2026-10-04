@@ -33,7 +33,7 @@ export function Wordmark({ className }: { className?: string }) {
   )
 }
 
-/** Icon + name + slogan. `inline` for the sidebar, `stacked` (centred, larger) for the sign-in screen. */
+/** Name + slogan (`inline`, the sidebar), or icon + name + slogan (`stacked`, centred, larger: the sign-in screen). */
 export function Brand({ variant = 'inline', className }: { variant?: 'inline' | 'stacked'; className?: string }) {
   if (variant === 'stacked') {
     return (
@@ -44,13 +44,10 @@ export function Brand({ variant = 'inline', className }: { variant?: 'inline' | 
       </div>
     )
   }
-  // icon + name on one row, the slogan on its own line underneath so it never wraps
+  // the name centred (no icon), the slogan on its own line underneath so it never wraps
   return (
     <div className={cn('flex flex-col items-center text-center', className)}>
-      <div className="flex items-center justify-center gap-3">
-        <BrandMark className="h-10 w-10" />
-        <Wordmark className="text-[24px]" />
-      </div>
+      <Wordmark className="text-[24px]" />
       <Slogan className="mt-3 whitespace-nowrap" />
     </div>
   )
