@@ -102,7 +102,6 @@ export function BreakdownCard({ nw, display }: { nw: NetWorthResult; display: st
           {nw.byClass.receivables.gt(0) || nw.byClass.liabilities.gt(0) ? (
             // debts between people: shown, but not part of net worth until the money is repaid
             <li className="border-t border-border pt-1">
-              <p className="px-2 pt-1.5 text-[11px] text-faint">Debts, not counted until repaid</p>
               {nw.byClass.receivables.gt(0) ? (
                 <button onClick={() => navigate('/debts')} className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2 text-sm hover:bg-surface-2 active:bg-surface-2">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-positive" />
