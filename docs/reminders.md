@@ -6,10 +6,19 @@ FinBoard can remind you, with a normal phone or desktop notification, when somet
 - a **debt installment** is due (money you owe, or money owed to you)
 - a **bill** (a recurring payment) is due
 - a **certificate** pays out, or matures
+- a **monthly debt** is about to move money out of your account (the day before)
+
+And a few general ones, kept rare on purpose:
+
+- **End of day** ("Anything to add for today?"), in the evening, only on days you recorded nothing
+- **Last month's summary is ready**, on the 1st (opens Reports on last month)
+- **Your stock prices are out of date**, at most once a week, when a price is more than a week old
+- **A budget is almost used** (90%) or **used up**, once each per budget per month
 
 ## When they arrive
 
 - Once a day, **around 8 to 9 am Cairo time** (the server's daily run starts in that hour).
+- The end-of-day check-in comes in a second run, **around 8 to 9 pm Cairo time** (9 to 10 pm in summer).
 - If the server missed a day, the next morning's run sends what was missed (one day back).
 - At most **4 notifications a day**. When more are due, the 4th one says "And 3 more due today"
   (or however many) and opens FinBoard.

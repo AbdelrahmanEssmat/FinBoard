@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowDownLeft, ArrowUpRight, CalendarDays, PiggyBank } from 'lucide-react'
 import { Segmented, Select, Skeleton } from '@/components/ui'
 import { Amount, PageHeader, StatCard } from '@/components/shared'
@@ -15,7 +16,9 @@ import { IncomeSourcesCard } from '@/features/reports/components/IncomeSourcesCa
 import { DebtsCard } from '@/features/reports/components/DebtsCard'
 
 export default function ReportsPage() {
-  const [period, setPeriod] = useState<ReportPeriod>('this')
+  // ?period=last (the monthly summary reminder) opens last month
+  const [params] = useSearchParams()
+  const [period, setPeriod] = useState<ReportPeriod>(() => (PERIOD_OPTIONS.some((o) => o.value === params.get('period')) ? (params.get('period') as ReportPeriod) : 'this'))
   const [filters, setFilters] = useState<ReportFilters>({ accountId: '', tag: '' })
   const [kind, setKind] = useState<'expense' | 'income'>('expense')
   const { data: accounts } = useAccounts()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReminders, type UpcomingLike } from '@/domain/reminders'
+import { buildReminders, extraReminders, type UpcomingLike } from '@/domain/reminders'
 
 const today = '2026-10-02'
 const card: UpcomingLike = { key: 'ccA', date: '2026-10-05', kind: 'card', name: 'QNB', to: '/accounts/A' }
@@ -59,5 +59,38 @@ describe('phone reminders', () => {
       today,
     )
     expect(r.map((x) => x.title).sort()).toEqual(['Sara is due to pay you today', 'Your payment to Omar is due today'])
+  })
+})
+
+describe('general reminders', () => {
+  const base = { today: '2026-10-10', days: 14, pricesOutOfDate: false, budgets: [] }
+  it('asks every evening for the next two weeks', () => {
+    const items = extraReminders(base).filter((r) => r.key.startsWith('evening:checkin:'))
+    expect(items).toHaveLength(14)
+    expect(items[0]).toMatchObject({ remind_on: '2026-10-10', title: 'Anything to add for today?' })
+    expect(items[13]!.remind_on).toBe('2026-10-23')
+  })
+  it('says last month’s summary is ready on the 1st, once', () => {
+    expect(extraReminders({ ...base, today: '2026-10-25' }).find((r) => r.key.startsWith('once:month:'))).toMatchObject({
+      key: 'once:month:2026-10',
+      remind_on: '2026-11-01',
+      title: 'Your October summary is ready',
+      url: '/reports?period=last',
+    })
+    expect(extraReminders({ ...base, today: '2026-11-01' }).find((r) => r.key.startsWith('once:month:'))!.remind_on).toBe('2026-11-01')
+    // too far ahead: not yet
+    expect(extraReminders(base).some((r) => r.key.startsWith('once:month:'))).toBe(false)
+  })
+  it('nudges about old prices at most once a week', () => {
+    const r = extraReminders({ ...base, pricesOutOfDate: true }).find((x) => x.key.startsWith('once:prices:'))!
+    expect(r.key).toBe('once:prices:2026-10-05') // the Monday of that week
+    expect(extraReminders({ ...base, today: '2026-10-11', pricesOutOfDate: true }).find((x) => x.key.startsWith('once:prices:'))!.key).toBe(r.key)
+  })
+  it('warns at 90% and when a budget is used up, never with amounts', () => {
+    const items = extraReminders({ ...base, budgets: [{ categoryId: 'food', name: 'Food', pct: 92 }, { categoryId: 'fun', name: 'Fun', pct: 130 }, { categoryId: 'rent', name: 'Rent', pct: 50 }] })
+    const budgets = items.filter((r) => r.key.startsWith('once:budget:'))
+    expect(budgets.map((r) => r.title)).toEqual(['Food budget is almost used', 'Fun budget is used up'])
+    expect(budgets[0]!.key).toBe('once:budget:food:2026-10:90')
+    for (const r of items) expect(`${r.title} ${r.body}`).not.toMatch(/E£|\d{3}/)
   })
 })

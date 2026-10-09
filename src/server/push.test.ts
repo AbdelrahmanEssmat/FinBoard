@@ -15,6 +15,7 @@ import {
   PUSH_TTL_SECONDS,
   readPushConfig,
   safeEqual,
+  slotOf,
   sendTest,
   supabasePushStore,
   TEST_PAYLOAD,
@@ -641,5 +642,65 @@ describe('request helpers', () => {
     expect(safeEqual('Bearer s3cretX', 'Bearer s3cret')).toBe(false)
     expect(safeEqual('', 'Bearer s3cret')).toBe(false)
     expect(safeEqual('Bearer s3creT', 'Bearer s3cret')).toBe(false)
+  })
+})
+
+// ------------------------------------------------------------------ morning and evening runs
+describe('the evening run and the general reminders', () => {
+  const EVENING = new Date('2026-10-02T18:30:00Z')
+  const setup = (opts: { recorded?: boolean; sentKeys?: string[] } = {}) => {
+    const { store, db } = memoryStore({
+      devices: [device('d1', 'u1')],
+      reminders: [
+        reminder('card', 'u1', '2026-10-02'),
+        reminder('checkin', 'u1', '2026-10-02', { key: 'evening:checkin:2026-10-02', title: 'Anything to add for today?' }),
+        reminder('checkin-yesterday', 'u1', '2026-10-01', { key: 'evening:checkin:2026-10-01' }),
+        reminder('prices', 'u1', '2026-10-02', { key: 'once:prices:2026-09-28' }),
+      ],
+    })
+    store.recordedOn = async () => opts.recorded ?? false
+    store.sentKeys = async (_u, keys) => new Set(keys.filter((k) => opts.sentKeys?.includes(k)))
+    return { store, db }
+  }
+
+  it('the morning run leaves the evening check-in alone', async () => {
+    const { store, db } = setup()
+    const { send, sent } = pushService()
+    await deliverDueReminders({ store, send }, NOW, 'morning')
+    expect(sent.map((s) => s.payload.tag).sort()).toEqual(['key-card', 'once:prices:2026-09-28'])
+    expect(db.reminders.find((r) => r.id === 'checkin')!.sent_at).toBeNull()
+  })
+
+  it('the evening run sends only today’s check-in', async () => {
+    const { store, db } = setup()
+    const { send, sent } = pushService()
+    await deliverDueReminders({ store, send }, EVENING, 'evening')
+    expect(sent.map((s) => s.payload.title)).toEqual(['Anything to add for today?'])
+    // yesterday's missed check-in is never sent late
+    expect(db.reminders.find((r) => r.id === 'checkin-yesterday')!.sent_at).toBeNull()
+  })
+
+  it('no check-in on a day something was recorded (put away, not sent)', async () => {
+    const { store, db } = setup({ recorded: true })
+    const { send, sent } = pushService()
+    await deliverDueReminders({ store, send }, EVENING, 'evening')
+    expect(sent).toHaveLength(0)
+    expect(db.reminders.find((r) => r.id === 'checkin')!.sent_at).not.toBeNull()
+  })
+
+  it('a once-only reminder already sent on an earlier day is not sent again', async () => {
+    const { store, db } = setup({ sentKeys: ['once:prices:2026-09-28'] })
+    const { send, sent } = pushService()
+    await deliverDueReminders({ store, send }, NOW, 'morning')
+    expect(sent.map((s) => s.payload.tag)).toEqual(['key-card'])
+    expect(db.reminders.find((r) => r.id === 'prices')!.sent_at).not.toBeNull()
+  })
+
+  it('tells the runs apart by the schedule Vercel names', () => {
+    const at = (headers: Record<string, string>, url = 'https://x.test/api/reminders') => slotOf(new Request(url, { headers }))
+    expect(at({ 'x-vercel-cron-schedule': '0 18 * * *' })).toBe('evening')
+    expect(at({ 'x-vercel-cron-schedule': '0 6 * * *' })).toBe('morning')
+    expect(at({})).toBe('morning')
+    expect(at({}, 'https://x.test/api/reminders?slot=evening')).toBe('evening')
   })
 })

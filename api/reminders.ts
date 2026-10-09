@@ -1,7 +1,8 @@
 /**
  * Vercel function: GET /api/reminders → sends today's reminders to everyone's devices.
  *
- * Vercel Cron calls it once a day (vercel.json "crons": 06:00 UTC, which is 08:00-09:00 in Cairo; on
+ * Vercel Cron calls it twice a day (vercel.json "crons": 06:00 UTC, about 08:00-09:00 in Cairo, for the day's
+ * reminders, and 18:00 UTC, about 20:00-21:00, for the end-of-day check-in; on
  * the Hobby plan Vercel may run it any time within that hour). Vercel sends
  * "Authorization: Bearer <CRON_SECRET>"; any other caller gets 401. Running it twice is harmless:
  * reminders are marked sent and never sent again, and a missed day is caught up on the next run.

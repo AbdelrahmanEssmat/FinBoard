@@ -84,7 +84,7 @@ export function RemindersSection() {
                 if (!busy) void toggle(v)
               }}
               label="Reminders on this device"
-              description="Card payments, instalments, bills, certificate payouts and maturities: the day before and on the day. No amounts are shown."
+              description="Card payments, instalments, bills, certificate payouts and maturities, the day before and on the day; an evening check-in on days you recorded nothing; last month's summary on the 1st; out-of-date prices and nearly used budgets. No amounts are shown."
             />
             {state === 'on' ? (
               <Button variant="secondary" size="sm" onClick={() => void test()} loading={busy}>

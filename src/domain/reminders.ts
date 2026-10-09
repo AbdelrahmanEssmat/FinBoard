@@ -91,3 +91,60 @@ export function buildReminders(items: UpcomingLike[], today: string): ReminderIt
   }
   return out.sort((a, b) => a.remind_on.localeCompare(b.remind_on) || a.key.localeCompare(b.key))
 }
+
+export interface ExtraReminderInput {
+  today: string
+  /** how many days ahead to schedule (the same window as the other reminders) */
+  days: number
+  /** some open stock or fund has a price older than a week */
+  pricesOutOfDate: boolean
+  /** this month's budgets and how much of each is spent (percent) */
+  budgets: { categoryId: string; name: string; pct: number }[]
+}
+
+/** First day of the month after `iso`'s. */
+const nextMonthStart = (iso: string) => {
+  const d = new Date(iso.slice(0, 7) + '-01T00:00:00Z')
+  d.setUTCMonth(d.getUTCMonth() + 1)
+  return d.toISOString().slice(0, 10)
+}
+/** The Monday of `iso`'s week. */
+const weekStart = (iso: string) => addDays(iso, -((new Date(iso + 'T00:00:00Z').getUTCDay() + 6) % 7))
+const monthName = (iso: string) => new Date(iso.slice(0, 7) + '-01T00:00:00Z').toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' })
+
+/**
+ * The few general reminders, on top of the ones for things that are due:
+ * - every evening, "anything to add for today?" (the server sends it only on days nothing was recorded)
+ * - on the 1st, last month's summary is ready
+ * - at most once a week, when stock or fund prices are more than a week old
+ * - once a month per budget, when 90% of it is spent (and again when it is all spent)
+ * Keys starting "evening:" go out in the evening run; keys starting "once:" are never sent twice.
+ */
+export function extraReminders(input: ExtraReminderInput): ReminderItem[] {
+  const { today, days } = input
+  const out: ReminderItem[] = []
+  for (let i = 0; i < days; i++) {
+    const on = addDays(today, i)
+    out.push({ key: `evening:checkin:${on}`, remind_on: on, title: 'Anything to add for today?', body: 'Record today’s spending in FinBoard before you forget.', url: '/' })
+  }
+  const first = today.endsWith('-01') ? today : nextMonthStart(today)
+  if (daysBetween(today, first) < days) {
+    const last = addDays(first, -1)
+    out.push({ key: `once:month:${last.slice(0, 7)}`, remind_on: first, title: `Your ${monthName(last)} summary is ready`, body: 'See where your money went last month.', url: '/reports?period=last' })
+  }
+  if (input.pricesOutOfDate) {
+    out.push({ key: `once:prices:${weekStart(today)}`, remind_on: today, title: 'Your stock prices are out of date', body: 'Update them so your net worth stays right.', url: '/investments/prices' })
+  }
+  for (const b of input.budgets) {
+    if (b.pct < 90) continue
+    const full = b.pct >= 100
+    out.push({
+      key: `once:budget:${b.categoryId}:${today.slice(0, 7)}:${full ? 'full' : '90'}`,
+      remind_on: today,
+      title: full ? `${b.name} budget is used up` : `${b.name} budget is almost used`,
+      body: full ? 'You’ve spent all of it this month.' : 'You’ve spent 90% of it this month.',
+      url: '/budgets',
+    })
+  }
+  return out
+}

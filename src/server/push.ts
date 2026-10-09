@@ -148,7 +148,21 @@ export interface PushStore {
   deleteSubscription(subscription: PushSubscriptionRow): Promise<void>
   /** Notes when devices last accepted a notification (last_success_at). */
   markDelivered(subscriptionIds: string[], at: string): Promise<void>
+  /** Whether the person recorded anything themselves (not automatic entries) dated `day`. */
+  recordedOn?(userId: string, day: string): Promise<boolean>
+  /** Which of these keys were already sent to the person once (any date). */
+  sentKeys?(userId: string, keys: string[]): Promise<Set<string>>
 }
+
+/**
+ * Two runs a day. In the morning: everything except evening reminders (yesterday's unsent ones too).
+ * In the evening: only today's evening reminders (keys starting "evening:").
+ */
+export type DeliverySlot = 'morning' | 'evening'
+/** The end-of-day check-in: sent only on days nothing was recorded. */
+const CHECKIN_PREFIX = 'evening:checkin:'
+/** Reminders sent once ever (an out-of-date prices nudge per week, a budget per month): never repeated on later days. */
+const ONCE_PREFIX = 'once:'
 
 /** Sends one notification to one device. Rejects (with statusCode when the push service answered) if it wasn't accepted. */
 export type SendPush = (subscription: PushSubscriptionRow, payload: PushPayload) => Promise<unknown>
@@ -250,7 +264,7 @@ async function attempt(send: SendPush, device: PushSubscriptionRow, payload: Pus
  * is forgotten. One person's or one device's problem is recorded and never stops the rest; only
  * failing to read the device list at all throws.
  */
-export async function deliverDueReminders(deps: PushDeps, now: Date = new Date()): Promise<DeliverySummary> {
+export async function deliverDueReminders(deps: PushDeps, now: Date = new Date(), slot: DeliverySlot = 'morning'): Promise<DeliverySummary> {
   const summary: DeliverySummary = { users: 0, reminders: 0, notifications: 0, removedSubscriptions: 0, errors: [] }
   const report = (message: string) => {
     summary.errors.push(message)
@@ -277,7 +291,27 @@ export async function deliverDueReminders(deps: PushDeps, now: Date = new Date()
     summary.users++
     try {
       const today = todayIn(zones.get(userId), now)
-      const due = await deps.store.dueReminders(userId, addDays(today, -1), today)
+      let due = (await deps.store.dueReminders(userId, addDays(today, -1), today)).filter((r) =>
+        slot === 'evening' ? r.key.startsWith('evening:') && r.remind_on === today : !r.key.startsWith('evening:'),
+      )
+      // reminders that are not needed after all are marked sent without a notification
+      const skip: ReminderRow[] = []
+      const checkins = due.filter((r) => r.key.startsWith(CHECKIN_PREFIX))
+      if (checkins.length && deps.store.recordedOn && (await deps.store.recordedOn(userId, today))) skip.push(...checkins)
+      const once = due.filter((r) => r.key.startsWith(ONCE_PREFIX))
+      if (once.length && deps.store.sentKeys) {
+        const sent = await deps.store.sentKeys(userId, [...new Set(once.map((r) => r.key))])
+        skip.push(...once.filter((r) => sent.has(r.key)))
+      }
+      if (skip.length) {
+        const ids = new Set(skip.map((r) => r.id))
+        due = due.filter((r) => !ids.has(r.id))
+        try {
+          await deps.store.markSent([...ids], at)
+        } catch (e) {
+          report(`${who(userId)}: couldn't put away ${ids.size} reminder(s) that weren't needed: ${errorText(e)}`)
+        }
+      }
       let live = devices
       const delivered = new Set<string>()
 
@@ -425,6 +459,19 @@ export function supabasePushStore(db: SupabaseClient): PushStore {
         rowsOf('push_subscriptions', await db.from('push_subscriptions').update({ last_success_at: at }).in('id', ids))
       }
     },
+    async recordedOn(userId, day) {
+      // typed in by the person (or a repayment), not posted automatically
+      const rows = rowsOf('transactions', await db.from('transactions').select('id').eq('user_id', userId).eq('date', day).in('source', ['manual', 'debt']).limit(1))
+      return rows.length > 0
+    },
+    async sentKeys(userId, keys) {
+      const sent = new Set<string>()
+      for (const part of inParts(keys, IDS_PER_REQUEST)) {
+        const rows = rowsOf<{ key: string }>('reminders', await db.from('reminders').select('key').eq('user_id', userId).in('key', part).not('sent_at', 'is', null))
+        for (const row of rows) sent.add(row.key)
+      }
+      return sent
+    },
   }
 }
 
@@ -543,6 +590,16 @@ export async function handlePushTest(request: Request, deps: ApiDeps): Promise<R
   }
 }
 
+/** The evening cron schedule in vercel.json (any time from 18:00 UTC: 20:00-21:00 in Cairo). */
+export const EVENING_SCHEDULE = '0 18 * * *'
+
+/** Which run this is: Vercel names the schedule that fired in x-vercel-cron-schedule. */
+export function slotOf(request: Request): DeliverySlot {
+  const schedule = request.headers.get('x-vercel-cron-schedule')
+  const asked = new URL(request.url).searchParams.get('slot')
+  return schedule === EVENING_SCHEDULE || asked === 'evening' ? 'evening' : 'morning'
+}
+
 /** GET /api/reminders, run daily by Vercel Cron (Authorization: Bearer <CRON_SECRET>) → 200 DeliverySummary | 401 | 501. */
 export async function handleReminders(request: Request, deps: ApiDeps): Promise<Response> {
   const logger = deps.logger ?? console
@@ -555,7 +612,9 @@ export async function handleReminders(request: Request, deps: ApiDeps): Promise<
 
   try {
     const store = deps.store ?? supabasePushStore(createServerSupabase(config.supabaseUrl, config.secretKey!))
-    const summary = await deliverDueReminders({ store, send: webPushSender(deps.webpush, config), log: (m) => logger.warn(`reminders: ${m}`) }, deps.now?.())
+    // Vercel runs this twice a day (vercel.json); the evening schedule (or ?slot=evening by hand) sends the evening ones
+    const slot = slotOf(request)
+    const summary = await deliverDueReminders({ store, send: webPushSender(deps.webpush, config), log: (m) => logger.warn(`reminders: ${m}`) }, deps.now?.(), slot)
     logger.info(
       `reminders: ${summary.users} people checked, ${summary.reminders} reminders sent as ${summary.notifications} notifications, ` +
         `${summary.removedSubscriptions} gone devices removed, ${summary.errors.length} problems`,

@@ -1,45 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PieChart, Plus, Trash2 } from 'lucide-react'
 import { Amount, EmptyState, PageHeader, PageSkeleton } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Field, Input, ProgressBar, Select, Sheet } from '@/components/ui'
-import { useBudgets, useCategories, useTransactions } from '@/api/queries'
+import { useBudgets, useCategories } from '@/api/queries'
+import { useBudgetUsage } from '@/features/budgets/useBudgetUsage'
 import { useUndoableDelete, useUpsert } from '@/api/mutations'
-import { useActiveCurrencies, useConvert, useHistoricalConvert } from '@/hooks/useMoney'
-import { isExpense } from '@/domain/insights'
+import { useActiveCurrencies, useConvert } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
-import { byId, endOfMonthIso, startOfMonthIso } from '@/utils'
+import { endOfMonthIso } from '@/utils'
 import { d, toDb } from '@/domain/money'
 import { iconFor } from '@/utils/icons'
 import type { Budget } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 export default function BudgetsPage() {
-  const { data: budgets, isLoading } = useBudgets()
-  const { data: categories } = useCategories()
-  const { data: txs } = useTransactions({ from: startOfMonthIso(), to: endOfMonthIso() })
+  const { rows, budgets, isLoading } = useBudgetUsage()
   const { toDisplayOrZero, display } = useConvert()
-  const { betweenAt } = useHistoricalConvert()
-  const catMap = useMemo(() => byId(categories), [categories])
   const [form, setForm] = useState<{ open: boolean; item?: Budget | null }>({ open: false })
-
-  const rows = useMemo(
-    () =>
-      (budgets ?? [])
-        .map((b) => {
-          const cat = catMap.get(b.category_id)
-          const childIds = new Set((categories ?? []).filter((c) => c.parent_id === b.category_id).map((c) => c.id))
-          let spent = d(0)
-          for (const t of txs ?? []) {
-            if (!isExpense(t) || !t.category_id) continue
-            // each expense converted into the budget's currency at the rate of its own day
-            if (t.category_id === b.category_id || childIds.has(t.category_id)) spent = spent.plus(betweenAt(t.amount, t.currency, b.currency, t.date) ?? d(0))
-          }
-          const pct = d(b.amount).isZero() ? 0 : spent.div(d(b.amount)).times(100).toNumber()
-          return { b, cat, spent, pct, left: d(b.amount).minus(spent) }
-        })
-        .sort((a, b) => b.pct - a.pct),
-    [budgets, catMap, categories, txs, betweenAt],
-  )
   const totalBudget = rows.reduce((a, r) => a.plus(toDisplayOrZero(r.b.amount, r.b.currency)), d(0))
   const totalSpent = rows.reduce((a, r) => a.plus(toDisplayOrZero(r.spent, r.b.currency)), d(0))
   // days left in the month, counting today
