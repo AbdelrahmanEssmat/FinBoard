@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useBudgets, useCategories, useDebtPayments, useDebts, useRecurring, useSnapshots, useSubAccounts, useTransactions } from '@/api/queries'
+import { useBudgets, useCategories, useDebtPayments, useDebts, useHoldingSales, useHoldings, useRecurring, useSnapshots, useSubAccounts, useTransactions } from '@/api/queries'
 import { useConvert, useHistoricalConvert, useMoneyFormatter } from '@/hooks/useMoney'
 import { convert } from '@/domain/currency'
 import { d, type NumericInput } from '@/domain/money'
@@ -10,6 +10,7 @@ import {
 } from '@/domain/insights'
 import { partyTotals } from '@/domain/categoryStats'
 import { debtActivity } from '@/domain/debts'
+import { periodInvestments } from '@/domain/investments'
 import { addDaysIso, byId, daysBetween, endOfMonthIso, startOfMonthIso } from '@/utils'
 
 const minIso = (a: string, b: string) => (a < b ? a : b)
@@ -50,7 +51,9 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
   const { data: snapshots } = useSnapshots()
   const { data: debts } = useDebts()
   const { data: debtPayments } = useDebtPayments()
-  const { between } = useConvert()
+  const { data: holdings } = useHoldings()
+  const { data: holdingSales } = useHoldingSales()
+  const { between, toDisplayOrZero } = useConvert()
   const { toDisplayAt, tableAt, display } = useHistoricalConvert()
   const fmt = useMoneyFormatter()
   const today = todayIso()
@@ -128,8 +131,13 @@ export function useReportData(period: ReportPeriod, filters: ReportFilters) {
     // money lent, borrowed and repaid: not income or spending, shown on its own (only without filters:
     // debts have no tags, and one debt's money can move through several accounts)
     const debtsInPeriod = filters.accountId || filters.tag ? null : debtActivity(debts ?? [], debtPayments ?? [], range, toBase)
+    // stocks and funds: worth today and sold in the period (not income or spending). With an account
+    // filter, only those held on that account; holdings have no tags, so a tag filter hides them
+    const myHoldings = (holdings ?? []).filter((h) => !filters.accountId || h.account_id === filters.accountId)
+    const holdingIds = new Set(myHoldings.map((h) => h.id))
+    const investments = filters.tag ? null : periodInvestments(myHoldings, (holdingSales ?? []).filter((s) => holdingIds.has(s.holding_id)), range, toBase, toDisplayOrZero)
     const interestEarned = filtered.filter((t) => t.type === 'income' && (t.source === 'certificate' || t.source === 'yield') && t.date >= range.from && t.date <= range.to).reduce((a, t) => a.plus(toBase(t.amount, t.currency, t.date)), d(0))
 
-    return { range, prev, prevCompareTo, prevCompareLabel, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth, partial, debts: debtsInPeriod }
-  }, [txs, categories, subs, recurring, budgets, snapshots, debts, debtPayments, filters, range, prev, toDisplayAt, tableAt, display, between, fmt, today, period, isLoading])
+    return { range, prev, prevCompareTo, prevCompareLabel, totals, prevTotals, expenseCats, incomeCats, changes, incomeChanges, incomeSources, payees, largest, fixed, months, projection, week, insights, netWorthChange, allTags, display, catMap, isLoading, interestEarned, isCurrentMonth, partial, debts: debtsInPeriod, investments }
+  }, [txs, categories, subs, recurring, budgets, snapshots, debts, debtPayments, holdings, holdingSales, filters, range, prev, toDisplayAt, tableAt, display, between, toDisplayOrZero, fmt, today, period, isLoading])
 }

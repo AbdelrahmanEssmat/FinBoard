@@ -1,9 +1,9 @@
 import { createElement, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, SectionTitle } from '@/components/shared'
+import { Amount, ListRow, NotFound, PageHeader, PageSkeleton, Private, SectionTitle } from '@/components/shared'
 import { Button, Card, ConfirmDialog, Divider, Sheet } from '@/components/ui'
-import { useAccounts, useCertificates, useSubAccounts, useTransactions } from '@/api/queries'
+import { useAccounts, useCertificates, useHoldings, useSubAccounts, useTransactions } from '@/api/queries'
 import { useUndoableDelete } from '@/api/mutations'
 import { iconFor } from '@/utils/icons'
 import { useConvert } from '@/hooks/useMoney'
@@ -12,8 +12,11 @@ import { AccountForm } from '@/features/accounts/components/AccountForm'
 import { SubAccountForm } from '@/features/accounts/components/SubAccountForm'
 import { TransactionList } from '@/features/transactions/components/TransactionList'
 import { TransactionForm } from '@/features/transactions/components/TransactionForm'
-import type { SubAccount, Transaction } from '@/api/database.types'
-import { formatDate } from '@/domain/format'
+import type { Holding, SubAccount, Transaction } from '@/api/database.types'
+import { formatDate, formatPercent } from '@/domain/format'
+import { openPosition } from '@/domain/investments'
+import { HoldingForm } from '@/features/investments/components/HoldingForm'
+import { SellHoldingSheet } from '@/features/investments/components/SellHoldingSheet'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { CreditCardPanel } from '@/features/accounts/components/CreditCardPanel'
 import { InstallmentPlansSection } from '@/features/accounts/components/InstallmentPlansSection'
@@ -33,6 +36,15 @@ export default function AccountDetailPage() {
   const myCerts = useMemo(() => (certs ?? []).filter((c) => c.account_id === id && !c.is_closed), [certs, id])
   const total = mySubs.filter((s) => !s.is_archived).reduce((a, s) => a.plus(toDisplayOrZero(s.balance, s.currency)), d(0))
   const certTotal = myCerts.reduce((a, c) => a.plus(toDisplayOrZero(c.principal, c.currency)), d(0))
+  // stocks and funds held on this account (an investment platform) count in its value
+  const { data: holdings } = useHoldings()
+  const myHoldings = useMemo(
+    () => (holdings ?? []).filter((h) => h.account_id === id && d(h.units).gt(0)).map((h) => ({ h, ...openPosition(h) })),
+    [holdings, id],
+  )
+  const invested = myHoldings.reduce((a, r) => a.plus(toDisplayOrZero(r.value, r.h.currency)), d(0))
+  const [holdingForm, setHoldingForm] = useState<Holding | null>(null)
+  const [selling, setSelling] = useState<Holding | null>(null)
 
   const [editing, setEditing] = useState(false)
   const [menu, setMenu] = useState(false)
@@ -81,8 +93,13 @@ export default function AccountDetailPage() {
             {createElement(iconFor(account.icon), { className: 'h-6 w-6' })}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-muted text-xs">Balance</div>
-            <Amount value={total} currency={display} size="lg" />
+            <div className="text-muted text-xs">{myHoldings.length ? 'Total value' : 'Balance'}</div>
+            <Amount value={total.plus(invested)} currency={display} size="lg" />
+            {myHoldings.length ? (
+              <div className="text-muted text-xs">
+                <Amount value={total} currency={display} size="sm" /> in balances · <Amount value={invested} currency={display} size="sm" /> in stocks and funds
+              </div>
+            ) : null}
             {myCerts.length ? (
               <div className="text-muted text-xs">
                 + <Amount value={certTotal} currency={display} size="sm" /> in certificates
@@ -125,6 +142,45 @@ export default function AccountDetailPage() {
         ))}
         {!mySubs.length ? <p className="text-muted p-5 text-sm">No balances yet. Add a currency.</p> : null}
       </Card>
+
+      {myHoldings.length ? (
+        <>
+          <SectionTitle
+            action={
+              <button onClick={() => navigate('/investments')} className="text-accent -my-1.5 -mr-2 flex min-h-11 items-center px-2 text-xs font-medium">
+                Investments
+              </button>
+            }
+          >
+            Stocks and funds
+          </SectionTitle>
+          <Card className="mb-8 overflow-hidden">
+            {myHoldings.map((r, i) => (
+              <div key={r.h.id}>
+                {i > 0 ? <Divider /> : null}
+                <ListRow
+                  title={
+                    <span>
+                      {r.h.name}
+                      {r.h.ticker ? <span className="text-muted ml-1.5 text-xs">{r.h.ticker}</span> : null}
+                    </span>
+                  }
+                  subtitle={<Private>{`${d(r.h.units).toString()} × ${d(r.h.current_price).toFixed(2)} ${r.h.currency}`}</Private>}
+                  trailing={
+                    <span className="flex flex-col items-end">
+                      <Amount value={r.value} currency={r.h.currency} className="font-semibold" />
+                      <span className={`text-xs ${r.pl.gte(0) ? 'text-positive' : 'text-negative'}`}>
+                        <Amount value={r.pl} currency={r.h.currency} showSign size="sm" /> {r.plPct ? `(${formatPercent(r.plPct)})` : ''}
+                      </span>
+                    </span>
+                  }
+                  onClick={() => setHoldingForm(r.h)}
+                />
+              </div>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       {issuedCards.length ? (
         <>
@@ -205,6 +261,16 @@ export default function AccountDetailPage() {
         onDelete={subForm.sub ? () => deleteSub(subForm.sub!) : undefined}
       />
       <TransactionForm open={Boolean(editTx)} onClose={() => setEditTx(null)} initial={editTx} />
+      <HoldingForm
+        open={Boolean(holdingForm)}
+        onClose={() => setHoldingForm(null)}
+        initial={holdingForm}
+        onSell={(h) => {
+          setHoldingForm(null)
+          setSelling(h)
+        }}
+      />
+      <SellHoldingSheet open={!!selling} holding={selling} onClose={() => setSelling(null)} />
     </div>
   )
 }

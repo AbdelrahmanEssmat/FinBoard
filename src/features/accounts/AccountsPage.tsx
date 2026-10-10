@@ -17,7 +17,7 @@ const ORDER: AccountType[] = ['bank', 'cash', 'wallet', 'investment', 'other']
 export default function AccountsPage() {
   const { list, display, isLoading, isEmpty } = useAccountsWithBalances()
   const { cards, totals: cardTotals } = useCreditCards()
-  // what you have in accounts; card debt is shown on its own, not netted into this
+  // what you have in accounts, with the stocks and funds on investment platforms; card debt is shown on its own, not netted into this
   const total = list.filter((a) => a.type !== 'credit_card').reduce((acc, a) => acc.plus(a.total), d(0))
   const [adding, setAdding] = useState(false)
   const navigate = useNavigate()
@@ -94,8 +94,8 @@ function AccountRow({ account, onClick }: { account: AccountWithBalances; onClic
       icon={iconFor(account.icon)}
       color={account.color}
       title={account.name}
-      // what the account holds, e.g. "EGP · USD" or "Cash balance · Daily Cloud"; amounts live on the right and in the detail page
-      subtitle={account.subs.map((s) => s.name || s.currency).join(' · ') || undefined}
+      // what the account holds, e.g. "EGP · USD" or "Cash balance · Daily Cloud · Stocks and funds"; amounts live on the right and in the detail page
+      subtitle={[...account.subs.map((s) => s.name || s.currency), ...(account.invested.gt(0) ? ['Stocks and funds'] : [])].join(' · ') || undefined}
       trailing={<Amount value={account.total} currency={display} className="font-semibold" />}
       chevron
       onClick={onClick}

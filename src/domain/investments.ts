@@ -193,6 +193,62 @@ export function performanceSummary<S extends SaleLike>(
   }
 }
 
+/**
+ * What the stocks and funds still held are worth, per account they are held on (an investment
+ * platform), in the base currency at today's rate. Sold-out holdings are left out.
+ */
+export function holdingsValueByAccount(
+  holdings: (Pick<HoldingLike, 'units' | 'current_price' | 'currency'> & { account_id: string })[],
+  toBaseNow: (amount: NumericInput, currency: string) => Decimal,
+): Map<string, Decimal> {
+  const out = new Map<string, Decimal>()
+  for (const h of holdings) {
+    if (!d(h.units).gt(0)) continue
+    out.set(h.account_id, (out.get(h.account_id) ?? d(0)).plus(toBaseNow(d(h.units).times(d(h.current_price)), h.currency)))
+  }
+  return out
+}
+
+export interface PeriodInvestments {
+  /** stocks and funds still held, at the latest prices and today's rate */
+  value: Decimal
+  /** their profit or loss on paper (not sold yet) */
+  unrealized: Decimal
+  unrealizedPct: Decimal | null
+  holdings: number
+  /** sales in the period: money received after fees, and the profit or loss on them */
+  sold: Decimal
+  realized: Decimal
+  realizedPct: Decimal | null
+  sales: number
+  any: boolean
+}
+
+/** Stocks and funds for a report: what they are worth today and what was sold between range.from and range.to. */
+export function periodInvestments(
+  holdings: HoldingLike[],
+  sales: SaleLike[],
+  range: { from: string; to: string },
+  toBaseAt: (amount: NumericInput, currency: string, date: string) => Decimal,
+  toBaseNow: (amount: NumericInput, currency: string) => Decimal,
+): PeriodInvestments {
+  const inRange = sales.filter((s) => s.date >= range.from && s.date <= range.to)
+  const p = performanceSummary(inRange, holdings, new Map(), toBaseAt, toBaseNow)
+  const sold = inRange.reduce((a, s) => a.plus(toBaseAt(s.proceeds, s.currency, s.date)), d(0))
+  const open = holdings.filter((h) => d(h.units).gt(0)).length
+  return {
+    value: p.openValue,
+    unrealized: p.unrealized,
+    unrealizedPct: p.unrealizedPct,
+    holdings: open,
+    sold,
+    realized: p.realized,
+    realizedPct: p.realizedPct,
+    sales: inRange.length,
+    any: open > 0 || inRange.length > 0,
+  }
+}
+
 /** True when a price was entered or confirmed today (on this device's calendar). */
 export function isPriceFresh(updatedAt: string | null | undefined, today: string = toIsoDate(new Date())): boolean {
   return !!updatedAt && toIsoDate(new Date(updatedAt)) === today

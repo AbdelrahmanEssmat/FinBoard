@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { d, type NumericInput } from '@/domain/money'
-import { annualizedReturn, holdingDays, openPosition, performanceSummary, previewSale, saleReturnPct } from '@/domain/investments'
+import { annualizedReturn, holdingDays, holdingsValueByAccount, openPosition, performanceSummary, periodInvestments, previewSale, saleReturnPct } from '@/domain/investments'
 
 const toBaseAt = (amount: NumericInput, currency: string) => (currency === 'USD' ? d(amount).times(50) : d(amount))
 const toBaseNow = (amount: NumericInput, currency: string) => (currency === 'USD' ? d(amount).times(50) : d(amount))
@@ -77,5 +77,47 @@ describe('sale analytics', () => {
     expect(p.winRate).toBeNull()
     expect(p.best).toBeNull()
     expect(p.realized.toString()).toBe('0')
+  })
+})
+
+describe('stocks and funds in totals and reports', () => {
+  const holdings = [
+    // held on Thndr: 1,000 × 14.2 = 14,200 EGP (cost 12,500) and 10 × 120 USD = 60,000 EGP (cost 50,000)
+    { id: 'fund', account_id: 'thndr', name: 'Fund', category_id: null, units: '1000', avg_cost: '12.5', current_price: '14.2', currency: 'EGP' },
+    { id: 'etf', account_id: 'thndr', name: 'ETF', category_id: null, units: '10', avg_cost: '100', current_price: '120', currency: 'USD' },
+    // held at a bank's brokerage: 200 × 30 = 6,000 EGP
+    { id: 'stock', account_id: 'cib', name: 'Stock', category_id: null, units: '200', avg_cost: '35', current_price: '30', currency: 'EGP' },
+    // sold out: worth nothing now
+    { id: 'gone', account_id: 'thndr', name: 'Gone', category_id: null, units: '0', avg_cost: '10', current_price: '12', currency: 'EGP' },
+  ]
+
+  it('adds up what is still held on each account, at today’s rate', () => {
+    const byAccount = holdingsValueByAccount(holdings, toBaseNow)
+    expect(byAccount.get('thndr')!.toString()).toBe('74200')
+    expect(byAccount.get('cib')!.toString()).toBe('6000')
+    expect([...byAccount.keys()]).toEqual(['thndr', 'cib'])
+  })
+
+  it('reports what they are worth today and what was sold in the period', () => {
+    const sales = [
+      sale({ id: 'oct', holding_id: 'gone', date: '2026-10-03', proceeds: '5980', realized: '980', cost_basis: '5000' }),
+      sale({ id: 'loss', holding_id: 'stock', date: '2026-10-20', proceeds: '900', realized: '-100', cost_basis: '1000' }),
+      sale({ id: 'sep', holding_id: 'fund', date: '2026-09-30', proceeds: '7000', realized: '2000', cost_basis: '5000' }),
+    ]
+    const r = periodInvestments(holdings, sales, { from: '2026-10-01', to: '2026-10-31' }, toBaseAt, toBaseNow)
+    expect(r.value.toString()).toBe('80200')
+    expect(r.unrealized.toString()).toBe('10700') // 80,200 now vs 69,500 paid
+    expect(r.holdings).toBe(3)
+    expect(r.sales).toBe(2)
+    expect(r.sold.toString()).toBe('6880')
+    expect(r.realized.toString()).toBe('880')
+    expect(r.realizedPct!.toFixed(1)).toBe('14.7')
+    expect(r.any).toBe(true)
+  })
+
+  it('is empty with nothing held and nothing sold', () => {
+    const r = periodInvestments([holdings[3]!], [], { from: '2026-10-01', to: '2026-10-31' }, toBaseAt, toBaseNow)
+    expect(r.any).toBe(false)
+    expect(r.value.isZero()).toBe(true)
   })
 })

@@ -134,6 +134,7 @@ Both installs cache the app shell and your recent data. Changes made offline are
 - **Debts**: a debt is a record. Money you owe isn't taken off your balances (or net worth) until you repay it, and money owed to you isn't added until it's repaid to you; each repayment moves the money in or out of the account you pick. **Repeats every month** adds the same debt on the same day each month, with the money coming into (you borrow) or leaving (you lend) the chosen account; edit, pause or delete it under "Every month" on the Debts page. Record partial payments any time; add an installment plan for due dates and overdue flags; the People tab shows the net balance per person.
 - **Gold**: value uses Egyptian per-gram prices by karat with the source and time shown; override manually if needed.
 - **Clouds** (Investments): savings balances that earn a yearly rate paid daily or monthly, like Thndr Clouds. Deposit and withdraw with transfers; interest is posted automatically as income and counted in net worth and reports.
+- **Stocks and funds** (Investments): counted in net worth at the latest prices you enter, in the total of the investment platform they are held on (Accounts), and in Reports (worth today, what was sold and the profit or loss). Never counted as liquid money: that is only free balances in bank, cash and wallet accounts.
 - **Settings → Backup**: export everything as JSON (restore later), or transactions as CSV.
 
 ## 8. Security notes

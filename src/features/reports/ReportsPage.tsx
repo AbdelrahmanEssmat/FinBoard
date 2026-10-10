@@ -14,6 +14,7 @@ import { SpendingStructureCard } from '@/features/reports/components/SpendingStr
 import { LargestTransactionsCard, TopPayeesCard } from '@/features/reports/components/TopListsCard'
 import { IncomeSourcesCard } from '@/features/reports/components/IncomeSourcesCard'
 import { DebtsCard } from '@/features/reports/components/DebtsCard'
+import { InvestmentsCard } from '@/features/reports/components/InvestmentsCard'
 
 export default function ReportsPage() {
   // ?period=last (the monthly summary reminder) opens last month
@@ -95,6 +96,7 @@ export default function ReportsPage() {
           <SpendingStructureCard fixed={r.fixed} projection={r.projection} week={r.week} display={r.display} rangeTo={r.range.to} />
           <CategoryBreakdownCard kind={kind} onKind={setKind} expense={r.changes} income={r.incomeChanges} display={r.display} />
           <IncomeSourcesCard sources={r.incomeSources.rows} unnamed={r.incomeSources.unnamed} interest={r.interestEarned} display={r.display} />
+          <InvestmentsCard data={r.investments} display={r.display} />
           <DebtsCard activity={r.debts} display={r.display} />
           <TopPayeesCard payees={r.payees} display={r.display} />
           <LargestTransactionsCard items={r.largest} display={r.display} categories={r.catMap} />
