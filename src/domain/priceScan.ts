@@ -41,6 +41,8 @@ export interface ScanRow {
   y: number
   /** OCR confidence of the label and number, 0–100 */
   ocr: number
+  /** the day's change beside the number (+1,359 ▲ 10.11%), when the screenshot shows one */
+  change?: { amount: Decimal; pct: Decimal }
 }
 
 export interface ScanMatch extends ScanRow {
@@ -74,6 +76,8 @@ export interface ReadNumber {
   alts: Decimal[]
   /** came with a + or − (a change, not a price) */
   signed: boolean
+  /** the sign was a minus (or a down arrow) */
+  negative: boolean
   percent: boolean
 }
 
@@ -84,6 +88,7 @@ export interface ReadNumber {
 export function readNumber(text: string): ReadNumber | null {
   let s = text.trim()
   const signed = SIGNS.test(s) || ARROWS.test(s)
+  const negative = /^[-−–—▼▽↓]/.test(s)
   s = s.replace(SIGNS, '').replace(ARROWS, '').trim().replace(CURRENCY, '').replace(/\s*(?:EGP|LE)$/i, '')
   const percent = /%$/.test(s)
   s = s.replace(/%$/, '').replace(/[.,]$/, '')
@@ -96,7 +101,7 @@ export function readNumber(text: string): ReadNumber | null {
   // a dot or comma followed by exactly three digits: thousands or decimals, the holding will tell
   if (/^\d{1,3}\.\d{3}$/.test(s)) alts.push(d(s.replace('.', '')))
   if (/^\d{1,3},\d{3}$/.test(s) && !/,000$/.test(s)) alts.push(d(s.replace(',', '.')))
-  return { value, alts, signed, percent }
+  return { value, alts, signed, negative, percent }
 }
 
 // ---------- rows ----------
@@ -203,6 +208,9 @@ export function readRows(words: ScanWord[]): ScanRow[] {
     // the main number is the rightmost one; the holding may still prefer another (see scanPrices)
     const main = candidates.reduce((a, b) => (b.word.x1 > a.word.x1 ? b : a))
     const ocr = Math.min(...labels.map((w) => w.confidence), main.word.confidence)
+    // the day's change: an amount with a sign and a percentage, which together pin the main number down
+    const amount = nums.find((x) => x.change && x.n.signed && !x.n.percent)
+    const pct = nums.find((x) => x.n.percent && !x.n.value.isZero())
     rows.push({
       label: labels.map((w) => w.text.trim()).join(' '),
       raw: main.word.text.trim(),
@@ -210,6 +218,7 @@ export function readRows(words: ScanWord[]): ScanRow[] {
       alts: [...main.n.alts, ...candidates.filter((x) => x !== main).map((x) => x.n.value)],
       y: centre(l),
       ocr,
+      ...(amount && pct ? { change: { amount: amount.n.negative ? amount.n.value.neg() : amount.n.value, pct: pct.n.value } } : {}),
     })
   }
   return rows.sort((a, b) => a.y - b.y)
@@ -348,6 +357,14 @@ function distance(value: Decimal, h: ScanHolding): number {
   return closeness(i.price.div(price).toNumber())
 }
 
+/** The value a day's change implies: the amount is pct% of the value before it, so now = before + amount. */
+export function impliedValue(change: { amount: Decimal; pct: Decimal } | undefined): Decimal | null {
+  if (!change || change.pct.lte(0) || change.amount.isZero()) return null
+  const before = change.amount.abs().div(change.pct).times(100)
+  const now = before.plus(change.amount)
+  return now.gt(0) ? now : null
+}
+
 // ---------- the whole thing ----------
 
 const RANK: Record<ScanConfidence, number> = { high: 3, medium: 2, low: 1 }
@@ -364,10 +381,25 @@ export function scanPrices(words: ScanWord[], holdings: ScanHolding[]): ScanResu
       continue
     }
     const h = m.holding
-    // another reading of the number (14.800 → 14,800; the other number in the cell) when the first fits nothing and it does
+    // the day's change says what the number must be: +1,359 and 10.11% mean 13,441 before, 14,800 now.
+    // Whichever reading agrees with that is taken (14.800 → 14,800), whatever the last price says
     let value = row.value
     let reread = false
-    if (interpret(value, h).fit === 'none') {
+    let checked = false
+    const implied = impliedValue(row.change)
+    if (implied) {
+      const agrees = (v: Decimal) => v.minus(implied).abs().div(implied).lte(0.02)
+      if (agrees(value)) checked = true
+      else {
+        const alt = row.alts.find(agrees)
+        if (alt) {
+          value = alt
+          reread = true
+          checked = true
+        }
+      }
+    }
+    if (!checked && interpret(value, h).fit === 'none') {
       let dist = Infinity
       for (const alt of row.alts) {
         const altDist = distance(alt, h)
@@ -388,6 +420,7 @@ export function scanPrices(words: ScanWord[], holdings: ScanHolding[]): ScanResu
     if (it.fit === 'both') reasons.push('Could be per unit or total')
     if (it.fit === 'none') reasons.push(last.gt(0) ? `Doesn't look like the last price (${last.toFixed(2)})` : 'No last price to compare with')
     if (reread) reasons.push(`"${row.raw}" taken as ${value.toString()}`)
+    if (checked) reasons.push("Agrees with the day's change")
     if (row.ocr < 50) reasons.push('Hard to read')
     let confidence: ScanConfidence = 'medium'
     const weakTicker = m.tier === 'ticker-fuzzy' && (h.ticker?.length ?? 0) <= 4 && m.score < 0.9

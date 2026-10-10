@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupLines, interpret, levenshtein, matchHolding, readNumber, readRows, scanPrices, type ScanHolding, type ScanWord } from '@/domain/priceScan'
+import { groupLines, impliedValue, interpret, levenshtein, matchHolding, readNumber, readRows, scanPrices, type ScanHolding, type ScanWord } from '@/domain/priceScan'
 
 // a word box: Thndr-style screenshot, 920 px wide; text about 30 px tall
 const w = (text: string, x0: number, y0: number, width = text.length * 16, h = 30, confidence = 92): ScanWord => ({ text, confidence, x0, y0, x1: x0 + width, y1: y0 + h })
@@ -159,7 +159,7 @@ describe('the whole scan', () => {
     ])
     expect(r.unmatched.map((u) => u.label)).toEqual(['CMS'])
     expect(r.notFound).toEqual(['cib'])
-    expect(r.matches[0]!.reason).toBe('Ticker matched · Read as total value · 400 units')
+    expect(r.matches[0]!.reason).toBe("Ticker matched · Read as total value · 400 units · Agrees with the day's change")
     expect(r.matches[3]!.reason).toContain('Name is close to')
   })
   it('takes the other reading of 14.800 when 14.8 fits nothing', () => {
@@ -194,5 +194,23 @@ describe('noise', () => {
   it('leaves the clock, battery and logo scraps out of the unmatched list', () => {
     const r = scanPrices([w('wll', 851, 60, 60, 40, 71), w('82', 1008, 60, 80, 40, 5), w('NX', 100, 300, 40, 30, 20), w('4', 300, 300, 20, 30, 30), w('CMS', 100, 500), w('29,943', 700, 500)], holdings.slice(0, 2))
     expect(r.unmatched.map((u) => u.label)).toEqual(['CMS'])
+  })
+})
+
+describe('the day’s change pins the number down', () => {
+  it('+1,359 and 10.11% mean 14,800 now', () => {
+    expect(impliedValue({ amount: d('1,359'), pct: d('10.11') })!.toFixed(0)).toBe('14801')
+    expect(impliedValue({ amount: d('592').neg(), pct: d('5.19') })!.toFixed(0)).toBe('10815')
+    expect(impliedValue(undefined)).toBeNull()
+  })
+  it('a value read with a dot (14.800) is taken as 14,800 because the change says so, even when 14.8 would fit the last price', () => {
+    const cheap = { ...holdings[0]!, units: 1000, current_price: 15 } // 14.8 would look like a price
+    const r = scanPrices(thndrRow('ETEL', '14.800', '+1,359', '10.11%', 490), [cheap])
+    expect(r.matches[0]!.value.toString()).toBe('14800')
+    expect(r.matches[0]!.reason).toContain("Agrees with the day's change")
+  })
+  it('a lost minus sign still reads as a negative change', () => {
+    const rows = readRows(thndrRow('ABUK', '10,800', '▼592', '5.19%', 672))
+    expect(rows[0]!.change!.amount.toString()).toBe('-592')
   })
 })
