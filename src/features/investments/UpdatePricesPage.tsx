@@ -1,7 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, Clock } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Clock, ImagePlus, ScanLine } from 'lucide-react'
 import { Button, Card, Divider, Input, Segmented } from '@/components/ui'
+import { ScanPricesSheet } from '@/features/investments/components/ScanPricesSheet'
+import { useScreenshotIntake } from '@/features/investments/components/useScreenshotIntake'
+import { releaseOcrWorker } from '@/ocr/worker'
 import { Amount, PageHeader } from '@/components/shared'
 import { useHoldings, useInvestmentCategories } from '@/api/queries'
 import { useUpdateRows } from '@/api/mutations'
@@ -36,6 +39,17 @@ export default function UpdatePricesPage() {
   const [typed, setTyped] = useState<Record<string, string>>({})
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
+  // a screenshot of the broker app: picked, pasted or dropped, then read on this device
+  const [scanFile, setScanFile] = useState<File | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const { dragging } = useScreenshotIntake(setScanFile, holdings.length > 0 && !scanFile)
+  const pickScreenshot = () => {
+    setScanFile(null)
+    fileRef.current?.click()
+  }
+  // the reader holds a lot of memory; let it go when leaving the page
+  useEffect(() => () => void releaseOcrWorker(), [])
+
   /** New per-unit price for a holding, or null when nothing valid was typed (a blank field means "same as before"). */
   const newPrice = (h: Holding): Decimal | null => {
     const n = parseAmount(typed[h.id])
@@ -58,6 +72,23 @@ export default function UpdatePricesPage() {
     setTyped(next)
     setMode(m)
   }
+  // what the scan read goes into the fields (per unit), on top of anything already typed; saving stays the one way to change a price
+  const applyScan = (prices: Record<string, string>) => {
+    const next: Record<string, string> = {}
+    for (const h of holdings) {
+      const p = newPrice(h)
+      if (p !== null) next[h.id] = p.toDecimalPlaces(6).toString()
+    }
+    Object.assign(next, prices)
+    setTyped(next)
+    setMode('unit')
+    setScanFile(null)
+    const n = Object.keys(prices).length
+    toast.success(`Filled ${n} price${n === 1 ? '' : 's'} · check them and save`)
+    const first = holdings.findIndex((h) => prices[h.id])
+    if (first >= 0) setTimeout(() => inputs.current[first]?.focus({ preventScroll: false }), 50)
+  }
+
   const changed = holdings.filter(hasMoved)
   // something typed that isn't a price: don't save (and mark every price as checked) until it's fixed
   const badEntry = (h: Holding) => Boolean(typed[h.id]?.trim()) && newPrice(h) === null
@@ -94,12 +125,36 @@ export default function UpdatePricesPage() {
         subtitle={holdings.length ? `${freshCount} of ${holdings.length} checked today` : undefined}
         action={
           holdings.length ? (
-            <Button size="sm" onClick={save} loading={update.isPending} disabled={invalid}>
-              {changed.length ? `Save (${changed.length})` : 'Done'}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button size="icon" variant="ghost" aria-label="Scan a screenshot" onClick={pickScreenshot}>
+                <ScanLine className="h-5 w-5" />
+              </Button>
+              <Button size="sm" onClick={save} loading={update.isPending} disabled={invalid}>
+                {changed.length ? `Save (${changed.length})` : 'Done'}
+              </Button>
+            </div>
           ) : undefined
         }
       />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) setScanFile(f)
+          e.target.value = ''
+        }}
+      />
+      {dragging ? (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-bg/80 p-6">
+          <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-accent px-10 py-8 text-center">
+            <ImagePlus className="h-8 w-8 text-accent" />
+            <span className="text-base font-semibold">Drop the screenshot here</span>
+          </div>
+        </div>
+      ) : null}
 
       {!holdings.length ? (
         <Card padded className="text-muted text-sm">
@@ -133,6 +188,19 @@ export default function UpdatePricesPage() {
               { value: 'total', label: 'Total value' },
             ]}
           />
+
+          <Card className="overflow-hidden">
+            <button type="button" onClick={pickScreenshot} className="flex w-full items-center gap-3.5 px-5 py-4 text-left transition-colors hover:bg-surface-2 active:bg-surface-2">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                <ScanLine className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium">Scan a screenshot of your broker app</span>
+                <span className="mt-0.5 block text-[13px] text-muted">Read on this device, never uploaded. Or paste one here.</span>
+              </span>
+              <ChevronRight className="-mr-1 h-4 w-4 shrink-0 text-faint" />
+            </button>
+          </Card>
 
           <Card className="overflow-hidden">
             {holdings.map((h, i) => {
@@ -210,6 +278,7 @@ export default function UpdatePricesPage() {
           </Button>
         </div>
       )}
+      <ScanPricesSheet file={scanFile} holdings={holdings} onClose={() => setScanFile(null)} onApply={applyScan} onPickAnother={pickScreenshot} />
     </div>
   )
 }

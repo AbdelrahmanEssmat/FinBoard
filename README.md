@@ -135,6 +135,7 @@ Both installs cache the app shell and your recent data. Changes made offline are
 - **Gold**: value uses Egyptian per-gram prices by karat with the source and time shown; override manually if needed.
 - **Clouds** (Investments): savings balances that earn a yearly rate paid daily or monthly, like Thndr Clouds. Deposit and withdraw with transfers; interest is posted automatically as income and counted in net worth and reports.
 - **Stocks and funds** (Investments): counted in net worth at the latest prices you enter, in the total of the investment platform they are held on (Accounts), and in Reports (worth today, what was sold and the profit or loss). Never counted as liquid money: that is only free balances in bank, cash and wallet accounts.
+- **Scan a screenshot** (Update prices): pick, paste or drop a screenshot of your broker app and the prices are read on the device itself (tesseract.js, no upload). Each holding is matched by ticker or name, the number is understood as a price per unit or the position's total value by comparing it with the last price, and doubtful rows start unticked on the check screen; Apply fills the fields, Save stays the only way to change a price. The reader (about 7 MB) is downloaded once from `/ocr/<version>/` (copied out of node_modules by vite.config.ts) and kept by the service worker, so later scans work offline.
 - **Settings → Backup**: export everything as JSON (restore later), or transactions as CSV.
 
 ## 8. Security notes

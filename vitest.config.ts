@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  // build-time constants from vite.config.ts
+  define: { __APP_VERSION__: JSON.stringify('test'), __OCR_REV__: JSON.stringify('test') },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

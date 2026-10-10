@@ -3,8 +3,49 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { createReadStream, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 
 import pkg from './package.json' with { type: 'json' }
+
+/**
+ * The on-device OCR (tesseract.js) runs in a web worker that loads its engine (WebAssembly) and the
+ * English model by URL. Our Content-Security-Policy allows our own site only, so those files are
+ * served from /ocr/<versions>/ here: copied out of node_modules into the build, and served straight
+ * from node_modules by the dev server. They are never precached (about 7 MB); the service worker
+ * keeps a copy after the first scan (see the "ocr-assets" runtime cache below).
+ */
+const require = createRequire(import.meta.url)
+const OCR_FILES: Record<string, string> = {
+  'worker.min.js': require.resolve('tesseract.js/dist/worker.min.js'),
+  ...Object.fromEntries(
+    ['tesseract-core-relaxedsimd-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-lstm.wasm.js'].map((f) => [f, join(dirname(require.resolve('tesseract.js-core/package.json')), f)]),
+  ),
+  'eng.traineddata.gz': join(dirname(require.resolve('@tesseract.js-data/eng/package.json')), '4.0.0_best_int', 'eng.traineddata.gz'),
+}
+const OCR_REV = `${require('tesseract.js/package.json').version}-${require('tesseract.js-core/package.json').version}`
+const OCR_DIR = `ocr/${OCR_REV}`
+
+function ocrAssets(): Plugin {
+  const type = (name: string) => (name.endsWith('.js') ? 'application/javascript' : 'application/gzip')
+  return {
+    name: 'ocr-assets',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const name = req.url?.startsWith(`/${OCR_DIR}/`) ? req.url.slice(OCR_DIR.length + 2).split('?')[0] : undefined
+        const file = name ? OCR_FILES[name] : undefined
+        if (!file) return next()
+        res.setHeader('Content-Type', type(name!))
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        createReadStream(file).pipe(res)
+      })
+    },
+    generateBundle() {
+      for (const [name, file] of Object.entries(OCR_FILES)) this.emitFile({ type: 'asset', fileName: `${OCR_DIR}/${name}`, source: readFileSync(file) })
+    },
+  }
+}
 
 /** Request headers that describe the connection rather than the request; not passed on to the functions. */
 const HOP_BY_HOP_HEADERS = new Set(['connection', 'content-length', 'expect', 'host', 'keep-alive', 'proxy-connection', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
@@ -57,13 +98,14 @@ function vercelFunctionsInDev(): Plugin {
 }
 
 export default defineConfig({
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __OCR_REV__: JSON.stringify(OCR_REV) },
   // Expose SUPABASE_* as well as VITE_* so either naming works on the hosting provider.
   envPrefix: ['VITE_', 'SUPABASE_'],
   plugins: [
     react(),
     tailwindcss(),
     vercelFunctionsInDev(),
+    ocrAssets(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
@@ -89,9 +131,17 @@ export default defineConfig({
         // reminders: shows pushed notifications and opens the app when one is tapped (public/push-sw.js)
         importScripts: ['push-sw.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // the OCR reader (about 7 MB) is fetched on the first scan, not with the app
+        globIgnores: ['ocr/**'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/~/, /^\/api\//],
+        navigateFallbackDenylist: [/^\/~/, /^\/api\//, /^\/ocr\//],
         runtimeCaching: [
+          {
+            // the OCR reader's engine and model: kept once downloaded, so scanning works offline
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/ocr/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'ocr-assets', expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [200] } },
+          },
           {
             // Supabase REST reads: serve from network, fall back to cache when offline.
             urlPattern: ({ url }) => url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/rest/'),

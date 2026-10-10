@@ -110,7 +110,7 @@ window.__audit = () => {
 }
 
 // never press anything that saves, deletes, sends or leaves
-const SKIP = /delete|remove|archive|sign ?out|undo|save|^sell|confirm|reset|import|export|restore|backup|log payout|log it|mark all|^done$|refresh|fetch|clear|close|record|pay back|use this|apply|keep|split|cancel|^yes|install|deposit money|withdraw money/i
+const SKIP = /scan|delete|remove|archive|sign ?out|undo|save|^sell|confirm|reset|import|export|restore|backup|log payout|log it|mark all|^done$|refresh|fetch|clear|close|record|pay back|use this|apply|keep|split|cancel|^yes|install|deposit money|withdraw money/i
 
 window.__navigate = async (path) => {
   history.pushState({}, '', path)
