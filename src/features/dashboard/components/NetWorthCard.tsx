@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui'
 import { Amount } from '@/components/shared'
-import { formatDate, formatPercent, todayIso } from '@/domain/format'
+import { formatPercent, todayIso } from '@/domain/format'
 import type { Decimal } from '@/domain/money'
 import { sliceRange, trendStats } from '@/domain/trend'
 import { cn, relativeTime } from '@/utils'
@@ -24,7 +24,8 @@ export function NetWorthCard({ total, history, display, ratesUpdatedAt }: { tota
   // "no change" when it moved less than 0.05% (rounding, rate wobble), instead of a green +0.0%
   const flat = !stats || Math.abs(change) < Math.max(1, Math.abs(stats.start) * 0.0005)
   const up = !flat && change > 0
-  const period = points[0] && daysBetween(points[0].date, today) >= 29 ? 'this month' : points[0] ? `since ${formatDate(points[0].date, 'd MMM')}` : ''
+  // with less than a month of history the change is shown without a period label
+  const period = points[0] && daysBetween(points[0].date, today) >= 29 ? 'this month' : ''
   const ratesStale = ratesUpdatedAt ? now - new Date(ratesUpdatedAt).getTime() > STALE_RATES_HOURS * 3_600_000 : false
 
   return (
@@ -35,12 +36,12 @@ export function NetWorthCard({ total, history, display, ratesUpdatedAt }: { tota
         {!hasTrend ? (
           <span className="text-muted">Tracking started today · the trend shows from tomorrow</span>
         ) : flat ? (
-          <span className="text-muted">No change {period}</span>
+          <span className="text-muted">{period ? `No change ${period}` : 'No change'}</span>
         ) : (
           <>
             <Amount value={change} currency={display} showSign compact className={cn('font-semibold', up ? 'text-positive' : 'text-negative')} />
             <span className={cn('font-medium', up ? 'text-positive' : 'text-negative')}>({formatPercent(stats!.changePct ?? 0)})</span>
-            <span className="text-muted">{period}</span>
+            {period ? <span className="text-muted">{period}</span> : null}
           </>
         )}
       </div>
