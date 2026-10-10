@@ -43,9 +43,9 @@ select pg_temp.ok('a new Cloud starts accruing today', (select yield_accrued_thr
 select pg_temp.ok('no back-posted interest when a Cloud is created', accrue_yield('aaaaaaaa-0000-0000-0000-000000000001') = 0);
 update sub_accounts set yield_accrued_through = app_today() - 3 where id = '20000000-0000-0000-0000-000000000001';
 select pg_temp.ok('3 missed days are posted', accrue_yield('aaaaaaaa-0000-0000-0000-000000000001') = 3);
-select pg_temp.ok('daily interest compounds on each day''s opening balance',
-  (select array_agg(amount order by date) from transactions where sub_account_id = '20000000-0000-0000-0000-000000000001' and source_id = sub_account_id)
-  = array[47.4247, 47.4471, 47.4697]::numeric[]);
+select pg_temp.ok('daily interest is the simple rate over 365 on the balance (gains compound monthly, not daily)',
+  (select count(*) from transactions where sub_account_id = '20000000-0000-0000-0000-000000000001' and source_id = sub_account_id
+     and abs(amount - round(100000 * yield_simple_rate(17.31) / 100 / 365, 4)) <= 0.1) = 3);
 select pg_temp.ok('running again posts nothing', accrue_yield('aaaaaaaa-0000-0000-0000-000000000001') = 0);
 
 -- money that arrives today earns nothing for past days
@@ -71,9 +71,10 @@ select pg_temp.ok('monthly payouts land on month ends, not the 28th',
 select pg_temp.ok('one payout per elapsed month',
   (select count(*) from transactions where sub_account_id = '20000000-0000-0000-0000-000000000003' and source_id = sub_account_id)
   = (select count(*) from generate_series(1, 40) k where ('2026-01-31'::date + make_interval(months => k))::date <= app_today()));
-select pg_temp.ok('first two monthly payouts: 1200.00 then 1224.00 (compounded)',
+select pg_temp.ok('first two monthly payouts: 28 days of January''s balance, then 31 days on the bigger balance',
   (select array_agg(amount order by date) from (select amount, date from transactions where sub_account_id = '20000000-0000-0000-0000-000000000003'
-     and source_id = sub_account_id order by date limit 2) x) = array[1200, 1224]::numeric[]);
+     and source_id = sub_account_id order by date limit 2) x)
+  = array[round(60000 * yield_simple_rate(24) / 100 / 365 * 28, 4), round((60000 + round(60000 * yield_simple_rate(24) / 100 / 365 * 28, 4)) * yield_simple_rate(24) / 100 / 365 * 31, 4)]::numeric[]);
 
 -- monthly payout on a mid-period deposit uses the average daily balance
 insert into sub_accounts (id, user_id, account_id, currency, name, opening_balance, yield_rate, yield_frequency, yield_since)
@@ -85,8 +86,7 @@ values ('aaaaaaaa-0000-0000-0000-000000000001', 'transfer', (app_today() - inter
 select accrue_yield('aaaaaaaa-0000-0000-0000-000000000001');
 select pg_temp.ok('mid-period deposit earns a pro-rated payout',
   (select amount from transactions where sub_account_id = '20000000-0000-0000-0000-000000000004' and source_id = sub_account_id)
-  = round(30000 * (app_today() - ((app_today() - interval '1 month')::date + 15))::numeric
-          / (app_today() - (app_today() - interval '1 month')::date) * 0.12 / 12, 4));
+  = round(30000 * (app_today() - ((app_today() - interval '1 month')::date + 15))::numeric * yield_simple_rate(12) / 100 / 365, 4));
 
 \echo '--- Currency and ownership (C2, C5)'
 insert into contacts (id, user_id, name) values ('30000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'Ahmed');

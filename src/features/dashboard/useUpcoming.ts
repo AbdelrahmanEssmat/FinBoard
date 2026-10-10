@@ -5,7 +5,7 @@ import { useDebtViews } from '@/features/debts/useDebtViews'
 import { d, type Decimal } from '@/domain/money'
 import { daysUntil } from '@/domain/certificates'
 import { upcomingOccurrences } from '@/domain/recurring'
-import { nextYieldDate, yieldPerPeriod } from '@/domain/yield'
+import { nextPeriodDays, nextYieldDate, yieldPerPeriod } from '@/domain/yield'
 import { todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
 import { useCreditCards } from '@/hooks/useCreditCards'
@@ -64,7 +64,7 @@ export function useUpcoming(days = 30, limit = 8): UpcomingItem[] {
     for (const s of subs ?? []) {
       if (s.yield_rate === null || s.yield_frequency !== 'monthly' || s.is_archived || archivedAccounts.has(s.account_id)) continue
       const next = nextYieldDate(s.yield_since, 'monthly', today)
-      if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly'), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments', kind: 'cloud', auto: true, name: s.name ?? 'Cloud' })
+      if (next <= until) items.push({ key: 'y' + s.id, date: next, title: `${s.name ?? 'Cloud'} interest`, subtitle: 'Cloud monthly payout', amount: yieldPerPeriod(s.balance, s.yield_rate, 'monthly', nextPeriodDays(s.yield_since, today)), currency: s.currency, icon: CloudSun, color: '#2f6bff', to: '/investments', kind: 'cloud', auto: true, name: s.name ?? 'Cloud' })
     }
     for (const x of openDebts) {
       const nxt = x.next

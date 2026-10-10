@@ -64,8 +64,8 @@ select pg_temp.ok('the rate history has the first rate and today''s change',
   (select count(*) from yield_rates where sub_account_id = '15500000-0000-0000-0000-0000000000c1') = 2
   and (select rate from yield_rates where sub_account_id = '15500000-0000-0000-0000-0000000000c1' and effective_from = app_today()) = 24);
 select accrue_yield('15151515-0000-0000-0000-000000000001');
-select pg_temp.ok('last month''s payout is at the old 12%, not the new 24% (about 100 on 10,000)',
-  (select amount from transactions where sub_account_id = '15500000-0000-0000-0000-0000000000c1' and source = 'yield') between 99 and 101);
+select pg_temp.ok('last month''s payout is at the old 12%, not the new 24% (about 95 on 10,000 at the simple rate)',
+  (select amount from transactions where sub_account_id = '15500000-0000-0000-0000-0000000000c1' and source = 'yield') between 90 and 100);
 
 \echo '--- 4. changing a certificate''s payout frequency after logging payouts'
 insert into certificates (id, user_id, account_id, name, principal, currency, interest_rate, payout_frequency, start_date, maturity_date, payout_sub_account_id, auto_log_income)

@@ -7,14 +7,14 @@ import { useSetBalance, useUndoableDelete, useUpdateRows, useUpsert } from '@/ap
 import { useActiveCurrencies } from '@/hooks/useMoney'
 import { newId } from '@/utils/ids'
 import { d, parseAmount, toDb } from '@/domain/money'
-import { effectiveAnnualRate, projectedMonthlyYield, type YieldFrequency } from '@/domain/yield'
+import { projectedMonthlyYield, simpleAnnualRate, type YieldFrequency } from '@/domain/yield'
 import { todayIso } from '@/domain/format'
 import type { SubAccount } from '@/api/database.types'
 import { DEFAULT_CURRENCY } from '@/domain/currency'
 
 const PRESETS: { label: string; rate: string; frequency: YieldFrequency }[] = [
-  { label: 'Thndr Monthly Cloud · 20.29%', rate: '20.29', frequency: 'monthly' },
-  { label: 'Thndr Daily Cloud · 17.31%', rate: '17.31', frequency: 'daily' },
+  { label: 'Thndr Monthly Cloud · 20.26%', rate: '20.26', frequency: 'monthly' },
+  { label: 'Thndr Instant Cloud · 17.30%', rate: '17.30', frequency: 'daily' },
 ]
 
 /** Create or edit a Cloud: a balance that earns a yearly rate, paid daily or monthly. */
@@ -60,7 +60,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
   // a monthly Cloud pays on the day of its first deposit each month: without that date it never pays
   const sinceMissing = frequency === 'monthly' && !since
   const valid = Boolean(accountId && name.trim() && rateOk && balance && !sinceMissing)
-  const preview = balance?.gt(0) ? projectedMonthlyYield(balance, rate, frequency) : null
+  const preview = balance?.gt(0) ? projectedMonthlyYield(balance, rate) : null
   const busy = upsert.isPending || update.isPending || setBalance.isPending
 
   const save = async () => {
@@ -105,7 +105,7 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
                 onClick={() => {
                   setRate(p.rate)
                   setFrequency(p.frequency)
-                  setName(p.frequency === 'daily' ? 'Daily Cloud' : 'Monthly Cloud')
+                  setName(p.frequency === 'daily' ? 'Instant Cloud' : 'Monthly Cloud')
                 }}
                 className="bg-accent-soft text-accent min-h-10 rounded-full px-3.5 text-xs font-medium"
               >
@@ -173,8 +173,8 @@ export function CloudForm({ open, onClose, initial }: { open: boolean; onClose: 
         </div>
         {preview && d(rate).gt(0) ? (
           <p className="bg-accent-soft text-accent rounded-xl px-4 py-2.5 text-sm">
-            About <Amount value={preview} currency={currency} className="font-semibold" /> a month · {effectiveAnnualRate(rate, frequency).toFixed(2)}%
-            effective yearly
+            About <Amount value={preview} currency={currency} className="font-semibold" /> a month · {d(rate).toFixed(2)}% a year with the gains kept in,{' '}
+            {simpleAnnualRate(rate).toFixed(2)}% if you take them out monthly
           </p>
         ) : null}
         {initial ? <Toggle checked={archived} onChange={setArchived} label="Archived" description="Hidden from lists and totals" /> : null}

@@ -44,7 +44,7 @@ export function useClouds() {
           frequency: freq,
           earnedTotal,
           earnedThisMonth,
-          projectedMonthly: projectedMonthlyYield(s.balance, s.yield_rate ?? 0, freq),
+          projectedMonthly: projectedMonthlyYield(s.balance, s.yield_rate ?? 0),
           nextPayout: nextYieldDate(s.yield_since, freq, today),
           daysToPayout: daysUntilNextYield(s.yield_since, freq, today),
           valueDisplay: toDisplayOrZero(s.balance, s.currency),
