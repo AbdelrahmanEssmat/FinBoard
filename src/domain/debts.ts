@@ -88,3 +88,10 @@ export function nextMonthlyDate(start: string, from: string): string {
   }
   return from
 }
+
+/** What a debt transaction was, for lists: lending, borrowing, or a repayment either way. */
+export function debtKind(t: { type: string }, debt: Pick<DebtRecordLike, 'direction'> | undefined): string {
+  if (!debt) return 'Debt'
+  if (debt.direction === 'owed_to_me') return t.type === 'expense' ? 'Lent' : 'Repaid to you'
+  return t.type === 'income' ? 'Borrowed' : 'You repaid'
+}

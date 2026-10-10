@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { ArrowLeftRight, Inbox } from 'lucide-react'
+import { ArrowLeftRight, HandCoins, Inbox } from 'lucide-react'
 import { Amount, EmptyState, ListRow } from '@/components/shared'
 import { Card, Divider } from '@/components/ui'
-import { useAccounts, useCategories, useInstallmentPlans, useSubAccounts } from '@/api/queries'
+import { useAccounts, useCategories, useDebts, useInstallmentPlans, useSubAccounts } from '@/api/queries'
 import { useHistoricalConvert } from '@/hooks/useMoney'
 import { accountDisplayName } from '@/features/accounts/accountLabels'
 import { isExpense, isIncome } from '@/domain/insights'
@@ -12,6 +12,7 @@ import { iconFor } from '@/utils/icons'
 import { formatDate, todayIso } from '@/domain/format'
 import { addDaysIso } from '@/utils'
 import type { Transaction } from '@/api/database.types'
+import { debtKind } from '@/domain/debts'
 
 export function TransactionList({
   transactions,
@@ -34,6 +35,9 @@ export function TransactionList({
   const { data: plans } = useInstallmentPlans()
   // purchases paid in installments: "12× installments" in the row
   const planByTx = useMemo(() => new Map((plans ?? []).filter((p) => p.transaction_id).map((p) => [p.transaction_id!, p])), [plans])
+  // money lent, borrowed or repaid: marked as a debt (it isn't income or spending)
+  const { data: debts } = useDebts()
+  const debtMap = useMemo(() => byId(debts), [debts])
 
   if (!transactions.length)
     return <EmptyState icon={Inbox} title="Nothing here yet" description={emptyText ?? 'Add an expense, income or transfer with the + button.'} />
@@ -80,13 +84,14 @@ export function TransactionList({
             {items.map((t, i) => {
               const cat = t.category_id ? cats.get(t.category_id) : undefined
               const isTransfer = t.type === 'transfer'
-              const Icon = isTransfer ? ArrowLeftRight : iconFor(cat?.icon)
-              const color = isTransfer ? '#64748b' : (cat?.color ?? '#94a3b8')
+              const isDebt = t.source === 'debt'
+              const Icon = isTransfer ? ArrowLeftRight : isDebt ? HandCoins : iconFor(cat?.icon)
+              const color = isTransfer ? '#64748b' : isDebt ? '#f97316' : (cat?.color ?? '#94a3b8')
               const catName = categoryName(t.category_id)
-              const title = t.payee || t.notes || catName || (isTransfer ? 'Transfer' : t.type === 'income' ? 'Income' : 'Expense')
+              const title = t.payee || t.notes || catName || (isTransfer ? 'Transfer' : isDebt ? 'Debt' : t.type === 'income' ? 'Income' : 'Expense')
               const subtitle = isTransfer
                 ? `${accountName(t.sub_account_id)} → ${t.to_sub_account_id ? accountName(t.to_sub_account_id) : '?'}`
-                : [catName, accountName(t.sub_account_id), planByTx.get(t.id) ? `${planByTx.get(t.id)!.months}× installments` : null]
+                : [isDebt ? debtKind(t, t.source_id ? debtMap.get(t.source_id) : undefined) : catName, accountName(t.sub_account_id), planByTx.get(t.id) ? `${planByTx.get(t.id)!.months}× installments` : null]
                     .filter(Boolean)
                     .join(' · ')
               return (
@@ -95,7 +100,16 @@ export function TransactionList({
                   <ListRow
                     icon={Icon}
                     color={color}
-                    title={title}
+                    title={
+                      isDebt ? (
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">{title}</span>
+                          <span className="bg-warning-soft text-warning shrink-0 rounded-full px-2 py-px text-[11px] leading-4 font-semibold">Debt</span>
+                        </span>
+                      ) : (
+                        title
+                      )
+                    }
                     subtitle={subtitle}
                     onClick={onSelect ? () => onSelect(t) : undefined}
                     trailing={
@@ -107,7 +121,8 @@ export function TransactionList({
                           ) : null}
                         </span>
                       ) : (
-                        <Amount value={t.type === 'expense' ? -t.amount : t.amount} currency={t.currency} colored showSign className="font-semibold" />
+                        // a debt's money only moved between you and someone: signed, but not coloured as income or spending
+                        <Amount value={t.type === 'expense' ? -t.amount : t.amount} currency={t.currency} colored={!isDebt} showSign className="font-semibold" />
                       )
                     }
                   />

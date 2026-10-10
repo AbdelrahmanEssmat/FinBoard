@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { d, type NumericInput } from '@/domain/money'
-import { debtActivity, nextMonthlyDate } from '@/domain/debts'
+import { debtActivity, debtKind, nextMonthlyDate } from '@/domain/debts'
 
 const toBase = (amount: NumericInput, currency: string) => (currency === 'USD' ? d(amount).times(50) : d(amount))
 const oct = { from: '2026-10-01', to: '2026-10-31' }
@@ -60,5 +60,15 @@ describe('monthly debt dates', () => {
     expect(nextMonthlyDate('2026-01-31', '2026-02-01')).toBe('2026-02-28')
     expect(nextMonthlyDate('2026-01-31', '2026-03-01')).toBe('2026-03-31')
     expect(nextMonthlyDate('2026-12-20', '2026-10-01')).toBe('2026-12-20')
+  })
+})
+
+describe('debt transactions in lists', () => {
+  it('say what the money was: lent, borrowed or repaid', () => {
+    expect(debtKind({ type: 'expense' }, { direction: 'owed_to_me' })).toBe('Lent')
+    expect(debtKind({ type: 'income' }, { direction: 'owed_to_me' })).toBe('Repaid to you')
+    expect(debtKind({ type: 'income' }, { direction: 'i_owe' })).toBe('Borrowed')
+    expect(debtKind({ type: 'expense' }, { direction: 'i_owe' })).toBe('You repaid')
+    expect(debtKind({ type: 'expense' }, undefined)).toBe('Debt')
   })
 })
